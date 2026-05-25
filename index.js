@@ -14,8 +14,16 @@ const {
 } = require('./flex');
 
 // ── ระบบใหม่ ──
-const { isAdmin, isAdminCommand, parseAddCommand, buildAddConfirmFlex, buildAdminHelpFlex } = require('./admin');
-const { appendWatchlistPerson, isConfigured: isSheetConfigured } = require('./sheets-writer');
+const { 
+  isAdmin, isAdminCommand, 
+  parseAddCommand, parseDeleteCommand, parseEditCommand,
+  buildAddConfirmFlex, buildDeleteConfirmFlex, buildEditConfirmFlex, 
+  buildAdminHelpFlex, ADMIN_IDS
+} = require('./admin');
+const { 
+  appendWatchlistPerson, deletePerson, updatePersonField,
+  isConfigured: isSheetConfigured 
+} = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
 
 // ===== Line SDK Config =====
@@ -79,7 +87,6 @@ async function handleEvent(event) {
         const profile = await client.getProfile(userId);
         const isNew = trackUser(userId, profile.displayName);
         console.log(`👋 Follow: ${profile.displayName} (${userId}) ${isNew ? '[ใหม่]' : '[กลับมา]'}`);
-        // ส่งข้อความต้อนรับ
         await client.pushMessage({
           to: userId,
           messages: [{
@@ -126,116 +133,92 @@ async function handleEvent(event) {
   // [ใหม่] คำสั่ง Admin — ต้องผ่านการตรวจ isAdmin ก่อน
   // ─────────────────────────────────────────────────────────
   if (isAdminCommand(userText)) {
-    // /whoami — ใครก็ดูได้ (ไม่ต้อง admin) สำหรับตั้งค่า ADMIN_LINE_IDS
     if (userText === '/whoami') {
-      return replyText(replyToken,
-        `🆔 LINE User ID ของคุณ:\n${userId}\n\n` +
-        `📝 วิธีตั้งค่าเป็น Admin:\nใส่ค่านี้ใน .env ที่บรรทัด:\nADMIN_LINE_IDS=${userId}`
-      );
+      return replyText(replyToken, `🆔 LINE User ID:\n${userId}\n\nADMIN_LINE_IDS=${userId}`);
     }
 
-    // ตรวจสอบสิทธิ์ Admin
-    if (!isAdmin(userId)) {
-      return replyText(replyToken, '🔒 คุณไม่มีสิทธิ์ใช้คำสั่งนี้ครับ');
-    }
+    if (!isAdmin(userId)) return replyText(replyToken, '🔒 คุณไม่มีสิทธิ์ครับ');
 
-    // /adminhelp — แสดงคู่มือ
-    if (userText === '/adminhelp') {
-      return replyMessage(replyToken, buildAdminHelpFlex());
-    }
+    if (userText === '/adminhelp') return replyMessage(replyToken, buildAdminHelpFlex());
 
-    // /สถิติ — ดูจำนวนข้อมูล
     if (userText === '/สถิติ') {
-      const [suspects, personnel, leaders] = await Promise.all([
-        fetchAllData(), fetchPersonnel(), fetchLeaders(),
-      ]);
+      const [suspects, personnel, leaders] = await Promise.all([fetchAllData(), fetchPersonnel(), fetchLeaders()]);
       const stats = getStats();
-      
       let writeStatus = isSheetConfigured() ? '✅ พร้อม' : '⚠️ ยังไม่ตั้งค่า';
-      if (!isSheetConfigured()) {
-        const missing = [];
-        if (!process.env.GOOGLE_CLIENT_EMAIL) missing.push('EMAIL');
-        if (!process.env.GOOGLE_PRIVATE_KEY) missing.push('KEY');
-        if (!process.env.SPREADSHEET_ID) missing.push('SHEET_ID');
-        writeStatus += ` (ขาด: ${missing.join(', ')})`;
-      }
-
-      return replyText(replyToken,
-        `📊 สถิติข้อมูลระบบ\n\n` +
-        `👮 บุคลากร สภ.: ${personnel.length} คน\n` +
-        `🏘️ ผู้นำตำบล: ${leaders.length} คน\n` +
-        `🔍 ผู้ต้องหา/เฝ้าระวัง: ${suspects.length} รายการ\n\n` +
-        `👥 ผู้ติดตาม Bot: ${stats.total} คน\n` +
-        `⚙️ Write API: ${writeStatus}`
-      );
+      return replyText(replyToken, `📊 สถิติข้อมูลระบบ\n\n👮 บุคลากร: ${personnel.length}\n🏘️ ผู้นำ: ${leaders.length}\n🔍 ผู้ต้องหา: ${suspects.length}\n👥 ผู้ติดตาม: ${stats.total}\n⚙️ Write API: ${writeStatus}`);
     }
 
-    // /broadcast <ข้อความ>
+    if (userText === '/สถานะ') {
+      const statusText = `🖥️ System Status\n\n🌐 Node: ${process.version}\n💾 Mem: ${Math.round(process.memoryUsage().heapUsed/1024/1024)}MB\n⏱️ Uptime: ${Math.round(process.uptime()/60)} mins\n🆔 Admin: ${ADMIN_IDS.length} IDs`;
+      return replyText(replyToken, statusText);
+    }
+
+    if (userText === '/ล้างcache') {
+      clearCache();
+      return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อย ข้อมูลจะถูกโหลดใหม่ทันทีครับ');
+    }
+
+    if (userText.startsWith('/ลบ ')) {
+      const person = parseDeleteCommand(userText);
+      if (!person) return replyText(replyToken, '❌ รูปแบบ: /ลบ ชื่อ นามสกุล');
+      try {
+        const result = await deletePerson(person.firstName, person.lastName);
+        if (result.success) clearCache();
+        return replyMessage(replyToken, buildDeleteConfirmFlex(person, result.success, result.message));
+      } catch (err) {
+        return replyMessage(replyToken, buildDeleteConfirmFlex(person, false, err.message));
+      }
+    }
+
+    if (userText.startsWith('/แก้ไข ')) {
+      const editData = parseEditCommand(userText);
+      if (!editData) return replyText(replyToken, '❌ รูปแบบ: /แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่');
+      try {
+        const result = await updatePersonField(editData.firstName, editData.lastName, editData.field, editData.newValue);
+        if (result.success) clearCache();
+        return replyMessage(replyToken, buildEditConfirmFlex(editData, result.success, result.message));
+      } catch (err) {
+        return replyMessage(replyToken, buildEditConfirmFlex(editData, false, err.message));
+      }
+    }
+
+    if (userText === '/รายชื่อ') {
+      const suspects = await fetchAllData();
+      if (suspects.length === 0) return replyText(replyToken, 'ไม่พบข้อมูล');
+      const list = suspects.slice(0, 50).map((p, i) => `${i+1}. ${p.rank}${p.firstName} ${p.lastName}`).join('\n');
+      return replyText(replyToken, `📋 รายชื่อ (50 คนล่าสุด):\n\n${list}`);
+    }
+
     if (userText.startsWith('/broadcast ')) {
       const broadcastText = userText.replace(/^\/broadcast\s+/, '').trim();
-      if (!broadcastText) {
-        return replyText(replyToken, '❌ กรุณาใส่ข้อความที่ต้องการส่งครับ\nตัวอย่าง: /broadcast ⚠️ แจ้งเตือนด่วน!');
-      }
-
-      // ส่งก่อน reply ทันที เพื่อไม่ให้ timeout
-      await replyText(replyToken, `📤 กำลังส่ง Broadcast...\nข้อความ: "${broadcastText}"`);
-
-      // ส่งจริงๆ ทีหลัง
+      if (!broadcastText) return replyText(replyToken, '❌ ใส่ข้อความด้วย');
+      await replyText(replyToken, `📤 กำลังส่ง Broadcast...`);
       const result = await broadcastToAll(client, broadcastText);
-
-      // Push ผลกลับหา Admin
-      if (userId) {
-        await client.pushMessage({
-          to: userId,
-          messages: [buildBroadcastResultFlex(result, broadcastText)],
-        });
-      }
+      if (userId) await client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(result, broadcastText)] });
       return;
     }
 
-    // /เพิ่ม — เพิ่มบุคคลเฝ้าระวัง
     if (userText.startsWith('/เพิ่ม')) {
-      if (!isSheetConfigured()) {
-        return replyText(replyToken,
-          '⚠️ ยังไม่ได้ตั้งค่า Google Service Account\n\n' +
-          'กรุณาเพิ่มตัวแปรต่อไปนี้ใน .env:\n' +
-          'GOOGLE_CLIENT_EMAIL=...\n' +
-          'GOOGLE_PRIVATE_KEY=...\n' +
-          'GOOGLE_PROJECT_ID=...\n\n' +
-          'ดูวิธีตั้งค่าในไฟล์ sheets-writer.js'
-        );
-      }
-
+      if (!isSheetConfigured()) return replyText(replyToken, '⚠️ ยังไม่ตั้งค่า Google API');
       const person = parseAddCommand(userText, userId);
-      if (!person) {
-        return replyText(replyToken,
-          '❌ รูปแบบไม่ถูกต้องครับ\n\n' +
-          'รูปแบบ:\n/เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี\n\n' +
-          'ตัวอย่าง:\n/เพิ่ม นาย สมชาย ใจร้าย | ยาเสพติด | เฝ้าระวัง | ลานสัก | อ.123/67'
-        );
-      }
-
+      if (!person) return replyText(replyToken, '❌ รูปแบบ: /เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี');
       try {
         await appendWatchlistPerson(person);
-        clearCache(); // ล้าง cache เพื่อให้ค้นหาเจอทันที
+        clearCache();
         return replyMessage(replyToken, buildAddConfirmFlex(person, true));
       } catch (err) {
-        console.error('เพิ่มข้อมูลล้มเหลว:', err.message);
         return replyMessage(replyToken, buildAddConfirmFlex(person, false, err.message));
       }
     }
   }
 
   // ─────────────────────────────────────────────────────────
-  // 1. คำทักทาย / เมนูหลัก
+  // คำสั่งผู้ใช้ทั่วไป (Search, Menu, etc.)
   // ─────────────────────────────────────────────────────────
   if (isGreeting(userText) || matchKeyword(userText, ['เมนู', 'เมนูหลัก', 'help', 'ช่วยด้วย', 'วิธีใช้'])) {
     return replyMessage(replyToken, buildWelcomeFlex());
   }
 
-  // ─────────────────────────────────────────────────────────
-  // 2. ทำเนียบบุคลากร สภ.
-  // ─────────────────────────────────────────────────────────
   if (matchKeyword(userText, ['ทำเนียบบุคลากร', 'บุคลากร สภ', 'บุคลากรสภ'])) {
     return replyMessage(replyToken, buildPersonnelMenuFlex());
   }
@@ -251,13 +234,9 @@ async function handleEvent(event) {
         return areaVal.includes(deptKey) || (p.position || '').includes(deptKey);
       });
     }
-    console.log(`🔍 [บุคลากร] keyword="${department}" → พบ ${filtered.length} คน`);
     return replyMessage(replyToken, buildPersonnelCarouselFlex(filtered, department));
   }
 
-  // ─────────────────────────────────────────────────────────
-  // 3. ทำเนียบผู้นำตำบล
-  // ─────────────────────────────────────────────────────────
   if (userText.startsWith('ผู้นำตำบล ')) {
     const subdistrict   = userText.replace('ผู้นำตำบล ', '').trim();
     const allLeaders    = await fetchLeaders();
@@ -265,10 +244,8 @@ async function handleEvent(event) {
     const filtered = allLeaders.filter(p => {
       const areaVal    = (p.area    || '').replace(/^ตำบล/, '').replace(/\s+/g, '');
       const villageVal = (p.village || '').replace(/\s+/g, '');
-      return areaVal.includes(subdistrictKey) || subdistrictKey.includes(areaVal) ||
-             villageVal.includes(subdistrictKey) || (p.area || '').includes(subdistrict);
+      return areaVal.includes(subdistrictKey) || subdistrictKey.includes(areaVal) || villageVal.includes(subdistrictKey) || (p.area || '').includes(subdistrict);
     });
-    console.log(`🔍 [ผู้นำตำบล] "${subdistrict}" → พบ ${filtered.length} คน`);
     return replyMessage(replyToken, buildLeaderCarouselFlex(filtered, subdistrict));
   }
 
@@ -276,81 +253,33 @@ async function handleEvent(event) {
     return replyMessage(replyToken, buildVillageLeaderMenuFlex());
   }
 
-  // ─────────────────────────────────────────────────────────
-  // 4-5. เมนูอื่นๆ
-  // ─────────────────────────────────────────────────────────
-  if (matchKeyword(userText, ['เว็บไซต์', 'website', 'web', 'เว็บ'])) {
-    return replyMessage(replyToken, buildWebsiteFlex());
-  }
-
-  if (matchKeyword(userText, ['ข้อมูลสถานี', 'สถานี', 'ที่ตั้ง', 'ที่อยู่'])) {
-    return replyMessage(replyToken, buildStationFlex());
-  }
-
-  if (matchKeyword(userText, ['แจ้งเหตุ', 'ร้องทุกข์', 'แจ้งความ'])) {
-    return replyText(replyToken,
-      '🚨 แจ้งเหตุฉุกเฉิน โทร 191\n' +
-      '📞 สายตรวจ: 056-559-xxx\n' +
-      'หรือแจ้งผ่านแอป Police I Lert U\n\n' +
-      'เจ้าหน้าที่รับแจ้งตลอด 24 ชั่วโมงครับ'
-    );
-  }
-
-  if (matchKeyword(userText, ['ติดต่อ', 'โทรหา', 'เบอร์โทร'])) {
-    return replyText(replyToken,
-      '📞 ช่องทางติดต่อสายตรวจภูธรลานสัก\n\n' +
-      '🚨 ฉุกเฉิน: 191\n' +
-      '📱 สายตรวจ: 056-559-xxx\n' +
-      '💬 Line OA: @lansak_police\n' +
-      '📘 Facebook: สายตรวจภูธรลานสัก'
-    );
-  }
-
-  if (matchKeyword(userText, ['ตรวจสอบหมายจับ', 'หมายจับ', 'หมาย'])) {
-    return replyText(replyToken,
-      '📋 ตรวจสอบหมายจับ\n\n' +
-      'กรุณาพิมพ์ชื่อ-สกุลที่ต้องการตรวจสอบ\n' +
-      'ตัวอย่าง: "สมชาย ใจดี"\n\n' +
-      'ระบบจะค้นหาในฐานข้อมูลให้ทันทีครับ'
-    );
-  }
-
+  if (matchKeyword(userText, ['เว็บไซต์', 'website', 'web', 'เว็บ'])) return replyMessage(replyToken, buildWebsiteFlex());
+  if (matchKeyword(userText, ['ข้อมูลสถานี', 'สถานี', 'ที่ตั้ง', 'ที่อยู่'])) return replyMessage(replyToken, buildStationFlex());
+  if (matchKeyword(userText, ['แจ้งเหตุ', 'ร้องทุกข์', 'แจ้งความ'])) return replyText(replyToken, '🚨 แจ้งเหตุฉุกเฉิน โทร 191 หรือแอป Police I Lert U');
+  if (matchKeyword(userText, ['ติดต่อ', 'โทรหา', 'เบอร์โทร'])) return replyText(replyToken, '📞 ฉุกเฉิน: 191\n📱 สายตรวจ: 056-559-xxx');
+  if (matchKeyword(userText, ['ตรวจสอบหมายจับ', 'หมายจับ', 'หมาย'])) return replyText(replyToken, '📋 พิมพ์ชื่อ-สกุลที่ต้องการตรวจสอบได้เลยครับ');
   if (matchKeyword(userText, ['รีเฟรช', 'โหลดใหม่', 'refresh', 'reload'])) {
     clearCache();
-    return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อย ข้อมูลจะถูกโหลดใหม่จาก Google Sheets ครับ');
+    return replyText(replyToken, '🔄 รีเฟรชข้อมูลเรียบร้อยครับ');
   }
+  if (matchKeyword(userText, ['ค้นหาชื่อ', 'ค้นหา'])) return replyText(replyToken, '🔍 พิมพ์ชื่อ-นามสกุล หรือยศที่ต้องการค้นหาได้เลยครับ');
 
-  if (matchKeyword(userText, ['ค้นหาชื่อ', 'ค้นหา'])) {
-    return replyText(replyToken, '🔍 กรุณาพิมพ์ชื่อ-นามสกุล หรือยศที่ต้องการค้นหาได้เลยครับ\n\nตัวอย่าง: "นนทนการ" หรือ "ส.ต.ต. สมชาย"');
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // 6. ค้นหาด้วยเบอร์โทรศัพท์
-  // ─────────────────────────────────────────────────────────
   if (isPhoneNumber(userText)) {
     const results = await searchByPhone(userText);
-    console.log(`📞 ค้นหาเบอร์: "${userText}" → พบ ${results.length} รายการ`);
     if (results.length === 0) return replyMessage(replyToken, buildNotFoundFlex(userText));
     if (results.length === 1) {
       const p = results[0];
-      const card = p.sheetType === 'personnel' ? buildPersonnelCardFlex(p)
-                 : p.sheetType === 'leader'    ? buildLeaderCardFlex(p)
-                 : buildResultFlex(p).contents;
+      const card = p.sheetType === 'personnel' ? buildPersonnelCardFlex(p) : p.sheetType === 'leader' ? buildLeaderCardFlex(p) : buildResultFlex(p).contents;
       return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${p.fullName}`, contents: card });
     }
     return replyMessage(replyToken, buildCarouselFlex(results, userText));
   }
 
-  // ─────────────────────────────────────────────────────────
-  // 7. ค้นหาชื่อ (default)
-  // ─────────────────────────────────────────────────────────
   if (userText.length >= 2) {
     const results = await searchByName(userText);
     if (results.length === 0) return replyMessage(replyToken, buildNotFoundFlex(userText));
     if (results.length === 1) {
-      const card = results[0].sheetType === 'personnel' ? buildPersonnelCardFlex(results[0])
-                 : results[0].sheetType === 'leader'    ? buildLeaderCardFlex(results[0])
-                 : buildResultFlex(results[0]).contents;
+      const card = results[0].sheetType === 'personnel' ? buildPersonnelCardFlex(results[0]) : results[0].sheetType === 'leader' ? buildLeaderCardFlex(results[0]) : buildResultFlex(results[0]).contents;
       return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${results[0].fullName}`, contents: card });
     }
     return replyMessage(replyToken, buildCarouselFlex(results, userText));
@@ -359,37 +288,15 @@ async function handleEvent(event) {
   return replyText(replyToken, 'กรุณาพิมพ์ชื่ออย่างน้อย 2 ตัวอักษรครับ 🙏');
 }
 
-// ===== Helper Functions =====
-function isGreeting(text) {
-  return ['สวัสดี','hello','hi','หวัดดี','ดีครับ','ดีค่ะ','start'].some(g => text.toLowerCase().includes(g));
-}
-function isPhoneNumber(text) {
-  const digits = text.replace(/[\s\-\+]/g, '');
-  return /^(0[0-9]{8,9}|66[0-9]{8,9})$/.test(digits);
-}
-function matchKeyword(text, keywords) {
-  return keywords.some(kw => text.includes(kw));
-}
-async function replyMessage(replyToken, flexMsg) {
-  return client.replyMessage({ replyToken, messages: [flexMsg] });
-}
-async function replyText(replyToken, text) {
-  return client.replyMessage({ replyToken, messages: [{ type: 'text', text }] });
-}
+// ===== Helpers =====
+function isGreeting(text) { return ['สวัสดี','hello','hi','หวัดดี','ดีครับ','ดีค่ะ','start'].some(g => text.toLowerCase().includes(g)); }
+function isPhoneNumber(text) { const digits = text.replace(/[\s\-\+]/g, ''); return /^(0[0-9]{8,9}|66[0-9]{8,9})$/.test(digits); }
+function matchKeyword(text, keywords) { return keywords.some(kw => text.includes(kw)); }
+async function replyMessage(replyToken, flexMsg) { return client.replyMessage({ replyToken, messages: [flexMsg] }); }
+async function replyText(replyToken, text) { return client.replyMessage({ replyToken, messages: [{ type: 'text', text }] }); }
 
-// ===== Start Server =====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-  console.log(`\n🚔 Bot-Score สายตรวจภูธรลานสัก เริ่มทำงานแล้ว!`);
-  console.log(`🌐 Port: ${PORT}`);
-  console.log(`📡 Webhook: http://localhost:${PORT}/webhook`);
-  console.log(`🔐 Admin IDs: ${process.env.ADMIN_LINE_IDS || '⚠️  ยังไม่ตั้งค่า (พิมพ์ /whoami ใน LINE เพื่อดู ID)'}`);
-  console.log(`📝 Sheets Write: ${isSheetConfigured() ? '✅ พร้อม' : '⚠️  ยังไม่ตั้งค่า GOOGLE_CLIENT_EMAIL'}\n`);
-
-  try {
-    const data = await fetchAllData();
-    console.log(`📊 โหลดข้อมูลแล้ว: ${data.length} รายการ`);
-  } catch (e) {
-    console.warn('⚠️  ยังเชื่อมต่อ Google Sheets ไม่ได้ — ตรวจสอบ SPREADSHEET_ID');
-  }
+  console.log(`🚔 Bot Running on Port: ${PORT}`);
+  try { await fetchAllData(); console.log('📊 Sheets Connected'); } catch (e) { console.warn('⚠️ Sheets Connection Error'); }
 });

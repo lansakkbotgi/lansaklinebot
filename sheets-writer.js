@@ -127,4 +127,101 @@ function isConfigured() {
   return config.GOOGLE_CLIENT_EMAIL && config.GOOGLE_PRIVATE_KEY && config.SPREADSHEET_ID;
 }
 
-module.exports = { appendWatchlistPerson, isConfigured, SHEET_WATCHLIST };
+/**
+ * ค้นหาแถวของบุคคลตามชื่อ-นามสกุล
+ * @returns {number|null} row index (1-based)
+ */
+async function findRowIndex(firstName, lastName) {
+  const sheets = getSheetsClient();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_WATCHLIST}!B:C`, // ค้นในคอลัมน์ ชื่อ (B) และ นามสกุล (C)
+  });
+
+  const rows = response.data.values;
+  if (!rows) return null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowFirstName = (rows[i][0] || '').trim();
+    const rowLastName  = (rows[i][1] || '').trim();
+    if (rowFirstName === firstName.trim() && rowLastName === lastName.trim()) {
+      return i + 1; // คืนค่า row index (1-based)
+    }
+  }
+  return null;
+}
+
+/**
+ * ลบแถวข้อมูลตามชื่อ-นามสกุล
+ */
+async function deletePerson(firstName, lastName) {
+  const sheets = getSheetsClient();
+  const rowIndex = await findRowIndex(firstName, lastName);
+
+  if (!rowIndex) return { success: false, message: 'ไม่พบรายชื่อนี้ในระบบ' };
+
+  // ดึงข้อมูล Sheet ID (ตัวเลข)
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheet = spreadsheet.data.sheets.find(s => s.properties.title === SHEET_WATCHLIST);
+  const sheetId = sheet.properties.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIndex - 1,
+              endIndex: rowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  return { success: true, rowIndex };
+}
+
+/**
+ * แก้ไขข้อมูลบางฟิลด์
+ * @param {string} field - ชื่อฟิลด์ (rank, crime, status, area, caseNo)
+ */
+async function updatePersonField(firstName, lastName, field, newValue) {
+  const sheets = getSheetsClient();
+  const rowIndex = await findRowIndex(firstName, lastName);
+
+  if (!rowIndex) return { success: false, message: 'ไม่พบรายชื่อนี้ในระบบ' };
+
+  // แผนผังคอลัมน์: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7
+  const colMap = {
+    'ยศ': 'A', 'rank': 'A',
+    'คดี': 'D', 'crime': 'D',
+    'สถานะ': 'E', 'status': 'E',
+    'พื้นที่': 'F', 'area': 'F',
+    'หมายเลขคดี': 'G', 'caseNo': 'G'
+  };
+
+  const colLetter = colMap[field];
+  if (!colLetter) return { success: false, message: 'ระบุชื่อฟิลด์ไม่ถูกต้อง (ยศ, คดี, สถานะ, พื้นที่, หมายเลขคดี)' };
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_WATCHLIST}!${colLetter}${rowIndex}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[newValue]] },
+  });
+
+  return { success: true, rowIndex };
+}
+
+module.exports = { 
+  appendWatchlistPerson, 
+  deletePerson, 
+  updatePersonField, 
+  isConfigured, 
+  SHEET_WATCHLIST 
+};
