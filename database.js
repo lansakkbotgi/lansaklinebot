@@ -41,10 +41,31 @@ async function fetchSheet(sheetName) {
     const encodedSheet = encodeURIComponent(sheetName);
     const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodedSheet}`;
     const response = await axios.get(url, { timeout: 10000 });
-    const rows = parseCSV(response.data);
+    const rows = parseCSV(response.data).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
 
-    // ข้าม 2 แถวแรก: row[0]=Title รวม, row[1]=Header
-    const dataRows = rows.slice(2);
+    // ข้ามแถวที่ไม่ใช่ข้อมูลจริง:
+    // ปกติชีตจะมี: row[0]=Title รวม, row[1]=Header
+    // เราจะหาว่าแถวไหนเริ่มมีข้อมูลโดยดูจากคอลัมน์ "ชื่อ" (คอลัมน์ B)
+    let dataRows = [];
+    let headerFound = false;
+    
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      // ถ้าเจอแถวที่มีคำว่า "ชื่อ" แสดงว่าเป็น Header
+      if (row.some(cell => cell === 'ชื่อ' || cell === 'First Name')) {
+        headerFound = true;
+        continue;
+      }
+      if (headerFound) {
+        dataRows.push(row);
+      }
+    }
+
+    // ถ้าไม่เจอ Header แบบข้างบน ให้ใช้แบบเก่า (ข้าม 2 แถวแรก)
+    if (dataRows.length === 0) {
+      dataRows = rows.slice(2);
+    }
+
     let data = [];
 
     if (sheetName === SHEET_PERSONNEL) {
