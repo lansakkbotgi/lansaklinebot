@@ -157,12 +157,25 @@ async function searchByName(query) {
   const q = query.replace(/\s+/g, '').toLowerCase();
 
   function match(p) {
+    const qLower = q.toLowerCase();
+    
+    // ค้นหาแบบละเอียด: รวมทุกฟิลด์เข้าด้วยกันแล้วค้นทีเดียว
+    // วิธีนี้จะช่วยให้หาเจอแม้ข้อมูลจะเยื้องคอลัมน์
+    const allText = Object.values(p)
+      .filter(val => typeof val === 'string')
+      .join('')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+
+    if (allText.includes(qLower)) return true;
+
+    // ค้นหาแบบแยกชื่อ-นามสกุล (เผื่อกรณีพิมพ์เว้นวรรค)
     const full = (p.fullName || '').replace(/\s+/g, '').toLowerCase();
     const name = ((p.firstName || '') + (p.lastName || '')).replace(/\s+/g, '').toLowerCase();
-    // ค้นได้ทั้งชื่อ, ยศ, ตำแหน่ง, หมู่บ้าน
     const pos  = (p.position || p.rank || '').replace(/\s+/g, '').toLowerCase();
     const vill = (p.village  || p.area || '').replace(/\s+/g, '').toLowerCase();
-    return full.includes(q) || name.includes(q) || pos.includes(q) || vill.includes(q);
+    
+    return full.includes(qLower) || name.includes(qLower) || pos.includes(qLower) || vill.includes(qLower);
   }
 
   return [
