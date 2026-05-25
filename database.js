@@ -41,29 +41,25 @@ async function fetchSheet(sheetName) {
     const encodedSheet = encodeURIComponent(sheetName);
     const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodedSheet}`;
     const response = await axios.get(url, { timeout: 10000 });
-    const rows = parseCSV(response.data).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
+    const allRows = parseCSV(response.data).filter(row => row.some(cell => cell.trim() !== ''));
 
-    // ข้ามแถวที่ไม่ใช่ข้อมูลจริง:
-    // ปกติชีตจะมี: row[0]=Title รวม, row[1]=Header
-    // เราจะหาว่าแถวไหนเริ่มมีข้อมูลโดยดูจากคอลัมน์ "ชื่อ" (คอลัมน์ B)
+    console.log(`📥 [${sheetName}] ทั้งหมด ${allRows.length} แถว (รวม Header)`);
+
     let dataRows = [];
-    let headerFound = false;
     
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      // ถ้าเจอแถวที่มีคำว่า "ชื่อ" แสดงว่าเป็น Header
-      if (row.some(cell => cell === 'ชื่อ' || cell === 'First Name')) {
-        headerFound = true;
-        continue;
-      }
-      if (headerFound) {
-        dataRows.push(row);
-      }
-    }
-
-    // ถ้าไม่เจอ Header แบบข้างบน ให้ใช้แบบเก่า (ข้าม 2 แถวแรก)
-    if (dataRows.length === 0) {
-      dataRows = rows.slice(2);
+    if (sheetName === SHEET_SUSPECTS) {
+      // ── สำหรับหน้า "ผู้ต้องหา" (บุคคลเฝ้าระวัง) ──
+      // ตรวจสอบว่ามีแถว Title (ฐานข้อมูลบุคคลเฝ้าระวัง...) หรือไม่
+      // ปกติถ้ามี Title แถว 1 และ Header แถว 2 ข้อมูลจะเริ่มแถว 3 (index 2)
+      // แต่ถ้าไม่มี Title ข้อมูลจะเริ่มแถว 2 (index 1)
+      const hasTitle = allRows[0] && allRows[0].length < 5; // Title มักจะมีแค่ column เดียวหรือ merged
+      const startIdx = hasTitle ? 2 : 1;
+      dataRows = allRows.slice(startIdx);
+      console.log(`🔍 [${sheetName}] เริ่มดึงที่แถว index ${startIdx}, พบข้อมูล ${dataRows.length} รายการ`);
+    } else {
+      // สำหรับหน้าอื่นๆ (บุคลากร, ผู้นำ)
+      const startIdx = 2; // ข้าม Title และ Header ตามปกติ
+      dataRows = allRows.slice(startIdx);
     }
 
     let data = [];
