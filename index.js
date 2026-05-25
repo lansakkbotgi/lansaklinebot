@@ -275,14 +275,41 @@ async function handleEvent(event) {
     return replyMessage(replyToken, buildCarouselFlex(results, userText));
   }
 
+const { askAI } = require('./ai');
+
+// ... (ภายใน handleEvent หลังจากการค้นหาชื่อไม่เจอ) ...
+
   if (userText.length >= 2) {
     const results = await searchByName(userText);
-    if (results.length === 0) return replyMessage(replyToken, buildNotFoundFlex(userText));
-    if (results.length === 1) {
-      const card = results[0].sheetType === 'personnel' ? buildPersonnelCardFlex(results[0]) : results[0].sheetType === 'leader' ? buildLeaderCardFlex(results[0]) : buildResultFlex(results[0]).contents;
-      return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${results[0].fullName}`, contents: card });
+    
+    // ── ถ้าเจอผลลัพธ์ ให้ใช้ระบบค้นหาเดิม ──
+    if (results.length > 0) {
+      if (results.length === 1) {
+        const card = results[0].sheetType === 'personnel' ? buildPersonnelCardFlex(results[0]) : results[0].sheetType === 'leader' ? buildLeaderCardFlex(results[0]) : buildResultFlex(results[0]).contents;
+        return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${results[0].fullName}`, contents: card });
+      }
+      return replyMessage(replyToken, buildCarouselFlex(results, userText));
     }
-    return replyMessage(replyToken, buildCarouselFlex(results, userText));
+
+    // ── ถ้าไม่เจอผลลัพธ์ (หรือถามเป็นประโยค) ให้ส่งให้ AI ตอบ ──
+    if (process.env.GEMINI_API_KEY) {
+      const [suspects, personnel, leaders] = await Promise.all([fetchAllData(), fetchPersonnel(), fetchLeaders()]);
+      
+      // สร้างสรุปข้อมูลให้ AI (ส่งแค่ 20 คนแรกของแต่ละกลุ่มเพื่อประหยัด Token)
+      const context = 
+        `รายชื่อบุคคลเฝ้าระวัง: ${suspects.slice(0,20).map(p => `${p.rank}${p.firstName} (${p.crime})`).join(', ')}\n` +
+        `รายชื่อตำรวจ: ${personnel.slice(0,20).map(p => `${p.rank}${p.firstName} (${p.area})`).join(', ')}\n` +
+        `รายชื่อผู้นำชุมชน: ${leaders.slice(0,20).map(p => `${p.firstName} (${p.position} ${p.area})`).join(', ')}`;
+
+      await replyText(replyToken, '🤖 กำลังวิเคราะห์ข้อมูลสักครู่ครับ...');
+      const aiResponse = await askAI(userText, context);
+      
+      if (aiResponse) {
+        return client.replyMessage({ replyToken, messages: [{ type: 'text', text: aiResponse }] });
+      }
+    }
+
+    return replyMessage(replyToken, buildNotFoundFlex(userText));
   }
 
   return replyText(replyToken, 'กรุณาพิมพ์ชื่ออย่างน้อย 2 ตัวอักษรครับ 🙏');

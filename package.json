@@ -9,6 +9,7 @@
     "setup-menu": "node setup-menu.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@line/bot-sdk": "^9.3.0",
     "axios": "^1.6.0",
     "dotenv": "^16.4.0",
