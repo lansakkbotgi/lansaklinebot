@@ -82,36 +82,30 @@ async function handleEvent(event) {
   }
 
   if (event.type !== 'message' || event.message.type !== 'text') return;
-const userText   = event.message.text.trim();
-const replyToken = event.replyToken;
-const isGroup    = event.source.type === 'group' || event.source.type === 'room';
 
-console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
+  const userText   = event.message.text.trim();
+  const replyToken = event.replyToken;
+  const isGroup    = event.source.type === 'group' || event.source.type === 'room';
 
-// ─────────────────────────────────────────────────────────
-// ตรวจสอบความเหมาะสมในการตอบ (สำหรับในกลุ่ม)
-// ─────────────────────────────────────────────────────────
-if (isGroup) {
-  // 1. ถ้าเป็นคำสั่ง Admin ให้ผ่าน (เพราะมี / นำหน้าอยู่แล้ว)
-  const isAdminCmd = isAdminCommand(userText);
+  console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
 
-  // 2. ถ้าเป็นเบอร์โทรศัพท์ ให้ผ่าน (เผื่อคนส่งเบอร์มาให้บอตช่วยเช็ค)
-  const isPhone = isPhoneNumber(userText);
+  // ─────────────────────────────────────────────────────────
+  // ตรวจสอบความเหมาะสมในการตอบ (สำหรับในกลุ่ม)
+  // ─────────────────────────────────────────────────────────
+  if (isGroup) {
+    const isAdminCmd = isAdminCommand(userText);
+    const isPhone = /^(0[0-9]{8,9})$/.test(userText.replace(/\D/g, ''));
+    const isMentionBot = userText.toLowerCase().includes('บอท') || userText.toLowerCase().includes('bot');
+    const isExplicitSearch = userText.startsWith('ค้นหา') || userText.startsWith('ตรวจสอบ');
+    const isMenuTrigger = ['สวัสดี','เมนู','help','เริ่ม'].includes(userText.toLowerCase());
 
-  // 3. ถ้ามีการระบุชื่อบอต หรือมี Keyword บังคับ
-  const isMentionBot = userText.toLowerCase().includes('บอท') || userText.toLowerCase().includes('bot');
-  const isExplicitSearch = userText.startsWith('ค้นหา') || userText.startsWith('ตรวจสอบ');
-  const isMenuTrigger = ['สวัสดี','เมนู','help'].includes(userText.toLowerCase());
-
-  // ถ้าไม่ตรงเงื่อนไขเลย ให้เงียบ (ignore) ไม่ตอบอะไร
-  if (!isAdminCmd && !isPhone && !isMentionBot && !isExplicitSearch && !isMenuTrigger) {
-    return; 
+    if (!isAdminCmd && !isPhone && !isMentionBot && !isExplicitSearch && !isMenuTrigger) {
+      return; 
+    }
   }
-}
 
-// บันทึกผู้ใช้
-if (userId) {
-...
+  // บันทึกผู้ใช้
+  if (userId) {
     try {
       const profile = await client.getProfile(userId);
       trackUser(userId, profile.displayName);
@@ -173,7 +167,6 @@ if (userId) {
   // [2] คำสั่งทั่วไป / ค้นหา (ลำดับความสำคัญ: คำสั่งเฉพาะ > ทักทาย > ค้นหา)
   // ─────────────────────────────────────────────────────────
   
-  // 2.1 เมนูเฉพาะทาง (แบบเป๊ะๆ)
   if (userText === 'ทำเนียบบุคลากร' || userText === 'ตำรวจ') {
     return replyMessage(replyToken, buildPersonnelMenuFlex());
   }
@@ -182,27 +175,24 @@ if (userId) {
     return replyMessage(replyToken, buildVillageLeaderMenuFlex());
   }
 
-  // 2.2 คำสั่งทักทาย / เมนูหลัก (แบบเป๊ะๆ)
   const greetingWords = ['สวัสดี','hello','hi','หวัดดี','เริ่ม','เมนู','help','วิธีใช้'];
   if (greetingWords.includes(userText.toLowerCase())) {
     return replyMessage(replyToken, buildWelcomeFlex());
   }
 
-  // 2.3 บริการอื่นๆ
   if (userText === 'เว็บไซต์') return replyMessage(replyToken, buildWebsiteFlex());
   if (userText === 'ข้อมูลสถานี') return replyMessage(replyToken, buildStationFlex());
 
-  // 2.4 ค้นหาด้วยเบอร์โทร
-  if (isPhoneNumber(userText)) {
+  // ค้นหาเบอร์โทร
+  if (/^(0[0-9]{8,9})$/.test(userText.replace(/\D/g, ''))) {
     const results = await searchByPhone(userText);
     if (results.length === 0) return replyMessage(replyToken, buildNotFoundFlex(userText));
     return replyMessage(replyToken, buildCarouselFlex(results, userText));
   }
 
-  // 2.5 ระบบค้นหา (ชื่อบุคคล, ฝ่ายตำรวจ, ตำบลผู้นำ)
+  // ค้นหาชื่อ (ระบบเดิม + AI Fallback)
   if (userText.length >= 2) {
-    // เตรียมข้อมูลสำหรับค้นหา (ตัดคำว่า บุคลากร/ผู้นำตำบล ออกถ้ามี เพื่อความแม่นยำ)
-    const searchQuery = userText.replace(/^(บุคลากร|ผู้นำตำบล)\s+/, '').trim();
+    const searchQuery = userText.replace(/^(ค้นหา|บุคลากร|ผู้นำตำบล)\s+/, '').trim();
     const results = await searchByName(searchQuery);
     
     if (results.length > 0) {
@@ -214,12 +204,12 @@ if (userId) {
       return replyMessage(replyToken, buildCarouselFlex(results, userText));
     }
 
-    // 2.6 AI Fallback (ถ้าหาไม่เจอจริงๆ)
+    // ถ้าไม่เจอชื่อ ให้ AI ช่วยตอบ
     if (process.env.GEMINI_API_KEY) {
       try {
         const suspectsData  = caches['ผู้ต้องหา']?.data || [];
         const personnelData = caches['บุคลากร สภ.']?.data || [];
-        const context = `รายชื่อตัวอย่าง: ${suspectsData.slice(0,5).map(p=>p.firstName).join(',')}\nรายชื่อตำรวจ: ${personnelData.slice(0,5).map(p=>p.firstName).join(',')}`;
+        const context = `ตัวอย่างรายชื่อ: ${suspectsData.slice(0,5).map(p=>p.firstName).join(',')}\nรายชื่อตำรวจ: ${personnelData.slice(0,5).map(p=>p.firstName).join(',')}`;
         
         await replyText(replyToken, '🤖 กำลังประมวลผลคำตอบจากฐานข้อมูล...');
         const aiResponse = await askAI(userText, context);
@@ -228,13 +218,11 @@ if (userId) {
         }
       } catch (e) { console.error('AI Fallback error:', e); }
     }
-
     return replyMessage(replyToken, buildNotFoundFlex(userText));
   }
 }
 
 // ===== Helpers =====
-function isPhoneNumber(t) { return /^(0[0-9]{8,9})$/.test(t.replace(/\D/g, '')); }
 async function replyMessage(token, msg) { return client.replyMessage({ replyToken: token, messages: [msg] }); }
 async function replyText(token, text) { return client.replyMessage({ replyToken: token, messages: [{ type: 'text', text }] }); }
 
