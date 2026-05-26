@@ -82,14 +82,36 @@ async function handleEvent(event) {
   }
 
   if (event.type !== 'message' || event.message.type !== 'text') return;
+const userText   = event.message.text.trim();
+const replyToken = event.replyToken;
+const isGroup    = event.source.type === 'group' || event.source.type === 'room';
 
-  const userText   = event.message.text.trim();
-  const replyToken = event.replyToken;
+console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
 
-  console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
+// ─────────────────────────────────────────────────────────
+// ตรวจสอบความเหมาะสมในการตอบ (สำหรับในกลุ่ม)
+// ─────────────────────────────────────────────────────────
+if (isGroup) {
+  // 1. ถ้าเป็นคำสั่ง Admin ให้ผ่าน (เพราะมี / นำหน้าอยู่แล้ว)
+  const isAdminCmd = isAdminCommand(userText);
 
-  // บันทึกผู้ใช้
-  if (userId) {
+  // 2. ถ้าเป็นเบอร์โทรศัพท์ ให้ผ่าน (เผื่อคนส่งเบอร์มาให้บอตช่วยเช็ค)
+  const isPhone = isPhoneNumber(userText);
+
+  // 3. ถ้ามีการระบุชื่อบอต หรือมี Keyword บังคับ
+  const isMentionBot = userText.toLowerCase().includes('บอท') || userText.toLowerCase().includes('bot');
+  const isExplicitSearch = userText.startsWith('ค้นหา') || userText.startsWith('ตรวจสอบ');
+  const isMenuTrigger = ['สวัสดี','เมนู','help'].includes(userText.toLowerCase());
+
+  // ถ้าไม่ตรงเงื่อนไขเลย ให้เงียบ (ignore) ไม่ตอบอะไร
+  if (!isAdminCmd && !isPhone && !isMentionBot && !isExplicitSearch && !isMenuTrigger) {
+    return; 
+  }
+}
+
+// บันทึกผู้ใช้
+if (userId) {
+...
     try {
       const profile = await client.getProfile(userId);
       trackUser(userId, profile.displayName);
