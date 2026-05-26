@@ -219,14 +219,14 @@ async function handleEvent(event) {
     const searchQuery       = userText.replace(/^(ค้นหา|บุคลากร|ผู้นำตำบล)\s+/, '').trim();
     
     let results = await searchByName(searchQuery);
-    // [แก้ไข] กรองผลลัพธ์ตามหมวดหมู่ที่ผู้ใช้เลือก (เข้มงวด)
+    // [แก้ไข] กรองผลลัพธ์: ถ้าเลือกจากเมนูให้กรองเข้มงวด แต่ถ้า "ค้นหา" เองให้หาจากทุกหน้า
     if (isPersonnelSearch) {
       results = results.filter(p => p.sheetType === 'personnel');
     } else if (isLeaderSearch) {
       results = results.filter(p => p.sheetType === 'leader');
-    } else if (userText.startsWith('ค้นหา')) {
-      // ถ้าพิมพ์ "ค้นหา" นำหน้า ให้แสดงแค่หน้า "ผู้ต้องหา" (suspect) เท่านั้น
-      results = results.filter(p => p.sheetType === 'suspect');
+    } else {
+      // กรณีพิมพ์ "ค้นหา [ชื่อ]" หรือพิมพ์ชื่อคนตรงๆ (ในแชทส่วนตัว) 
+      // จะไม่กรองทิ้ง และปล่อยให้เห็นข้อมูลจากทุกหน้า (ผู้ต้องหา + ตำรวจ + ผู้นำ)
     }
 
     if (results.length > 0) {
