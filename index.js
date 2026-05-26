@@ -1,19 +1,19 @@
 // ============================================================
 //  index.js  — Line Bot Server หลัก สายตรวจภูธรลานสัก
-//  [อัพเดท] เพิ่มระบบ Admin คำสั่งลับ + Broadcast
+//  รองรับ: แชทส่วนตัว, แชทกลุ่ม, ระบบ Admin, และ Gemini AI
 // ============================================================
 
 require('dotenv').config();
 const line    = require('@line/bot-sdk');
 const express = require('express');
-const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache } = require('./database');
+const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache, caches } = require('./database');
 const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
   buildWebsiteFlex, buildPersonnelMenuFlex, buildPersonnelCardFlex, buildPersonnelCarouselFlex,
   buildVillageLeaderMenuFlex, buildLeaderCardFlex, buildLeaderCarouselFlex,
 } = require('./flex');
 
-// ── ระบบใหม่ ──
+// ── ระบบเสริม ──
 const { 
   isAdmin, isAdminCommand, 
   parseAddCommand, parseDeleteCommand, parseEditCommand,
@@ -25,6 +25,7 @@ const {
   isConfigured: isSheetConfigured 
 } = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
+const { askAI } = require('./ai');
 
 // ===== Line SDK Config =====
 const lineConfig = {
@@ -35,291 +36,168 @@ const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_TOKEN,
 });
 
-// ===== Express Setup =====
 const app = express();
 
-app.post(
-  '/webhook',
-  line.middleware(lineConfig),
-  (req, res) => {
-    Promise.all(req.body.events.map(handleEvent))
-      .then(() => res.sendStatus(200))
-      .catch(err => {
-        console.error('Webhook error:', err);
-        res.sendStatus(500);
-      });
-  }
-);
-
-app.get('/', (_, res) => res.send('✅ Bot-Score ลานสัก กำลังทำงาน'));
-
-// Debug endpoint
-app.get('/debug', async (_, res) => {
-  try {
-    const suspects  = await fetchAllData();
-    const personnel = await fetchPersonnel();
-    const leaders   = await fetchLeaders();
-    const stats     = getStats();
-    res.json({
-      spreadsheetId: process.env.SPREADSHEET_ID ? '✅ มี' : '❌ ไม่มี',
-      sheetWriteAPI: isSheetConfigured() ? '✅ ตั้งค่าแล้ว' : '⚠️ ยังไม่ตั้งค่า (ไม่สามารถเขียน Sheets ได้)',
-      adminIds: process.env.ADMIN_LINE_IDS ? '✅ มี' : '⚠️ ยังไม่ตั้งค่า',
-      followers: stats.total,
-      sheets: {
-        ผู้ต้องหา:  { count: suspects.length,  sample: suspects.slice(0,2)  },
-        บุคลากร:   { count: personnel.length,  sample: personnel.slice(0,2) },
-        ผู้นำตำบล: { count: leaders.length,    sample: leaders.slice(0,2)   },
-      }
+app.post('/webhook', line.middleware(lineConfig), (req, res) => {
+  Promise.all(req.body.events.map(handleEvent))
+    .then(() => res.sendStatus(200))
+    .catch(err => {
+      console.error('Webhook error:', err);
+      res.sendStatus(500);
     });
-  } catch (e) {
-    res.json({ error: e.message });
-  }
 });
+
+app.get('/', (_, res) => res.send('✅ Bot-Score ลานสัก Online'));
 
 // ===== Event Handler หลัก =====
 async function handleEvent(event) {
-  const userId  = event.source?.userId;
-  const groupId = event.source?.groupId;
-  const roomId  = event.source?.roomId;
-  const sourceId = groupId || roomId || userId; // เลือก ID สำหรับส่งกลับ (Group > Room > User)
+  const userId   = event.source?.userId;
+  const groupId  = event.source?.groupId;
+  const roomId   = event.source?.roomId;
+  const sourceId = groupId || roomId || userId; // ID สำหรับส่งข้อความกลับ
 
   // ── เมื่อบอตถูกดึงเข้ากลุ่ม ──
   if (event.type === 'join') {
-    console.log(`🏠 Joined ${event.source.type}: ${sourceId}`);
-    return client.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{
-        type: 'text',
-        text: '👮 สวัสดีครับทุกท่าน! ผมบอตผู้ช่วยสายตรวจภูธรลานสัก พร้อมให้บริการในกลุ่มนี้แล้วครับ\n\n📌 พิมพ์ "เมนู" เพื่อดูสิ่งที่ผมทำได้ครับ'
-      }]
-    });
+    return replyText(event.replyToken, '👮 สวัสดีครับ! ผมบอตผู้ช่วยสายตรวจภูธรลานสัก พร้อมให้บริการในกลุ่มนี้แล้วครับ\n\n📌 พิมพ์ "เมนู" เพื่อดูสิ่งที่ผมทำได้ครับ');
   }
 
-  // ── ติดตาม Follow/Unfollow Event ──
+  // ── ติดตาม Follow Event ──
   if (event.type === 'follow') {
     if (userId) {
-...
+      try {
+        const profile = await client.getProfile(userId);
+        trackUser(userId, profile.displayName);
+        await replyText(event.replyToken, `👋 สวัสดีครับ ${profile.displayName}!\nขอบคุณที่ติดตาม Bot สายตรวจภูธรลานสัก\n\nพิมพ์ "สวัสดี" เพื่อเริ่มใช้งานครับ 🙏`);
+      } catch (err) { console.error('Follow error:', err); }
+    }
+    return;
+  }
+
+  if (event.type === 'unfollow') {
+    if (userId) {
+      const { removeFollower } = require('./broadcast');
+      removeFollower(userId);
+    }
+    return;
+  }
+
   if (event.type !== 'message' || event.message.type !== 'text') return;
 
   const userText   = event.message.text.trim();
   const replyToken = event.replyToken;
 
-  console.log(`📩 [${event.source.type}] ได้รับ: "${userText}" จาก ${userId || 'unknown'}`);
+  console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
 
-  // ── บันทึกข้อมูลผู้ใช้ (ถ้ามี userId) ──
+  // บันทึกผู้ใช้
   if (userId) {
     try {
       const profile = await client.getProfile(userId);
       trackUser(userId, profile.displayName);
-    } catch {
-      trackUser(userId, '');
-    }
+    } catch { trackUser(userId, ''); }
   }
 
   // ─────────────────────────────────────────────────────────
-  // [ใหม่] คำสั่ง Admin — ต้องผ่านการตรวจ isAdmin ก่อน
+  // [1] คำสั่ง Admin
   // ─────────────────────────────────────────────────────────
   if (isAdminCommand(userText)) {
-    if (userText === '/whoami') {
-      return replyText(replyToken, `🆔 LINE User ID:\n${userId}\n\nADMIN_LINE_IDS=${userId}`);
-    }
-
-    if (!isAdmin(userId)) return replyText(replyToken, '🔒 คุณไม่มีสิทธิ์ครับ');
+    if (userText === '/whoami') return replyText(replyToken, `🆔 User ID: ${userId}`);
+    if (!isAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Admin เท่านั้นครับ');
 
     if (userText === '/adminhelp') return replyMessage(replyToken, buildAdminHelpFlex());
-
-    if (userText === '/สถิติ') {
+    if (userText === '/ล้างcache') { clearCache(); return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อยครับ'); }
+    
+    if (userText === '/สถิติ' || userText === '/สถานะ') {
       const [suspects, personnel, leaders] = await Promise.all([fetchAllData(), fetchPersonnel(), fetchLeaders()]);
       const stats = getStats();
-      let writeStatus = isSheetConfigured() ? '✅ พร้อม' : '⚠️ ยังไม่ตั้งค่า';
-      return replyText(replyToken, `📊 สถิติข้อมูลระบบ\n\n👮 บุคลากร: ${personnel.length}\n🏘️ ผู้นำ: ${leaders.length}\n🔍 ผู้ต้องหา: ${suspects.length}\n👥 ผู้ติดตาม: ${stats.total}\n⚙️ Write API: ${writeStatus}`);
-    }
-
-    if (userText === '/สถานะ') {
-      const statusText = `🖥️ System Status\n\n🌐 Node: ${process.version}\n💾 Mem: ${Math.round(process.memoryUsage().heapUsed/1024/1024)}MB\n⏱️ Uptime: ${Math.round(process.uptime()/60)} mins\n🆔 Admin: ${ADMIN_IDS.length} IDs`;
+      const statusText = `📊 ระบบ: ${isSheetConfigured() ? '✅ พร้อม' : '⚠️ ไม่พร้อม'}\n👮 บุคลากร: ${personnel.length}\n🏘️ ผู้นำ: ${leaders.length}\n🔍 ผู้ต้องหา: ${suspects.length}\n👥 ผู้ติดตาม: ${stats.total}`;
       return replyText(replyToken, statusText);
-    }
-
-    if (userText === '/ล้างcache') {
-      clearCache();
-      return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อย ข้อมูลจะถูกโหลดใหม่ทันทีครับ');
     }
 
     if (userText.startsWith('/ลบ ')) {
       const person = parseDeleteCommand(userText);
       if (!person) return replyText(replyToken, '❌ รูปแบบ: /ลบ ชื่อ นามสกุล');
-      try {
-        const result = await deletePerson(person.firstName, person.lastName);
-        if (result.success) clearCache();
-        return replyMessage(replyToken, buildDeleteConfirmFlex(person, result.success, result.message));
-      } catch (err) {
-        return replyMessage(replyToken, buildDeleteConfirmFlex(person, false, err.message));
-      }
+      const result = await deletePerson(person.firstName, person.lastName);
+      if (result.success) clearCache();
+      return replyMessage(replyToken, buildDeleteConfirmFlex(person, result.success, result.message));
     }
 
     if (userText.startsWith('/แก้ไข ')) {
       const editData = parseEditCommand(userText);
       if (!editData) return replyText(replyToken, '❌ รูปแบบ: /แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่');
-      try {
-        const result = await updatePersonField(editData.firstName, editData.lastName, editData.field, editData.newValue);
-        if (result.success) clearCache();
-        return replyMessage(replyToken, buildEditConfirmFlex(editData, result.success, result.message));
-      } catch (err) {
-        return replyMessage(replyToken, buildEditConfirmFlex(editData, false, err.message));
-      }
-    }
-
-    if (userText === '/รายชื่อ') {
-      const suspects = await fetchAllData();
-      if (suspects.length === 0) return replyText(replyToken, 'ไม่พบข้อมูล');
-      const list = suspects.slice(0, 50).map((p, i) => `${i+1}. ${p.rank}${p.firstName} ${p.lastName}`).join('\n');
-      return replyText(replyToken, `📋 รายชื่อ (50 คนล่าสุด):\n\n${list}`);
-    }
-
-    if (userText.startsWith('/broadcast ')) {
-      const broadcastText = userText.replace(/^\/broadcast\s+/, '').trim();
-      if (!broadcastText) return replyText(replyToken, '❌ ใส่ข้อความด้วย');
-      await replyText(replyToken, `📤 กำลังส่ง Broadcast...`);
-      const result = await broadcastToAll(client, broadcastText);
-      if (userId) await client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(result, broadcastText)] });
-      return;
+      const result = await updatePersonField(editData.firstName, editData.lastName, editData.field, editData.newValue);
+      if (result.success) clearCache();
+      return replyMessage(replyToken, buildEditConfirmFlex(editData, result.success, result.message));
     }
 
     if (userText.startsWith('/เพิ่ม')) {
-      if (!isSheetConfigured()) return replyText(replyToken, '⚠️ ยังไม่ตั้งค่า Google API');
       const person = parseAddCommand(userText, userId);
-      if (!person) return replyText(replyToken, '❌ รูปแบบ: /เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี');
+      if (!person) return replyText(replyToken, '❌ รูปแบบ: /เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ...');
       try {
         await appendWatchlistPerson(person);
         clearCache();
         return replyMessage(replyToken, buildAddConfirmFlex(person, true));
-      } catch (err) {
-        return replyMessage(replyToken, buildAddConfirmFlex(person, false, err.message));
-      }
+      } catch (err) { return replyMessage(replyToken, buildAddConfirmFlex(person, false, err.message)); }
+    }
+
+    if (userText.startsWith('/broadcast ')) {
+      const msg = userText.replace('/broadcast ', '').trim();
+      await replyText(replyToken, '📤 กำลังส่งข้อความ...');
+      const res = await broadcastToAll(client, msg);
+      return client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(res, msg)] });
     }
   }
 
   // ─────────────────────────────────────────────────────────
-  // คำสั่งผู้ใช้ทั่วไป (Search, Menu, etc.)
+  // [2] คำสั่งทั่วไป / ค้นหา
   // ─────────────────────────────────────────────────────────
-  if (isGreeting(userText) || matchKeyword(userText, ['เมนู', 'เมนูหลัก', 'help', 'ช่วยด้วย', 'วิธีใช้'])) {
+  if (isGreeting(userText) || matchKeyword(userText, ['เมนู', 'help', 'วิธีใช้'])) {
     return replyMessage(replyToken, buildWelcomeFlex());
   }
 
-  if (matchKeyword(userText, ['ทำเนียบบุคลากร', 'บุคลากร สภ', 'บุคลากรสภ'])) {
-    return replyMessage(replyToken, buildPersonnelMenuFlex());
-  }
+  if (matchKeyword(userText, ['บุคลากร', 'ตำรวจ'])) return replyMessage(replyToken, buildPersonnelMenuFlex());
+  if (matchKeyword(userText, ['ผู้นำ', 'กำนัน', 'ผู้ใหญ่บ้าน'])) return replyMessage(replyToken, buildVillageLeaderMenuFlex());
 
-  if (userText.startsWith('บุคลากร ')) {
-    const department = userText.replace('บุคลากร ', '').trim();
-    const allPersonnel = await fetchPersonnel();
-    let filtered = allPersonnel.filter(p => (p.area || '') === department);
-    if (filtered.length === 0) {
-      const deptKey = department.replace(/^(งาน|ฝ่าย)/, '').replace(/\s+/g, '');
-      filtered = allPersonnel.filter(p => {
-        const areaVal = (p.area || '').replace(/^(งาน|ฝ่าย)/, '').replace(/\s+/g, '');
-        return areaVal.includes(deptKey) || (p.position || '').includes(deptKey);
-      });
-    }
-    return replyMessage(replyToken, buildPersonnelCarouselFlex(filtered, department));
-  }
-
-  if (userText.startsWith('ผู้นำตำบล ')) {
-    const subdistrict   = userText.replace('ผู้นำตำบล ', '').trim();
-    const allLeaders    = await fetchLeaders();
-    const subdistrictKey = subdistrict.replace(/^ตำบล/, '').replace(/\s+/g, '');
-    const filtered = allLeaders.filter(p => {
-      const areaVal    = (p.area    || '').replace(/^ตำบล/, '').replace(/\s+/g, '');
-      const villageVal = (p.village || '').replace(/\s+/g, '');
-      return areaVal.includes(subdistrictKey) || subdistrictKey.includes(areaVal) || villageVal.includes(subdistrictKey) || (p.area || '').includes(subdistrict);
-    });
-    return replyMessage(replyToken, buildLeaderCarouselFlex(filtered, subdistrict));
-  }
-
-  if (matchKeyword(userText, ['ทำเนียบผู้นำตำบล', 'ผู้นำตำบล', 'กำนัน', 'ผู้ใหญ่บ้าน'])) {
-    return replyMessage(replyToken, buildVillageLeaderMenuFlex());
-  }
-
-  if (matchKeyword(userText, ['เว็บไซต์', 'website', 'web', 'เว็บ'])) return replyMessage(replyToken, buildWebsiteFlex());
-  if (matchKeyword(userText, ['ข้อมูลสถานี', 'สถานี', 'ที่ตั้ง', 'ที่อยู่'])) return replyMessage(replyToken, buildStationFlex());
-  if (matchKeyword(userText, ['แจ้งเหตุ', 'ร้องทุกข์', 'แจ้งความ'])) return replyText(replyToken, '🚨 แจ้งเหตุฉุกเฉิน โทร 191 หรือแอป Police I Lert U');
-  if (matchKeyword(userText, ['ติดต่อ', 'โทรหา', 'เบอร์โทร'])) return replyText(replyToken, '📞 ฉุกเฉิน: 191\n📱 สายตรวจ: 056-559-xxx');
-  if (matchKeyword(userText, ['ตรวจสอบหมายจับ', 'หมายจับ', 'หมาย'])) return replyText(replyToken, '📋 พิมพ์ชื่อ-สกุลที่ต้องการตรวจสอบได้เลยครับ');
-  if (matchKeyword(userText, ['รีเฟรช', 'โหลดใหม่', 'refresh', 'reload'])) {
-    clearCache();
-    return replyText(replyToken, '🔄 รีเฟรชข้อมูลเรียบร้อยครับ');
-  }
-  if (matchKeyword(userText, ['ค้นหาชื่อ', 'ค้นหา'])) return replyText(replyToken, '🔍 พิมพ์ชื่อ-นามสกุล หรือยศที่ต้องการค้นหาได้เลยครับ');
-
+  // ค้นหาเบอร์โทร
   if (isPhoneNumber(userText)) {
     const results = await searchByPhone(userText);
     if (results.length === 0) return replyMessage(replyToken, buildNotFoundFlex(userText));
-    if (results.length === 1) {
-      const p = results[0];
-      const card = p.sheetType === 'personnel' ? buildPersonnelCardFlex(p) : p.sheetType === 'leader' ? buildLeaderCardFlex(p) : buildResultFlex(p).contents;
-      return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${p.fullName}`, contents: card });
-    }
     return replyMessage(replyToken, buildCarouselFlex(results, userText));
   }
 
-const { askAI } = require('./ai');
-
-// ... (ภายใน handleEvent หลังจากการค้นหาชื่อไม่เจอ) ...
-
+  // ค้นหาชื่อ (ระบบเดิม + AI Fallback)
   if (userText.length >= 2) {
     const results = await searchByName(userText);
-    
-    // ── ถ้าเจอผลลัพธ์ ให้ใช้ระบบค้นหาเดิม ──
     if (results.length > 0) {
       if (results.length === 1) {
-        const card = results[0].sheetType === 'personnel' ? buildPersonnelCardFlex(results[0]) : results[0].sheetType === 'leader' ? buildLeaderCardFlex(results[0]) : buildResultFlex(results[0]).contents;
-        return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${results[0].fullName}`, contents: card });
+        const p = results[0];
+        const card = p.sheetType === 'personnel' ? buildPersonnelCardFlex(p) : p.sheetType === 'leader' ? buildLeaderCardFlex(p) : buildResultFlex(p).contents;
+        return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${p.fullName}`, contents: card });
       }
       return replyMessage(replyToken, buildCarouselFlex(results, userText));
     }
 
-    // ── ถ้าไม่เจอผลลัพธ์ (หรือถามเป็นประโยค) ให้ส่งให้ AI ตอบ ──
+    // ถ้าไม่เจอชื่อ ให้ AI ช่วยตอบ
     if (process.env.GEMINI_API_KEY) {
-      // ดึงข้อมูลจาก Cache ที่มีอยู่แล้ว (ถ้ามี) แทนการ fetch ใหม่ทั้งหมด
       const suspects  = caches['ผู้ต้องหา']?.data || [];
       const personnel = caches['บุคลากร สภ.']?.data || [];
-      const leaders   = caches['ผู้นำตำบล']?.data || [];
+      const context = `รายชื่อผู้ต้องหา: ${suspects.slice(0,10).map(p=>p.firstName).join(',')}\nรายชื่อตำรวจ: ${personnel.slice(0,10).map(p=>p.firstName).join(',')}`;
       
-      // ส่งข้อมูลสรุปที่กระชับขึ้นเพื่อให้ AI ประมวลผลเร็วขึ้น
-      const context = 
-        `บุคคลเฝ้าระวัง: ${suspects.slice(0,15).map(p => `${p.firstName}(${p.crime})`).join(', ')}\n` +
-        `ตำรวจ: ${personnel.slice(0,15).map(p => `${p.firstName}(${p.area})`).join(', ')}\n` +
-        `ผู้นำ: ${leaders.slice(0,10).map(p => `${p.firstName}(${p.area})`).join(', ')}`;
-
-      // ส่งข้อความแจ้งผู้ใช้ทันที (Perceived Speed)
       await replyText(replyToken, '🤖 กำลังประมวลผลคำตอบจากฐานข้อมูล...');
-      
       const aiResponse = await askAI(userText, context);
       if (aiResponse) {
-        // ใช้ pushMessage แทน reply เพราะ replyToken อาจจะหมดอายุถ้า AI คิดนาน
-        await client.pushMessage({
-          to: userId,
-          messages: [{ type: 'text', text: aiResponse }]
-        });
-        return;
+        return client.pushMessage({ to: sourceId, messages: [{ type: 'text', text: aiResponse }] });
       }
     }
-
     return replyMessage(replyToken, buildNotFoundFlex(userText));
   }
-
-  return replyText(replyToken, 'กรุณาพิมพ์ชื่ออย่างน้อย 2 ตัวอักษรครับ 🙏');
 }
 
 // ===== Helpers =====
-function isGreeting(text) { return ['สวัสดี','hello','hi','หวัดดี','ดีครับ','ดีค่ะ','start'].some(g => text.toLowerCase().includes(g)); }
-function isPhoneNumber(text) { const digits = text.replace(/[\s\-\+]/g, ''); return /^(0[0-9]{8,9}|66[0-9]{8,9})$/.test(digits); }
-function matchKeyword(text, keywords) { return keywords.some(kw => text.includes(kw)); }
-async function replyMessage(replyToken, flexMsg) { return client.replyMessage({ replyToken, messages: [flexMsg] }); }
-async function replyText(replyToken, text) { return client.replyMessage({ replyToken, messages: [{ type: 'text', text }] }); }
+function isGreeting(t) { return ['สวัสดี','hello','hi','หวัดดี','เริ่ม'].some(g => t.toLowerCase().includes(g)); }
+function isPhoneNumber(t) { return /^(0[0-9]{8,9})$/.test(t.replace(/\D/g, '')); }
+function matchKeyword(t, kws) { return kws.some(kw => t.includes(kw)); }
+async function replyMessage(token, msg) { return client.replyMessage({ replyToken: token, messages: [msg] }); }
+async function replyText(token, text) { return client.replyMessage({ replyToken: token, messages: [{ type: 'text', text }] }); }
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-  console.log(`🚔 Bot Running on Port: ${PORT}`);
-  try { await fetchAllData(); console.log('📊 Sheets Connected'); } catch (e) { console.warn('⚠️ Sheets Connection Error'); }
-});
+app.listen(PORT, () => console.log(`🚔 Server Running on Port ${PORT}`));
