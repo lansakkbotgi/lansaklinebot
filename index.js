@@ -100,18 +100,21 @@ async function handleEvent(event) {
   console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
 
   // ─────────────────────────────────────────────────────────
-  // ตรวจสอบความเหมาะสมในการตอบ (เฉพาะในกลุ่ม)
+  // [Extreme Silence] กรองข้อความสำหรับแชทกลุ่ม
   // ─────────────────────────────────────────────────────────
   if (isGroup) {
-    const keywords = [
-      'ทำเนียบ', 'ตำรวจ', 'ผู้นำ', 'เว็บไซต์', 'สถานี', 
-      'สวัสดี', 'เมนู', 'ค้นหา', 'ตรวจสอบ', 'บอท', 'bot', 
-      '/', '0', 'บุคลากร', 'ตำบล'
-    ];
-    const isKeyword = keywords.some(k => userText.includes(k));
-    
-    // [แก้ไข] ในกลุ่ม: ถ้าไม่มี Keyword สำคัญ ให้เงียบทันที (ห้ามเช็คความยาวตัวอักษร)
-    if (!isKeyword) {
+    const isExplicitAdmin = userText.startsWith('/');
+    const isExplicitSearch = userText.startsWith('ค้นหา') || userText.startsWith('ตรวจสอบ');
+    const isPhone = /^(0[0-9]{8,9})$/.test(userText.replace(/\D/g, ''));
+    const isMentionBot = userText.includes('บอท') || userText.toLowerCase().includes('bot');
+    const isMainKeywords = [
+      'ทำเนียบบุคลากร', 'ทำเนียบผู้นำตำบล', 'ผู้นำตำบล', 
+      'บุคลากร', 'ตำรวจ', 'เว็บไซต์', 'ข้อมูลสถานี', 
+      'เมนู', 'สวัสดี', 'เริ่ม', 'help', 'รีเฟรช'
+    ].some(k => userText === k || userText.startsWith(k + ' '));
+
+    // ถ้าไม่ตรงตามเงื่อนไขเป๊ะๆ นี้ "ห้ามตอบเด็ดขาด" ในกลุ่ม
+    if (!isExplicitAdmin && !isExplicitSearch && !isPhone && !isMentionBot && !isMainKeywords) {
       return; 
     }
   }
