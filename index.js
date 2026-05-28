@@ -202,6 +202,7 @@ async function handleEvent(event) {
 
   if (userText.includes('เว็บไซต์')) return replyMessage(replyToken, buildWebsiteFlex());
   if (userText.includes('ข้อมูลสถานี')) return replyMessage(replyToken, buildStationFlex());
+  if (userText.includes('คำนวณปริมาณน้ำมัน')) return replyText(replyToken, '⛽ คำนวณปริมาณน้ำมัน 5 ปั๊มกรุณาส่งข้อมูลมาให้เพื่อคำนวณ');
   if (userText.includes('แจ้งเหตุ')) return replyText(replyToken, '🚨 แจ้งเหตุฉุกเฉิน โทร 191 หรือแอป Police I Lert U');
   if (userText.includes('ติดต่อ')) return replyText(replyToken, '📞 ฉุกเฉิน: 191\n📱 สายตรวจ: 056-559-xxx');
 
