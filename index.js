@@ -14,6 +14,7 @@ const {
   buildFuelStationFlex,
   buildAllCommandsFlex,
   buildQuickAddFlex,
+  buildDeepPhoneSearchFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -228,6 +229,35 @@ async function handleEvent(event) {
   const fuelKeywords = ['/เบอร์โทรน้ำมัน', '/เบอร์ปั๊ม', '/เบอร์น้ำมัน'];
   if (fuelKeywords.some(k => userText.startsWith(k))) {
     return replyMessage(replyToken, buildFuelStationFlex());
+  }
+
+  // ระบบค้นหาเบอร์เชิงลึก (OSINT)
+  if (userText.startsWith('ค้นหาเบอร์เชิงลึก')) {
+    const phone = userText.replace('ค้นหาเบอร์เชิงลึก', '').trim();
+    if (!phone) return replyText(replyToken, '🔍 รูปแบบ: ค้นหาเบอร์เชิงลึก 08XXXXXXXX');
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) return replyText(replyToken, '❌ กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก');
+
+    // วิเคราะห์เครือข่ายเบื้องต้น (Prefix Analysis)
+    let carrier = 'ไม่ทราบเครือข่าย', region = 'ทั่วประเทศ (Mobile)';
+    const prefix3 = cleanPhone.slice(0, 3);
+    
+    if (['081', '082', '080', '084', '085', '089', '092', '093', '097', '098'].includes(prefix3)) carrier = 'AIS';
+    else if (['086', '088', '090', '091', '095', '096'].includes(prefix3)) carrier = 'TrueMove H / DTAC';
+    else if (['083', '087', '061', '062', '063', '064', '065'].includes(prefix3)) carrier = 'DTAC / TrueMove H';
+    else if (['087', '061'].includes(prefix3)) carrier = 'DTAC';
+    else if (prefix3 === '066') carrier = 'TrueMove H';
+    else if (prefix3.startsWith('02')) { carrier = 'TOT / True / TT&T'; region = 'กรุงเทพและปริมณฑล'; }
+    else if (prefix3.startsWith('05')) { carrier = 'TOT / TT&T'; region = 'ภาคเหนือ'; }
+    else if (prefix3.startsWith('04')) { carrier = 'TOT / TT&T'; region = 'ภาคตะวันออกเฉียงเหนือ'; }
+    else if (prefix3.startsWith('03')) { carrier = 'TOT / TT&T'; region = 'ภาคกลาง / ตะวันออก / ตะวันตก'; }
+    else if (prefix3.startsWith('07')) { carrier = 'TOT / TT&T'; region = 'ภาคใต้'; }
+
+    // ค้นหาในฐานข้อมูลเราด้วย
+    const localResults = await searchByPhone(cleanPhone);
+    
+    return replyMessage(replyToken, buildDeepPhoneSearchFlex(phone, { carrier, region }, localResults));
   }
 
   if (userText.includes('แจ้งเหตุ')) return replyText(replyToken, '🚨 แจ้งเหตุฉุกเฉิน โทร 191 หรือแอป Police I Lert U');

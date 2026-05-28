@@ -1104,6 +1104,123 @@ function buildQuickAddFlex() {
   };
 }
 
+function buildDeepPhoneSearchFlex(phone, carrierInfo, localResults = []) {
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  const contents = [
+    {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      contents: [
+        { type: 'text', text: `📞 หมายเลข: ${phone}`, weight: 'bold', size: 'lg', color: '#1a3a6e' },
+        { type: 'text', text: `📡 เครือข่าย: ${carrierInfo.carrier}`, size: 'sm', color: '#2c3e50' },
+        { type: 'text', text: `📍 พื้นที่จดทะเบียน: ${carrierInfo.region}`, size: 'sm', color: '#2c3e50' },
+      ],
+    },
+    { type: 'separator', margin: 'md' },
+    {
+      type: 'text',
+      text: '🔍 ตรวจสอบประวัติออนไลน์ (OSINT)',
+      weight: 'bold',
+      size: 'xs',
+      margin: 'md',
+      color: '#888888',
+    },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'sm',
+      margin: 'md',
+      contents: [
+        {
+          type: 'button',
+          style: 'primary',
+          color: '#4285F4',
+          height: 'sm',
+          action: { type: 'uri', label: 'Google', uri: `https://www.google.com/search?q="${cleanPhone}"` },
+        },
+        {
+          type: 'button',
+          style: 'primary',
+          color: '#1877F2',
+          height: 'sm',
+          action: { type: 'uri', label: 'Facebook', uri: `https://www.facebook.com/search/top/?q=${cleanPhone}` },
+        },
+      ],
+    },
+    {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      margin: 'sm',
+      contents: [
+        {
+          type: 'button',
+          style: 'secondary',
+          color: '#e74c3c',
+          height: 'sm',
+          action: { type: 'uri', label: '🚨 เช็คมิจฉาชีพ (ฉลาดโอน)', uri: `https://www.chaladoon.com/check?q=${cleanPhone}` },
+        },
+      ],
+    },
+  ];
+
+  if (localResults.length > 0) {
+    contents.push({ type: 'separator', margin: 'lg' });
+    contents.push({
+      type: 'text',
+      text: `✅ พบข้อมูลในระบบ ${localResults.length} รายการ`,
+      weight: 'bold',
+      size: 'xs',
+      margin: 'md',
+      color: '#27ae60',
+    });
+    
+    localResults.slice(0, 2).forEach(p => {
+      contents.push({
+        type: 'text',
+        text: `• ${p.fullName} (${p.sheetType === 'personnel' ? 'ตำรวจ' : p.sheetType === 'leader' ? 'ผู้นำ' : 'ผู้ต้องหา'})`,
+        size: 'xs',
+        color: '#2c3e50',
+        margin: 'xs',
+      });
+    });
+  }
+
+  return {
+    type: 'flex',
+    altText: `🔍 ค้นหาเบอร์เชิงลึก: ${phone}`,
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#2c3e50',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '🔍 ระบบสืบค้นเบอร์เชิงลึก', color: '#ffffff', weight: 'bold', size: 'sm' },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'sm',
+        contents: contents,
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: 'ข้อมูลจากการวิเคราะห์เบื้องต้นและแหล่งข่าวเปิด', size: 'xxs', color: '#aaaaaa', align: 'center' },
+        ],
+      },
+    },
+  };
+}
+
 module.exports = {
   buildResultFlex,
   buildCarouselFlex,
@@ -1120,4 +1237,5 @@ module.exports = {
   buildFuelStationFlex,
   buildAllCommandsFlex,
   buildQuickAddFlex,
+  buildDeepPhoneSearchFlex,
 };
