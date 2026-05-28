@@ -249,20 +249,6 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildCarouselFlex(results, userText));
     }
 
-    // AI Fallback
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        const suspectsData  = caches['ผู้ต้องหา']?.data || [];
-        const personnelData = caches['บุคลากร สภ.']?.data || [];
-        const context = `ตัวอย่างรายชื่อ: ${suspectsData.slice(0,5).map(p=>p.firstName).join(',')}\nรายชื่อตำรวจ: ${personnelData.slice(0,5).map(p=>p.firstName).join(',')}`;
-        
-        await replyText(replyToken, '🤖 กำลังประมวลผลคำตอบจากฐานข้อมูล...');
-        const aiResponse = await askAI(userText, context);
-        if (aiResponse) {
-          return await client.pushMessage({ to: sourceId, messages: [{ type: 'text', text: aiResponse }] });
-        }
-      } catch (e) { console.error('AI error:', e); }
-    }
     return replyMessage(replyToken, buildNotFoundFlex(userText));
   }
 }
