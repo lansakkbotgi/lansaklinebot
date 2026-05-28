@@ -786,6 +786,102 @@ function getStatusColor(status) {
   return { bg: '#f0f4ff', text: '#1e40af', label: '#3b82f6' };
 }
 
+function buildFuelStationFlex() {
+  return {
+    type: 'flex',
+    altText: '⛽ รายชื่อเบอร์โทรศัพท์ปั๊มน้ำมัน',
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#e67e22',
+        paddingAll: '16px',
+        contents: [
+          {
+            type: 'text',
+            text: '⛽ เบอร์โทรศัพท์ปั๊มน้ำมัน',
+            color: '#ffffff',
+            weight: 'bold',
+            size: 'lg',
+          },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '⛽ ปั๊มพีที', weight: 'bold', size: 'sm', color: '#27ae60' },
+              { type: 'text', text: '📞 063-659-7494', size: 'md', color: '#2c3e50', action: { type: 'uri', label: 'Call', uri: 'tel:0636597494' } },
+            ],
+          },
+          { type: 'separator' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '⛽ ปั๊มบางจาก', weight: 'bold', size: 'sm', color: '#2980b9' },
+              { type: 'text', text: '📞 081-324-5773', size: 'md', color: '#2c3e50', action: { type: 'uri', label: 'Call', uri: 'tel:0813245773' } },
+            ],
+          },
+          { type: 'separator' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '⛽ ปั๊มปตท.', weight: 'bold', size: 'sm', color: '#c0392b' },
+              { type: 'text', text: '📞 092-376-4418', size: 'md', color: '#2c3e50', action: { type: 'uri', label: 'Call', uri: 'tel:0923764418' } },
+            ],
+          },
+          { type: 'separator' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '⛽ ปั๊มบัญชาออยล์', weight: 'bold', size: 'sm', color: '#7f8c8d' },
+              { type: 'text', text: '📞 082-935-4654', size: 'md', color: '#2c3e50', action: { type: 'uri', label: 'Call', uri: 'tel:0829354654' } },
+            ],
+          },
+          { type: 'separator' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '⛽ ปั๊มลานสักบริการ', weight: 'bold', size: 'sm', color: '#8e44ad' },
+              { type: 'text', text: '📞 086-628-2203', size: 'md', color: '#2c3e50', action: { type: 'uri', label: 'Call', uri: 'tel:0866282203' } },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'แตะที่เบอร์เพื่อโทรออก',
+            size: 'xs',
+            color: '#aaaaaa',
+            align: 'center',
+          },
+        ],
+      },
+    },
+  };
+}
+
 module.exports = {
   buildResultFlex,
   buildCarouselFlex,
@@ -799,4 +895,5 @@ module.exports = {
   buildVillageLeaderMenuFlex,
   buildLeaderCardFlex,
   buildLeaderCarouselFlex,
+  buildFuelStationFlex,
 };

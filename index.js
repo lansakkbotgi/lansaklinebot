@@ -11,6 +11,7 @@ const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
   buildWebsiteFlex, buildPersonnelMenuFlex, buildPersonnelCardFlex, buildPersonnelCarouselFlex,
   buildVillageLeaderMenuFlex, buildLeaderCardFlex, buildLeaderCarouselFlex,
+  buildFuelStationFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -203,6 +204,13 @@ async function handleEvent(event) {
   if (userText.includes('เว็บไซต์')) return replyMessage(replyToken, buildWebsiteFlex());
   if (userText.includes('ข้อมูลสถานี')) return replyMessage(replyToken, buildStationFlex());
   if (userText.includes('คำนวณปริมาณน้ำมัน')) return replyText(replyToken, '⛽ คำนวณปริมาณน้ำมัน 5 ปั๊มกรุณาส่งข้อมูลมาให้เพื่อคำนวณ');
+  
+  // เบอร์โทรศัพท์ปั๊มน้ำมัน
+  const fuelKeywords = ['/เบอร์โทรน้ำมัน', '/เบอร์ปั๊ม', '/เบอร์น้ำมัน'];
+  if (fuelKeywords.some(k => userText.startsWith(k))) {
+    return replyMessage(replyToken, buildFuelStationFlex());
+  }
+
   if (userText.includes('แจ้งเหตุ')) return replyText(replyToken, '🚨 แจ้งเหตุฉุกเฉิน โทร 191 หรือแอป Police I Lert U');
   if (userText.includes('ติดต่อ')) return replyText(replyToken, '📞 ฉุกเฉิน: 191\n📱 สายตรวจ: 056-559-xxx');
 
