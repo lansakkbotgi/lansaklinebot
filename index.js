@@ -70,7 +70,16 @@ async function handleEvent(event) {
       try {
         const profile = await client.getProfile(userId);
         trackUser(userId, profile.displayName);
-        await replyText(event.replyToken, `👋 สวัสดีครับ ${profile.displayName}!\nขอบคุณที่ติดตาม Bot สายตรวจภูธรลานสัก\n\nพิมพ์ "สวัสดี" เพื่อเริ่มใช้งานครับ 🙏`);
+        
+        // ส่งข้อความต้อนรับพร้อมรายการคำสั่ง
+        const welcomeText = `👋 สวัสดีครับ ${profile.displayName}!\nขอบคุณที่ติดตาม Bot สายตรวจภูธรลานสัก\n\n📌 นี่คือรายการคำสั่งที่คุณสามารถใช้งานได้ครับ:`;
+        return client.replyMessage({
+          replyToken: event.replyToken,
+          messages: [
+            { type: 'text', text: welcomeText },
+            buildAllCommandsFlex(isAdmin(userId))
+          ]
+        });
       } catch (err) { console.error('Follow error:', err); }
     }
     return;
