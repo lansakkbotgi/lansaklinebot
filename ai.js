@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 
 /**
  * ฟังก์ชันตอบคำถามด้วย AI โดยใช้ข้อมูลจาก Sheets เป็นบริบท
@@ -51,7 +51,7 @@ async function askAI(userQuestion, sheetContext) {
  * วิเคราะห์รูปภาพ (OCR) บัตรประชาชน หรือ ป้ายทะเบียน
  */
 async function analyzeImage(imageBuffer, mimeType) {
-  if (!process.env.GEMINI_API_KEY) return null;
+  if (!process.env.GEMINI_API_KEY) return { error: 'Missing API Key' };
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -84,37 +84,47 @@ async function analyzeImage(imageBuffer, mimeType) {
       สำคัญ: หากสแกนไม่สำเร็จหรือไม่มั่นใจ ให้ใส่ค่าเป็น null ในฟิลด์นั้นๆ แต่ยังคงส่งรูปแบบ JSON เดิมมา
     `;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: imageBuffer.toString('base64'),
-          mimeType
-        }
-      }
-    ]);
+    const safetySettings = [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ];
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [
+        { text: prompt },
+        { inlineData: { data: imageBuffer.toString('base64'), mimeType } }
+      ]}],
+      safetySettings
+    });
 
     const response = await result.response;
+    
+    // ตรวจสอบว่าโดน Block หรือไม่
+    if (response.promptFeedback && response.promptFeedback.blockReason) {
+      return { error: `Blocked by AI Safety: ${response.promptFeedback.blockReason}` };
+    }
+
     const rawText = response.text().trim();
     console.log('🤖 Raw AI OCR Response:', rawText);
     
     // พยายามหา JSON ภายในข้อความ (กรณี AI แอบใส่คำนำหน้ามา)
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('❌ AI did not return a valid JSON format');
-      return null;
+      console.error('❌ AI did not return a valid JSON format. Raw:', rawText);
+      return { error: 'Invalid AI Response Format' };
     }
     
     const cleanJson = jsonMatch[0].replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
     
-    // ตรวจสอบความถูกต้องเบื้องต้น
-    if (!parsed.type) return null;
+    if (!parsed.type) return { error: 'Incomplete Data' };
     
     return parsed;
   } catch (err) {
     console.error('Analyze Image Error:', err.stack || err.message);
-    return null;
+    return { error: err.message };
   }
 }
 

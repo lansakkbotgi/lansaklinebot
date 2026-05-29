@@ -121,8 +121,10 @@ async function handleEvent(event) {
         const buffer = Buffer.from(response.data, 'binary');
         const ocrResult = await analyzeImage(buffer, 'image/jpeg');
 
-        if (!ocrResult) {
-          return client.pushMessage({ to: sourceId, messages: [{ type: 'text', text: '❌ ไม่สามารถสแกนข้อมูลจากรูปภาพได้ กรุณาลองใหม่อีกครั้งครับ' }] });
+        if (!ocrResult || ocrResult.error) {
+          const errorMsg = ocrResult?.error || 'ไม่สามารถสกัดข้อมูลจากภาพได้';
+          console.error('OCR Failure:', errorMsg);
+          return client.pushMessage({ to: sourceId, messages: [{ type: 'text', text: `❌ สแกนไม่สำเร็จ: ${errorMsg}\nกรุณาลองใหม่อีกครั้งโดยใช้รูปที่ชัดเจนกว่านี้ครับ` }] });
         }
 
         // บันทึกลง Google Sheets อัตโนมัติ (Log)
