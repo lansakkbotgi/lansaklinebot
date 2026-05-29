@@ -1368,4 +1368,3 @@ module.exports = {
   buildSmartCard,
   buildLocationListFlex,
 };
-};
