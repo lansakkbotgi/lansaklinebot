@@ -24,6 +24,7 @@ function isAdminCommand(text) {
          text.startsWith('/ลบ') ||
          text.startsWith('/แก้ไข') ||
          text.startsWith('/รายชื่อ') ||
+         text.startsWith('/แสดงรายชื่อที่ตรวจสอบ') ||
          text.startsWith('/broadcast') ||
          text.startsWith('/สถิติ') ||
          text.startsWith('/สถานะ') ||
@@ -221,6 +222,7 @@ function buildAdminHelpFlex() {
         contents: [
           buildHelpItem('➕ เพิ่มบุคคล', '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี', '#f0f4ff', '#1a3a6e'),
           buildHelpItem('📋 รายชื่อผู้ต้องหา', '/รายชื่อ', '#f0fff4', '#27ae60'),
+          buildHelpItem('🕵️ ประวัติสแกน', '/แสดงรายชื่อที่ตรวจสอบ', '#fefce8', '#854d0e'),
           buildHelpItem('🗑️ ลบบุคคล', '/ลบ ชื่อ นามสกุล', '#fff5f5', '#c53030'),
           buildHelpItem('✏️ แก้ไขข้อมูล', '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่', '#fffaf0', '#b45309'),
           buildHelpItem('📊 ดูระบบ', '/สถิติ, /สถานะ, /ล้างcache', '#f7fafc', '#4a5568'),
@@ -295,6 +297,57 @@ function buildSuspectListFlex(suspects) {
   };
 }
 
+/**
+ * สร้าง Flex Message แสดงประวัติการสแกน (สำหรับ Admin)
+ */
+function buildOcrLogListFlex(logs) {
+  const items = logs.slice(0, 15).map(log => ({
+    type: 'box', layout: 'vertical', paddingAll: '10px', margin: 'sm', backgroundColor: '#ffffff', cornerRadius: '8px', borderWidth: '1px', borderColor: '#eeeeee',
+    contents: [
+      {
+        type: 'box', layout: 'horizontal',
+        contents: [
+          { type: 'text', text: log.type || 'สแกน', weight: 'bold', size: 'xs', color: '#1a5276', flex: 2 },
+          { type: 'text', text: log.timestamp || '-', size: 'xxs', color: '#aaaaaa', align: 'end', flex: 3 },
+        ]
+      },
+      { type: 'text', text: log.data || '-', weight: 'bold', size: 'sm', margin: 'xs', wrap: true },
+      { type: 'text', text: `📍 ${log.address || '-'}`, size: 'xxs', color: '#666666', wrap: true, margin: 'xs' },
+      { type: 'text', text: `👤 ผู้สแกน: ${log.adminId || 'Unknown'}`, size: 'xxs', color: '#888888', margin: 'xs' },
+    ],
+    action: {
+      type: 'message',
+      label: 'ค้นหา',
+      text: log.type === 'บัตรประชาชน' ? `ค้นหา ${log.data}` : `ค้นหา ${log.data.split(' ')[0]}`
+    }
+  }));
+
+  if (logs.length === 0) {
+    items.push({ type: 'text', text: 'ยังไม่มีประวัติการสแกน', align: 'center', margin: 'md', color: '#888888' });
+  } else if (logs.length > 15) {
+    items.push({ type: 'text', text: `... และอีก ${logs.length - 15} รายการ`, align: 'center', margin: 'md', color: '#aaaaaa', size: 'xs' });
+  }
+
+  return {
+    type: 'flex',
+    altText: '🕵️ ประวัติการสแกนล่าสุด',
+    contents: {
+      type: 'bubble', size: 'mega',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#854d0e', paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '🕵️ ประวัติการสแกนตรวจสอบ', color: '#ffffff', weight: 'bold', size: 'md' },
+          { type: 'text', text: 'แสดง 15 รายการล่าสุดจากระบบ OCR', color: '#fef9c3', size: 'xs' },
+        ],
+      },
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '12px', backgroundColor: '#fdfbf7',
+        contents: items,
+      },
+    },
+  };
+}
+
 function buildHelpItem(title, cmd, bgColor, titleColor) {
   return {
     type: 'box', layout: 'vertical', backgroundColor: bgColor, cornerRadius: '8px', paddingAll: '10px', margin: 'sm',
@@ -330,5 +383,6 @@ module.exports = {
   buildEditConfirmFlex,
   buildAdminHelpFlex,
   buildSuspectListFlex,
+  buildOcrLogListFlex,
   ADMIN_IDS,
 };

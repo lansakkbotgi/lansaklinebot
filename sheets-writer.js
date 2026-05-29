@@ -237,6 +237,32 @@ async function logOcrScan(data, adminId) {
   }
 }
 
+/**
+ * ดึงประวัติการสแกน OCR ล่าสุด
+ */
+async function getOcrLogs() {
+  const sheets = getSheetsClient();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_LOGS}!A2:F`,
+    });
+    const rows = response.data.values || [];
+    // กลับหัวเพื่อให้เอาอันล่าสุดขึ้นก่อน (Reverse)
+    return rows.reverse().map(row => ({
+      timestamp: row[0],
+      type:      row[1],
+      data:      row[2],
+      address:   row[3],
+      adminId:   row[4],
+      confidence: row[5]
+    }));
+  } catch (err) {
+    console.error('Error loading OCR logs:', err.message);
+    return [];
+  }
+}
+
 function isConfigured() {
   const config = {
     GOOGLE_CLIENT_EMAIL: !!process.env.GOOGLE_CLIENT_EMAIL,
@@ -249,5 +275,5 @@ function isConfigured() {
 
 module.exports = { 
   appendWatchlistPerson, deletePerson, updatePersonField, 
-  trackUserInSheet, loadFollowersFromSheet, isConfigured, logOcrScan, SHEET_WATCHLIST 
+  trackUserInSheet, loadFollowersFromSheet, isConfigured, logOcrScan, getOcrLogs, SHEET_WATCHLIST 
 };

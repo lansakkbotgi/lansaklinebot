@@ -24,11 +24,11 @@ const {
   isAdmin, isAdminCommand, 
   parseAddCommand, parseDeleteCommand, parseEditCommand,
   buildAddConfirmFlex, buildDeleteConfirmFlex, buildEditConfirmFlex, 
-  buildAdminHelpFlex, buildSuspectListFlex, ADMIN_IDS
+  buildAdminHelpFlex, buildSuspectListFlex, buildOcrLogListFlex, ADMIN_IDS
 } = require('./admin');
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
-  loadFollowersFromSheet, logOcrScan,
+  loadFollowersFromSheet, logOcrScan, getOcrLogs,
   isConfigured: isSheetConfigured 
 } = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
@@ -209,6 +209,11 @@ async function handleEvent(event) {
     if (userText === '/รายชื่อ') {
       const suspects = await fetchAllData();
       return replyMessage(replyToken, buildSuspectListFlex(suspects));
+    }
+
+    if (userText === '/แสดงรายชื่อที่ตรวจสอบ') {
+      const logs = await getOcrLogs();
+      return replyMessage(replyToken, buildOcrLogListFlex(logs));
     }
 
     if (userText === '/สถิติ' || userText === '/สถานะ') {
