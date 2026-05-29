@@ -20,6 +20,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PERSONNEL   = 'บุคลากร สภ.';   // ทำเนียบบุคลากร
 const SHEET_SUSPECTS    = 'ผู้ต้องหา';      // ข้อมูลผู้ต้องหา/หมายจับ
 const SHEET_LEADERS     = 'ผู้นำตำบล';      // ทำเนียบผู้นำตำบล
+const SHEET_LOCATIONS   = 'บันทึกสถานที่';   // ข้อมูลสถานที่ที่บันทึก
 const SHEET_NAME = SHEET_SUSPECTS;           // default sheet สำหรับ fetchAllData()
 
 // Cache แยกแต่ละ sheet
@@ -95,6 +96,20 @@ async function fetchSheet(sheetName) {
         sheetType:  'leader',
       })).filter(p => p.firstName);
 
+    } else if (sheetName === SHEET_LOCATIONS) {
+      // ── บันทึกสถานที่ ──
+      // A=วัน/เวลา B=ชื่อสถานที่ C=ที่อยู่ D=Lat E=Long F=ผู้บันทึก G=สถานะ/คดี
+      data = dataRows.map(row => ({
+        dateTime:  (row[0] || '').trim(),
+        title:     (row[1] || '').trim(),
+        address:   (row[2] || '').trim(),
+        latitude:  (row[3] || '').trim(),
+        longitude: (row[4] || '').trim(),
+        user:      (row[5] || '').trim(),
+        status:    (row[6] || '').trim(),
+        sheetType: 'location',
+      }));
+
     } else {
       // ── ผู้ต้องหา (default) ──
       // A=ยศ  B=ชื่อ  C=นามสกุล  D=คดี  E=สถานะ  F=พื้นที่  G=หมายเลขคดี  H=วันที่บันทึก
@@ -140,6 +155,13 @@ async function fetchPersonnel() {
  */
 async function fetchLeaders() {
   return fetchSheet(SHEET_LEADERS);
+}
+
+/**
+ * ดึงข้อมูลสถานที่ที่บันทึกไว้
+ */
+async function fetchLocations() {
+  return fetchSheet(SHEET_LOCATIONS);
 }
 
 /**
@@ -235,4 +257,4 @@ async function searchByPhone(query) {
   ];
 }
 
-module.exports = { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache, caches };
+module.exports = { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchLocations, clearCache, caches };

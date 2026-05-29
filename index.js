@@ -6,7 +6,7 @@
 require('dotenv').config();
 const line    = require('@line/bot-sdk');
 const express = require('express');
-const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache, caches } = require('./database');
+const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchLocations, clearCache, caches } = require('./database');
 const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
   buildWebsiteFlex, buildPersonnelMenuFlex, buildPersonnelCardFlex, buildPersonnelCarouselFlex,
@@ -16,6 +16,7 @@ const {
   buildQuickAddFlex,
   buildDeepPhoneSearchFlex,
   buildSmartCard,
+  buildLocationListFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -28,6 +29,7 @@ const {
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
   trackUserInSheet, loadFollowersFromSheet,
+  appendLocationRecord,
   isConfigured: isSheetConfigured 
 } = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
@@ -96,6 +98,23 @@ async function handleEvent(event) {
     return;
   }
 
+  if (event.type === 'message' && event.message.type === 'location') {
+    const loc = event.message;
+    let userName = 'ไม่ระบุชื่อ';
+    try {
+      const profile = await client.getProfile(userId);
+      userName = profile.displayName;
+    } catch (err) { console.error('Get profile error:', err.message); }
+
+    try {
+      await appendLocationRecord(loc, userName);
+      return replyText(replyToken, `📍 บันทึกสถานที่เรียบร้อยแล้วครับ\n🏠 ${loc.address || loc.title || 'ไม่ระบุที่อยู่'}\n👮 ผู้บันทึก: ${userName}\n⚖️ สถานะ: รอดำเนินการ`);
+    } catch (err) {
+      console.error('Location record error:', err.message);
+      return replyText(replyToken, '❌ ไม่สามารถบันทึกสถานที่ได้ในขณะนี้');
+    }
+  }
+
   // รองรับทั้ง Message และ Postback (สำหรับปุ่มกดบางประเภท)
   if (event.type !== 'message' && event.type !== 'postback') return;
 
@@ -125,7 +144,8 @@ async function handleEvent(event) {
     const isMainKeywords = [
       'ทำเนียบบุคลากร', 'ทำเนียบผู้นำตำบล', 'ผู้นำตำบล', 
       'บุคลากร', 'ตำรวจ', 'เว็บไซต์', 'ข้อมูลสถานี', 
-      'เมนู', 'สวัสดี', 'เริ่ม', 'help', 'รีเฟรช'
+      'เมนู', 'สวัสดี', 'เริ่ม', 'help', 'รีเฟรช',
+      'รายการสถานที่'
     ].some(k => userText === k || userText.startsWith(k + ' '));
 
     // ถ้าไม่ตรงตามเงื่อนไขเป๊ะๆ นี้ "ห้ามตอบเด็ดขาด" ในกลุ่ม
@@ -155,6 +175,16 @@ async function handleEvent(event) {
     if (userText === '/รายชื่อ') {
       const suspects = await fetchAllData();
       return replyMessage(replyToken, buildSuspectListFlex(suspects));
+    }
+
+    if (userText === '/รายการสถานที่') {
+      try {
+        const locations = await fetchLocations();
+        return replyMessage(replyToken, buildLocationListFlex(locations));
+      } catch (err) {
+        console.error('Fetch locations error:', err.message);
+        return replyText(replyToken, '❌ ไม่สามารถดึงข้อมูลสถานที่ได้ในขณะนี้');
+      }
     }
 
     if (userText === '/สถิติ' || userText === '/สถานะ') {

@@ -933,6 +933,7 @@ function buildAllCommandsFlex(isAdminUser) {
     { title: '➕ เพิ่มข้อมูล', desc: '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | ...' },
     { title: '✏️ แก้ไขข้อมูล', desc: '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่' },
     { title: '❌ ลบข้อมูล', desc: '/ลบ ชื่อ นามสกุล' },
+    { title: '📍 รายการสถานที่', desc: '/รายการสถานที่' },
     { title: '📢 Broadcast', desc: '/broadcast [ข้อความ]' },
     { title: '🔄 ล้าง Cache', desc: '/ล้างcache' },
     { title: '📊 สถิติระบบ', desc: '/สถิติ หรือ /สถานะ' },
@@ -1221,6 +1222,132 @@ function buildDeepPhoneSearchFlex(phone, carrierInfo, localResults = []) {
   };
 }
 
+/**
+ * สร้าง Flex Message แสดงรายการสถานที่ที่บันทึกไว้
+ */
+function buildLocationListFlex(locations) {
+  const items = locations.slice(-10).reverse(); // แสดง 10 รายการล่าสุด
+  
+  const contents = items.map(loc => ({
+    type: 'box',
+    layout: 'vertical',
+    margin: 'md',
+    paddingAll: 'sm',
+    backgroundColor: '#f1f8e9',
+    cornerRadius: 'md',
+    contents: [
+      {
+        type: 'text',
+        text: `📅 ${loc.dateTime}`,
+        size: 'xs',
+        color: '#558b2f',
+        weight: 'bold'
+      },
+      {
+        type: 'text',
+        text: `📍 ${loc.title || 'สถานที่ไม่มีชื่อ'}`,
+        size: 'sm',
+        weight: 'bold',
+        margin: 'xs',
+        wrap: true
+      },
+      {
+        type: 'text',
+        text: loc.address || '-',
+        size: 'xs',
+        color: '#666666',
+        wrap: true,
+        margin: 'xs'
+      },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: `👮 ผู้บันทึก: ${loc.user}`,
+            size: 'xxs',
+            color: '#888888',
+            flex: 4
+          },
+          {
+            type: 'text',
+            text: '🌐 ดูแผนที่',
+            size: 'xxs',
+            color: '#1a73e8',
+            align: 'end',
+            flex: 2,
+            action: {
+              type: 'uri',
+              label: 'Map',
+              uri: `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`
+            }
+          }
+        ]
+      },
+      {
+        type: 'text',
+        text: `⚖️ สถานะ: ${loc.status}`,
+        size: 'xxs',
+        color: '#c62828',
+        margin: 'xs'
+      }
+    ]
+  }));
+
+  if (contents.length === 0) {
+    contents.push({
+      type: 'text',
+      text: 'ไม่พบข้อมูลสถานที่ในระบบ',
+      align: 'center',
+      color: '#aaaaaa',
+      margin: 'lg'
+    });
+  }
+
+  return {
+    type: 'flex',
+    altText: 'รายการสถานที่ล่าสุด',
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#2e7d32',
+        contents: [
+          {
+            type: 'text',
+            text: '📍 รายการสถานที่ที่บันทึก',
+            color: '#ffffff',
+            weight: 'bold',
+            size: 'md'
+          }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: contents
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'แสดง 10 รายการล่าสุด',
+            size: 'xxs',
+            color: '#aaaaaa',
+            align: 'center'
+          }
+        ]
+      }
+    }
+  };
+}
+
 module.exports = {
   buildResultFlex,
   buildCarouselFlex,
@@ -1239,4 +1366,6 @@ module.exports = {
   buildQuickAddFlex,
   buildDeepPhoneSearchFlex,
   buildSmartCard,
+  buildLocationListFlex,
+};
 };

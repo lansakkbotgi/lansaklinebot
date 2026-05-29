@@ -6,6 +6,40 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 // Sheet ที่จะเขียน (ตรงกับ tab ใน Google Sheets)
 const SHEET_WATCHLIST = 'ผู้ต้องหา';
 const SHEET_USERS     = 'รายชื่อผู้ใช้'; // แผ่นงานใหม่สำหรับเก็บ ID คนใช้บอท
+const SHEET_LOCATIONS = 'บันทึกสถานที่'; // แผ่นงานสำหรับบันทึกสถานที่
+
+/**
+ * บันทึกสถานที่ลง Google Sheets
+ */
+async function appendLocationRecord(locationData, userName) {
+  const sheets = getSheetsClient();
+  const now = new Date();
+  const dateTimeStr = now.toLocaleString('th-TH', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone: 'Asia/Bangkok',
+  });
+
+  const row = [
+    dateTimeStr,
+    locationData.title || '',
+    locationData.address || '',
+    locationData.latitude,
+    locationData.longitude,
+    userName || 'Unknown',
+    'รอดำเนินการ' // สถานะ/คดี
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_LOCATIONS}!A:G`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [row] },
+  });
+
+  return { success: true, row };
+}
 
 /**
  * สร้าง Google Sheets client ด้วย Service Account
@@ -216,5 +250,6 @@ function isConfigured() {
 
 module.exports = { 
   appendWatchlistPerson, deletePerson, updatePersonField, 
-  trackUserInSheet, loadFollowersFromSheet, isConfigured, SHEET_WATCHLIST 
+  trackUserInSheet, loadFollowersFromSheet, isConfigured, SHEET_WATCHLIST,
+  appendLocationRecord
 };
