@@ -55,8 +55,8 @@ async function analyzeImage(imageBuffer, mimeType) {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // ใช้ 1.5-flash เพราะเก่งเรื่อง OCR และรวดเร็ว
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+    // ใช้ v1beta เพราะ v1 (Stable) อาจจะยังไม่รองรับ 1.5-flash สำหรับ image analysis ในบางภูมิภาค
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1beta' });
 
     const prompt = `
       คุณคือผู้เชี่ยวชาญด้าน OCR ของตำรวจไทย หน้าที่ของคุณคือสกัดข้อมูลจากรูปภาพที่ส่งมาอย่างแม่นยำที่สุด:
