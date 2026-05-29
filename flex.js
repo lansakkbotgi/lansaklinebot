@@ -1228,7 +1228,13 @@ function buildOcrResultFlex(ocrData, localResults = []) {
       contents: [
         { type: 'text', text: ocrData.type === 'id_card' ? '🪪 ผลการสแกนบัตรประชาชน' : '🚘 ผลการสแกนป้ายทะเบียน', weight: 'bold', size: 'md', color: '#1a3a6e' },
         ocrData.type === 'id_card' 
-          ? { type: 'text', text: `👤 ชื่อ-นามสกุล: ${ocrData.firstName} ${ocrData.lastName}`, size: 'sm', weight: 'bold' }
+          ? { 
+              type: 'box', layout: 'vertical', spacing: 'xs',
+              contents: [
+                { type: 'text', text: `👤 ชื่อ-นามสกุล: ${ocrData.firstName} ${ocrData.lastName}`, size: 'sm', weight: 'bold' },
+                { type: 'text', text: `🏠 ที่อยู่: ${ocrData.address || '-'}`, size: 'xs', color: '#555555', wrap: true }
+              ]
+            }
           : { type: 'text', text: `🔢 ทะเบียนรถ: ${ocrData.plateNo} ${ocrData.province}`, size: 'sm', weight: 'bold' },
         { type: 'text', text: `🎯 ความแม่นยำ AI: ${(ocrData.confidence * 100).toFixed(0)}%`, size: 'xs', color: '#888888' }
       ]
