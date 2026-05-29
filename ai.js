@@ -55,23 +55,33 @@ async function analyzeImage(imageBuffer, mimeType) {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    // ใช้ 1.5-flash เพราะเก่งเรื่อง OCR และรวดเร็ว
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
 
     const prompt = `
-      คุณคือผู้ช่วยตำรวจ หน้าที่ของคุณคือสกัดข้อมูลจากรูปภาพที่ส่งมา:
-      1. หากเป็น "บัตรประชาชน": ให้สกัด ชื่อ, นามสกุล และ "ที่อยู่ตามบัตร" เป็นภาษาไทย (ไม่ต้องมียศ เช่น นาย/นาง/นางสาว)
-      2. หากเป็น "ป้ายทะเบียนรถ": ให้สกัด เลขทะเบียน และ จังหวัด
+      คุณคือผู้เชี่ยวชาญด้าน OCR ของตำรวจไทย หน้าที่ของคุณคือสกัดข้อมูลจากรูปภาพที่ส่งมาอย่างแม่นยำที่สุด:
       
-      ตอบกลับเป็น JSON รูปแบบนี้เท่านั้น (ห้ามมีคำอธิบายอื่น):
+      กรณีที่ 1: "บัตรประชาชน"
+      - สกัด ชื่อ (firstName) และ นามสกุล (lastName) เป็นภาษาไทย
+      - ไม่ต้องใส่คำนำหน้า (นาย/นาง/นางสาว)
+      - สกัด "ที่อยู่ตามบัตร" (address) ให้ครบถ้วนที่สุด
+      
+      กรณีที่ 2: "ป้ายทะเบียนรถ"
+      - สกัด เลขทะเบียน (plateNo) เช่น "1กข 1234"
+      - สกัด จังหวัด (province) เช่น "อุทัยธานี"
+      
+      ตอบกลับเป็น JSON รูปแบบนี้เท่านั้น (ห้ามมีคำพูดอื่นนอกเหนือจาก JSON):
       {
         "type": "id_card" หรือ "license_plate",
-        "firstName": "ชื่อ",
-        "lastName": "นามสกุล",
-        "address": "ที่อยู่เต็มตามบัตร (ถ้ามี)",
-        "plateNo": "เลขทะเบียน",
-        "province": "จังหวัด",
+        "firstName": "...",
+        "lastName": "...",
+        "address": "...",
+        "plateNo": "...",
+        "province": "...",
         "confidence": 0-1
       }
+      
+      สำคัญ: หากสแกนไม่สำเร็จหรือไม่มั่นใจ ให้ใส่ค่าเป็น null ในฟิลด์นั้นๆ แต่ยังคงส่งรูปแบบ JSON เดิมมา
     `;
 
     const result = await model.generateContent([
@@ -85,14 +95,25 @@ async function analyzeImage(imageBuffer, mimeType) {
     ]);
 
     const response = await result.response;
-    let text = response.text().trim();
+    const rawText = response.text().trim();
+    console.log('🤖 Raw AI OCR Response:', rawText);
     
-    // ทำความสะอาด JSON (เผื่อ AI ใส่ markdown ```json มา)
-    text = text.replace(/```json|```/g, '').trim();
+    // พยายามหา JSON ภายในข้อความ (กรณี AI แอบใส่คำนำหน้ามา)
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('❌ AI did not return a valid JSON format');
+      return null;
+    }
     
-    return JSON.parse(text);
+    const cleanJson = jsonMatch[0].replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    // ตรวจสอบความถูกต้องเบื้องต้น
+    if (!parsed.type) return null;
+    
+    return parsed;
   } catch (err) {
-    console.error('Analyze Image Error:', err.message);
+    console.error('Analyze Image Error:', err.stack || err.message);
     return null;
   }
 }
