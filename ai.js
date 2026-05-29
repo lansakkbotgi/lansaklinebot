@@ -17,8 +17,8 @@ async function askAI(userQuestion, sheetContext) {
 
   for (const modelName of modelNames) {
     try {
-      // ระบุเวอร์ชัน API เป็น v1
-      const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion: 'v1' });
+      // เอา apiVersion ออกเพื่อให้ SDK เลือกตัวที่เหมาะสมที่สุดเองตามเวอร์ชันของ Library
+      const model = genAI.getGenerativeModel({ model: modelName });
       
       const systemPrompt = `
         คุณคือ "ผู้ช่วยอัจฉริยะ สายตรวจภูธรลานสัก"
@@ -66,8 +66,9 @@ async function analyzeImage(imageBuffer, mimeType) {
 
   for (const modelName of modelNames) {
     try {
-      console.log(`Trying OCR with model: ${modelName} (v1beta)`);
-      const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion: 'v1beta' });
+      console.log(`Trying OCR with model: ${modelName}`);
+      // เอา apiVersion ออกเพื่อให้ SDK เลือกตัวที่เหมาะสมที่สุดเอง
+      const model = genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `
         คุณคือผู้เชี่ยวชาญด้าน OCR ของตำรวจไทย หน้าที่ของคุณคือสกัดข้อมูลจากรูปภาพที่ส่งมาอย่างแม่นยำที่สุด:
