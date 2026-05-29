@@ -23,7 +23,7 @@ const {
   isAdmin, isAdminCommand, 
   parseAddCommand, parseDeleteCommand, parseEditCommand,
   buildAddConfirmFlex, buildDeleteConfirmFlex, buildEditConfirmFlex, 
-  buildAdminHelpFlex, ADMIN_IDS
+  buildAdminHelpFlex, buildSuspectListFlex, ADMIN_IDS
 } = require('./admin');
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
@@ -152,6 +152,11 @@ async function handleEvent(event) {
     if (userText === '/adminhelp') return replyMessage(replyToken, buildAdminHelpFlex());
     if (userText === '/ล้างcache') { clearCache(); return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อยครับ'); }
     
+    if (userText === '/รายชื่อ') {
+      const suspects = await fetchAllData();
+      return replyMessage(replyToken, buildSuspectListFlex(suspects));
+    }
+
     if (userText === '/สถิติ' || userText === '/สถานะ') {
       const [suspects, personnel, leaders, followers] = await Promise.all([
         fetchAllData(), 

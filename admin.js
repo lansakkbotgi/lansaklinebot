@@ -220,12 +220,77 @@ function buildAdminHelpFlex() {
         type: 'box', layout: 'vertical', paddingAll: '12px', spacing: 'sm',
         contents: [
           buildHelpItem('➕ เพิ่มบุคคล', '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี', '#f0f4ff', '#1a3a6e'),
+          buildHelpItem('📋 รายชื่อผู้ต้องหา', '/รายชื่อ', '#f0fff4', '#27ae60'),
           buildHelpItem('🗑️ ลบบุคคล', '/ลบ ชื่อ นามสกุล', '#fff5f5', '#c53030'),
           buildHelpItem('✏️ แก้ไขข้อมูล', '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่', '#fffaf0', '#b45309'),
           buildHelpItem('📊 ดูระบบ', '/สถิติ, /สถานะ, /ล้างcache', '#f7fafc', '#4a5568'),
           buildHelpItem('🆔 ดู ID', '/whoami', '#fafafa', '#555555'),
         ],
       },
+    },
+  };
+}
+
+/**
+ * สร้าง Flex Message แสดงรายชื่อผู้ต้องหาทั้งหมด (สำหรับ Admin)
+ */
+function buildSuspectListFlex(suspects) {
+  const items = suspects.slice(0, 20).map(s => ({
+    type: 'box', layout: 'horizontal', paddingAll: '8px', margin: 'sm', backgroundColor: '#f8f9fa', cornerRadius: '8px',
+    contents: [
+      {
+        type: 'box', layout: 'vertical', flex: 4,
+        contents: [
+          { type: 'text', text: `${s.rank} ${s.firstName} ${s.lastName}`.trim(), weight: 'bold', size: 'sm', wrap: true },
+          { type: 'text', text: s.crime || '-', color: '#888888', size: 'xs', wrap: true },
+        ],
+      },
+      {
+        type: 'box', layout: 'vertical', flex: 2, justifyContent: 'center',
+        contents: [
+          { 
+            type: 'text', text: s.status || 'เฝ้าระวัง', 
+            color: s.status === 'มีหมายจับ' ? '#cc3333' : '#e67e22', 
+            size: 'xs', weight: 'bold', align: 'end' 
+          },
+        ],
+      },
+    ],
+    action: {
+      type: 'message',
+      label: 'ดูรายละเอียด',
+      text: `ค้นหา ${s.firstName} ${s.lastName}`
+    }
+  }));
+
+  if (suspects.length === 0) {
+    items.push({ type: 'text', text: 'ไม่พบข้อมูลผู้ต้องหา', align: 'center', margin: 'md', color: '#888888' });
+  } else if (suspects.length > 20) {
+    items.push({ type: 'text', text: `... และอีก ${suspects.length - 20} รายการ`, align: 'center', margin: 'md', color: '#aaaaaa', size: 'xs' });
+  }
+
+  return {
+    type: 'flex',
+    altText: '📋 รายชื่อผู้ต้องหา/เฝ้าระวัง',
+    contents: {
+      type: 'bubble', size: 'mega',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#1a5276', paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '📋 รายชื่อผู้ต้องหา/เฝ้าระวัง', color: '#ffffff', weight: 'bold', size: 'md' },
+          { type: 'text', text: `ทั้งหมด ${suspects.length} รายการ`, color: '#aed6f1', size: 'xs' },
+        ],
+      },
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '12px',
+        contents: items,
+      },
+      footer: {
+        type: 'box', layout: 'vertical', paddingAll: '8px',
+        contents: [
+          { type: 'text', text: 'แตะที่รายชื่อเพื่อดูรายละเอียด', size: 'xxs', color: '#aaaaaa', align: 'center' }
+        ]
+      }
     },
   };
 }
@@ -264,5 +329,6 @@ module.exports = {
   buildDeleteConfirmFlex,
   buildEditConfirmFlex,
   buildAdminHelpFlex,
+  buildSuspectListFlex,
   ADMIN_IDS,
 };

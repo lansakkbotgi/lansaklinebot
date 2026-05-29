@@ -153,28 +153,28 @@ async function searchByName(query) {
     fetchLeaders(),
   ]);
 
-  const q = query.replace(/\s+/g, '').toLowerCase();
+  const q = query.replace(/[\s\u200B-\u200D\uFEFF]+/g, '').toLowerCase();
 
   function match(p) {
-    const qLower = q.toLowerCase();
+    // ฟังก์ชันช่วยทำความสะอาดข้อความสำหรับการเปรียบเทียบ
+    const clean = (str) => (str || '').toString().replace(/[\s\u200B-\u200D\uFEFF]+/g, '').toLowerCase();
+    const qClean = clean(q);
     
-    // ค้นหาแบบละเอียด: รวมทุกฟิลด์เข้าด้วยกันแล้วค้นทีเดียว
-    // วิธีนี้จะช่วยให้หาเจอแม้ข้อมูลจะเยื้องคอลัมน์
+    // 1. ค้นหาแบบรวมทุกฟิลด์ (Deep Search)
     const allText = Object.values(p)
-      .filter(val => typeof val === 'string')
-      .join('')
-      .replace(/\s+/g, '')
-      .toLowerCase();
+      .filter(val => val !== null && val !== undefined)
+      .map(val => clean(val.toString()))
+      .join('');
 
-    if (allText.includes(qLower)) return true;
+    if (allText.includes(qClean)) return true;
 
-    // ค้นหาแบบแยกชื่อ-นามสกุล (เผื่อกรณีพิมพ์เว้นวรรค)
-    const full = (p.fullName || '').replace(/\s+/g, '').toLowerCase();
-    const name = ((p.firstName || '') + (p.lastName || '')).replace(/\s+/g, '').toLowerCase();
-    const pos  = (p.position || p.rank || '').replace(/\s+/g, '').toLowerCase();
-    const vill = (p.village  || p.area || '').replace(/\s+/g, '').toLowerCase();
+    // 2. ค้นหาเจาะจงฟิลด์สำคัญ
+    const fullName  = clean(p.fullName);
+    const firstLast = clean((p.firstName || '') + (p.lastName || ''));
+    const pos       = clean(p.position || p.rank);
+    const area      = clean(p.area || p.village);
     
-    return full.includes(qLower) || name.includes(qLower) || pos.includes(qLower) || vill.includes(qLower);
+    return fullName.includes(qClean) || firstLast.includes(qClean) || pos.includes(qClean) || area.includes(qClean);
   }
 
   return [
