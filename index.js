@@ -6,7 +6,7 @@
 require('dotenv').config();
 const line    = require('@line/bot-sdk');
 const express = require('express');
-const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchHistory, clearCache, caches } = require('./database');
+const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache, caches } = require('./database');
 const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
   buildWebsiteFlex, buildPersonnelMenuFlex, buildPersonnelCardFlex, buildPersonnelCarouselFlex,
@@ -16,7 +16,6 @@ const {
   buildQuickAddFlex,
   buildDeepPhoneSearchFlex,
   buildSmartCard,
-  buildHistoryListFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -28,12 +27,11 @@ const {
 } = require('./admin');
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
-  loadFollowersFromSheet,
-  appendHistorySummary,
+  trackUserInSheet, loadFollowersFromSheet,
   isConfigured: isSheetConfigured 
 } = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
-const { askAI, summarizeHistory } = require('./ai');
+const { askAI } = require('./ai');
 
 // ===== Line SDK Config =====
 const lineConfig = {
@@ -204,72 +202,6 @@ async function handleEvent(event) {
       await replyText(replyToken, '📤 กำลังส่งข้อความ...');
       const res = await broadcastToAll(client, msg);
       return client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(res, msg)] });
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // [3] คำสั่งสรุปประวัติ (AI Summary)
-  // ─────────────────────────────────────────────────────────
-  if (userText.includes('สรุปข้อมูลประวัติ')) {
-    const rawData = userText.replace('/สรุปข้อมูลประวัติ', '').replace('สรุปข้อมูลประวัติ', '').trim();
-    if (!rawData) return replyText(replyToken, '📝 กรุณาส่งข้อมูลที่ต้องการสรุปมาด้วยครับ\nตัวอย่าง: /สรุปข้อมูลประวัติ [ข้อความจากบัตร]');
-
-    // ส่งข้อความตอบรับก่อน (เพราะ AI อาจใช้เวลานาน)
-    await replyText(replyToken, '⏳ กำลังวิเคราะห์และสรุปข้อมูลด้วย AI สักครู่ครับ...');
-
-    try {
-      const result = await summarizeHistory(rawData);
-      if (!result.success) {
-        return client.pushMessage({
-          to: sourceId,
-          messages: [{ type: 'text', text: `❌ AI ไม่สามารถสรุปข้อมูลได้: ${result.error}` }]
-        });
-      }
-
-      const summary = result.data;
-
-      // ดึงชื่อผู้ใช้
-      let userName = 'ไม่ระบุชื่อ';
-      try {
-        const profile = await client.getProfile(userId);
-        userName = profile.displayName;
-      } catch (err) { console.error('Get profile error:', err.message); }
-
-      // บันทึกลง Google Sheets
-      try {
-        await appendHistorySummary(summary, userName);
-      } catch (sheetErr) {
-        console.error('Sheet Append Error:', sheetErr.message);
-        return client.pushMessage({
-          to: sourceId,
-          messages: [{ type: 'text', text: `⚠️ สรุปข้อมูลสำเร็จ แต่บันทึกลง Sheet ล้มเหลว: ${sheetErr.message}` }]
-        });
-      }
-
-      const responseText = `✅ สรุปข้อมูลเรียบร้อยแล้วครับ\n\n📄 ประเภท: ${summary.type}\n👤 ข้อมูล: ${summary.data}\n🏠 ที่อยู่: ${summary.address}\n🎯 ความแม่นยำ: ${summary.accuracy}\n⚖️ สถานะ/คดี: ${summary.status}`;
-      
-      return client.pushMessage({
-        to: sourceId,
-        messages: [{ type: 'text', text: responseText }]
-      });
-
-    } catch (err) {
-      console.error('Summary command error:', err);
-      // ใช้ pushMessage เพราะ replyToken น่าจะถูกใช้ไปแล้วหรือหมดอายุ
-      return client.pushMessage({
-        to: sourceId,
-        messages: [{ type: 'text', text: `❌ เกิดข้อผิดพลาดขัดข้องในระบบ AI ครับ: ${err.message}` }]
-      });
-    }
-  }
-
-  if (userText.includes('แสดงรายชื่อข้อมูลประวัติ')) {
-    try {
-      const historyList = await fetchHistory();
-      return replyMessage(replyToken, buildHistoryListFlex(historyList));
-    } catch (err) {
-      console.error('Fetch history error:', err);
-      return replyText(replyToken, '❌ ไม่สามารถดึงข้อมูลประวัติได้ในขณะนี้');
     }
   }
 
