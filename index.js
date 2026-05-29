@@ -78,8 +78,9 @@ async function handleEvent(event) {
         const profile = await client.getProfile(userId);
         trackUser(userId, profile.displayName);
         
-        // ส่งข้อความต้อนรับพร้อมรายการคำสั่ง
-        const welcomeText = `👋 สวัสดีครับ ${profile.displayName}!\nขอบคุณที่ติดตาม Bot สายตรวจภูธรลานสัก\n\n📌 นี่คือรายการคำสั่งที่คุณสามารถใช้งานได้ครับ:`;
+        // ส่งข้อความต้อนรับพร้อมรายการคำสั่งทั้งหมด
+        const welcomeText = `👋 สวัสดีครับคุณ ${profile.displayName}!\nยินดีต้อนรับสู่ระบบสายตรวจภูธรลานสักครับ\n\nนี่คือรายการคำสั่งทั้งหมดที่ท่านสามารถใช้งานได้ในตอนนี้ครับ:`;
+        
         return client.replyMessage({
           replyToken: replyToken,
           messages: [
