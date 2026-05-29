@@ -63,10 +63,12 @@ async function handleEvent(event) {
   const groupId  = event.source?.groupId;
   const roomId   = event.source?.roomId;
   const sourceId = groupId || roomId || userId; // ID สำหรับส่งข้อความกลับ
+  const replyToken = event.replyToken;
+  const isGroup    = event.source.type === 'group' || event.source.type === 'room';
 
   // ── เมื่อบอตถูกดึงเข้ากลุ่ม ──
   if (event.type === 'join') {
-    return replyText(event.replyToken, '👮 สวัสดีครับ! ผมบอตผู้ช่วยสายตรวจภูธรลานสัก พร้อมให้บริการในกลุ่มนี้แล้วครับ\n\n📌 พิมพ์ "เมนู" เพื่อดูสิ่งที่ผมทำได้ครับ');
+    return replyText(replyToken, '👮 สวัสดีครับ! ผมบอตผู้ช่วยสายตรวจภูธรลานสัก พร้อมให้บริการในกลุ่มนี้แล้วครับ\n\n📌 พิมพ์ "เมนู" เพื่อดูสิ่งที่ผมทำได้ครับ');
   }
 
   // ── ติดตาม Follow Event ──
@@ -79,7 +81,7 @@ async function handleEvent(event) {
         // ส่งข้อความต้อนรับพร้อมรายการคำสั่ง
         const welcomeText = `👋 สวัสดีครับ ${profile.displayName}!\nขอบคุณที่ติดตาม Bot สายตรวจภูธรลานสัก\n\n📌 นี่คือรายการคำสั่งที่คุณสามารถใช้งานได้ครับ:`;
         return client.replyMessage({
-          replyToken: event.replyToken,
+          replyToken: replyToken,
           messages: [
             { type: 'text', text: welcomeText },
             buildAllCommandsFlex(isAdmin(userId))
@@ -127,9 +129,6 @@ async function handleEvent(event) {
   }
 
   if (!userText) return;
-
-  const replyToken = event.replyToken;
-  const isGroup    = event.source.type === 'group' || event.source.type === 'room';
 
   console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
 
