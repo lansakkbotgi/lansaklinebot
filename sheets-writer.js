@@ -204,65 +204,6 @@ async function loadFollowersFromSheet() {
   }
 }
 
-const SHEET_LOGS      = 'บันทึกการสแกน'; // แผ่นงานสำหรับเก็บประวัติการสแกน OCR
-
-/**
- * บันทึกประวัติการสแกน OCR
- */
-async function logOcrScan(data, adminId) {
-  const sheets = getSheetsClient();
-  const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-  
-  const row = [
-    now,
-    data.type === 'id_card' ? 'บัตรประชาชน' : 'ป้ายทะเบียน',
-    data.type === 'id_card' ? `${data.firstName} ${data.lastName}` : `${data.plateNo} ${data.province}`,
-    data.address || '-',
-    adminId || 'Unknown',
-    `ความแม่นยำ: ${(data.confidence * 100).toFixed(0)}%`
-  ];
-
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_LOGS}!A2:F`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [row] },
-    });
-    return true;
-  } catch (e) {
-    console.error('Error logging OCR scan:', e.message);
-    return false;
-  }
-}
-
-/**
- * ดึงประวัติการสแกน OCR ล่าสุด
- */
-async function getOcrLogs() {
-  const sheets = getSheetsClient();
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_LOGS}!A2:F`,
-    });
-    const rows = response.data.values || [];
-    // กลับหัวเพื่อให้เอาอันล่าสุดขึ้นก่อน (Reverse)
-    return rows.reverse().map(row => ({
-      timestamp: row[0],
-      type:      row[1],
-      data:      row[2],
-      address:   row[3],
-      adminId:   row[4],
-      confidence: row[5]
-    }));
-  } catch (err) {
-    console.error('Error loading OCR logs:', err.message);
-    return [];
-  }
-}
-
 function isConfigured() {
   const config = {
     GOOGLE_CLIENT_EMAIL: !!process.env.GOOGLE_CLIENT_EMAIL,
@@ -275,5 +216,5 @@ function isConfigured() {
 
 module.exports = { 
   appendWatchlistPerson, deletePerson, updatePersonField, 
-  trackUserInSheet, loadFollowersFromSheet, isConfigured, logOcrScan, getOcrLogs, SHEET_WATCHLIST 
+  trackUserInSheet, loadFollowersFromSheet, isConfigured, SHEET_WATCHLIST 
 };
