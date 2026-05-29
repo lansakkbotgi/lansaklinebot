@@ -6,7 +6,7 @@
 require('dotenv').config();
 const line    = require('@line/bot-sdk');
 const express = require('express');
-const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache, caches } = require('./database');
+const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchHistory, clearCache, caches } = require('./database');
 const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
   buildWebsiteFlex, buildPersonnelMenuFlex, buildPersonnelCardFlex, buildPersonnelCarouselFlex,
@@ -16,6 +16,7 @@ const {
   buildQuickAddFlex,
   buildDeepPhoneSearchFlex,
   buildSmartCard,
+  buildHistoryListFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -28,10 +29,11 @@ const {
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
   loadFollowersFromSheet,
+  appendHistorySummary,
   isConfigured: isSheetConfigured 
 } = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
-const { askAI } = require('./ai');
+const { askAI, summarizeHistory } = require('./ai');
 
 // ===== Line SDK Config =====
 const lineConfig = {
@@ -202,6 +204,47 @@ async function handleEvent(event) {
       await replyText(replyToken, '📤 กำลังส่งข้อความ...');
       const res = await broadcastToAll(client, msg);
       return client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(res, msg)] });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // [3] คำสั่งสรุปประวัติ (AI Summary)
+  // ─────────────────────────────────────────────────────────
+  if (userText.includes('สรุปข้อมูลประวัติ')) {
+    const rawData = userText.replace('/สรุปข้อมูลประวัติ', '').replace('สรุปข้อมูลประวัติ', '').trim();
+    if (!rawData) return replyText(replyToken, '📝 กรุณาส่งข้อมูลที่ต้องการสรุปมาด้วยครับ\nตัวอย่าง: /สรุปข้อมูลประวัติ [ข้อความจากบัตร]');
+
+    await replyText(replyToken, '⏳ กำลังวิเคราะห์และสรุปข้อมูลด้วย AI สักครู่ครับ...');
+
+    try {
+      const summary = await summarizeHistory(rawData);
+      if (!summary) return replyText(replyToken, '❌ AI ไม่สามารถสรุปข้อมูลได้ในขณะนี้');
+
+      // ดึงชื่อผู้ใช้
+      let userName = 'ไม่ระบุชื่อ';
+      try {
+        const profile = await client.getProfile(userId);
+        userName = profile.displayName;
+      } catch (err) { console.error('Get profile error:', err); }
+
+      // บันทึกลง Google Sheets
+      await appendHistorySummary(summary, userName);
+
+      const responseText = `✅ สรุปข้อมูลเรียบร้อยและบันทึกลงระบบแล้วครับ\n\n📄 ประเภท: ${summary.type}\n👤 ข้อมูล: ${summary.data}\n🏠 ที่อยู่: ${summary.address}\n🎯 ความแม่นยำ: ${summary.accuracy}\n⚖️ สถานะ/คดี: ${summary.status}`;
+      return replyText(replyToken, responseText);
+    } catch (err) {
+      console.error('Summary command error:', err);
+      return replyText(replyToken, '❌ เกิดข้อผิดพลาดในการบันทึกข้อมูลครับ');
+    }
+  }
+
+  if (userText.includes('แสดงรายชื่อข้อมูลประวัติ')) {
+    try {
+      const historyList = await fetchHistory();
+      return replyMessage(replyToken, buildHistoryListFlex(historyList));
+    } catch (err) {
+      console.error('Fetch history error:', err);
+      return replyText(replyToken, '❌ ไม่สามารถดึงข้อมูลประวัติได้ในขณะนี้');
     }
   }
 

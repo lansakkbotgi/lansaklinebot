@@ -20,6 +20,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PERSONNEL   = 'บุคลากร สภ.';   // ทำเนียบบุคลากร
 const SHEET_SUSPECTS    = 'ผู้ต้องหา';      // ข้อมูลผู้ต้องหา/หมายจับ
 const SHEET_LEADERS     = 'ผู้นำตำบล';      // ทำเนียบผู้นำตำบล
+const SHEET_HISTORY     = 'สรุปข้อมูลประวัติ'; // ข้อมูลประวัติที่สรุปแล้ว
 const SHEET_NAME = SHEET_SUSPECTS;           // default sheet สำหรับ fetchAllData()
 
 // Cache แยกแต่ละ sheet
@@ -95,6 +96,20 @@ async function fetchSheet(sheetName) {
         sheetType:  'leader',
       })).filter(p => p.firstName);
 
+    } else if (sheetName === SHEET_HISTORY) {
+      // ── สรุปข้อมูลประวัติ ──
+      // A=วัน/เวลา B=ประเภท C=ข้อมูลที่แสกน D=ที่อยู่ E=ผู้สแกน F=ความแม่นยำ G=สถานะ/คดี
+      data = dataRows.map(row => ({
+        dateTime:  (row[0] || '').trim(),
+        type:      (row[1] || '').trim(),
+        data:      (row[2] || '').trim(),
+        address:   (row[3] || '').trim(),
+        scanner:   (row[4] || '').trim(),
+        accuracy:  (row[5] || '').trim(),
+        status:    (row[6] || '').trim(),
+        sheetType: 'history',
+      }));
+
     } else {
       // ── ผู้ต้องหา (default) ──
       // A=ยศ  B=ชื่อ  C=นามสกุล  D=คดี  E=สถานะ  F=พื้นที่  G=หมายเลขคดี  H=วันที่บันทึก
@@ -140,6 +155,13 @@ async function fetchPersonnel() {
  */
 async function fetchLeaders() {
   return fetchSheet(SHEET_LEADERS);
+}
+
+/**
+ * ดึงข้อมูลสรุปประวัติ
+ */
+async function fetchHistory() {
+  return fetchSheet(SHEET_HISTORY);
 }
 
 /**
@@ -235,4 +257,4 @@ async function searchByPhone(query) {
   ];
 }
 
-module.exports = { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, clearCache, caches };
+module.exports = { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchHistory, clearCache, caches };

@@ -933,6 +933,8 @@ function buildAllCommandsFlex(isAdminUser) {
     { title: '➕ เพิ่มข้อมูล', desc: '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | ...' },
     { title: '✏️ แก้ไขข้อมูล', desc: '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่' },
     { title: '❌ ลบข้อมูล', desc: '/ลบ ชื่อ นามสกุล' },
+    { title: '📝 สรุปประวัติ', desc: '/สรุปข้อมูลประวัติ [ข้อความ]' },
+    { title: '📋 ดูประวัติ', desc: '/แสดงรายชื่อข้อมูลประวัติ' },
     { title: '📢 Broadcast', desc: '/broadcast [ข้อความ]' },
     { title: '🔄 ล้าง Cache', desc: '/ล้างcache' },
     { title: '📊 สถิติระบบ', desc: '/สถิติ หรือ /สถานะ' },
@@ -1221,8 +1223,107 @@ function buildDeepPhoneSearchFlex(phone, carrierInfo, localResults = []) {
   };
 }
 
+/**
+ * สร้าง Flex Message แสดงรายการสรุปประวัติ
+ */
+function buildHistoryListFlex(historyList) {
+  const items = historyList.slice(-10).reverse(); // แสดง 10 รายการล่าสุด
+  
+  const contents = items.map(item => ({
+    type: 'box',
+    layout: 'vertical',
+    margin: 'md',
+    paddingAll: 'sm',
+    backgroundColor: '#f8f9fa',
+    cornerRadius: 'md',
+    contents: [
+      {
+        type: 'text',
+        text: `📅 ${item.dateTime}`,
+        size: 'xs',
+        color: '#666666',
+        weight: 'bold'
+      },
+      {
+        type: 'text',
+        text: `👤 ${item.data}`,
+        size: 'sm',
+        weight: 'bold',
+        margin: 'xs',
+        wrap: true
+      },
+      {
+        type: 'text',
+        text: `📄 ${item.type} | 🎯 ${item.accuracy}`,
+        size: 'xs',
+        color: '#888888',
+        margin: 'xs'
+      },
+      {
+        type: 'text',
+        text: `👮 ผู้สแกน: ${item.scanner}`,
+        size: 'xs',
+        color: '#555555',
+        margin: 'xs'
+      }
+    ]
+  }));
+
+  if (contents.length === 0) {
+    contents.push({
+      type: 'text',
+      text: 'ไม่พบข้อมูลประวัติในระบบ',
+      align: 'center',
+      color: '#aaaaaa',
+      margin: 'lg'
+    });
+  }
+
+  return {
+    type: 'flex',
+    altText: 'รายการสรุปประวัติล่าสุด',
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#2c3e50',
+        contents: [
+          {
+            type: 'text',
+            text: '📋 ประวัติการสรุปข้อมูล',
+            color: '#ffffff',
+            weight: 'bold',
+            size: 'md'
+          }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: contents
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'แสดง 10 รายการล่าสุด',
+            size: 'xxs',
+            color: '#aaaaaa',
+            align: 'center'
+          }
+        ]
+      }
+    }
+  };
+}
+
 module.exports = {
   buildResultFlex,
+  buildHistoryListFlex,
   buildCarouselFlex,
   buildNotFoundFlex,
   buildWelcomeFlex,

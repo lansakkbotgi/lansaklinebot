@@ -47,4 +47,43 @@ async function askAI(userQuestion, sheetContext) {
   return `❌ AI ขัดข้อง (Stable V1): ${lastError}\nกรุณาตรวจสอบสิทธิ์การใช้งานที่ Google AI Studio`;
 }
 
-module.exports = { askAI };
+/**
+ * ฟังก์ชันสรุปข้อมูลจากข้อความ (เช่น ผลจาก OCR บัตรประชาชน)
+ * @param {string} rawText ข้อความดิบที่ต้องการสรุป
+ * @returns {Object} ข้อมูลที่สรุปแล้วในรูปแบบ JSON
+ */
+async function summarizeHistory(rawText) {
+  if (!process.env.GEMINI_API_KEY) return null;
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
+
+  const systemPrompt = `
+    คุณคือผู้ช่วยสรุปข้อมูลประวัติจากข้อความที่ได้จากการแสกนบัตรหรือเอกสาร
+    กรุณาสรุปข้อมูลจากข้อความที่ผู้ใช้ส่งมาให้เป็น JSON format ดังนี้:
+    {
+      "type": "ประเภทเอกสาร (เช่น บัตรประชาชน, ใบขับขี่)",
+      "data": "ข้อมูลสำคัญ (เช่น ชื่อ-นามสกุล, เลขบัตร)",
+      "address": "ที่อยู่ที่ปรากฏในเอกสาร (ถ้ามี)",
+      "accuracy": "ประเมินความแม่นยำของข้อมูล (สูง/กลาง/ต่ำ)",
+      "status": "สถานะหรือประวัติคดีที่พบในข้อความ (ถ้าไม่มีให้ใส่ 'ไม่พบ')"
+    }
+    ตอบกลับเฉพาะ JSON เท่านั้น ห้ามมีคำอธิบายอื่น
+  `;
+
+  try {
+    const result = await model.generateContent([systemPrompt, rawText]);
+    const response = await result.response;
+    let text = response.text().trim();
+    
+    // ลบ markdown code block ถ้ามี
+    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(text);
+  } catch (err) {
+    console.error('summarizeHistory Error:', err);
+    return null;
+  }
+}
+
+module.exports = { askAI, summarizeHistory };
