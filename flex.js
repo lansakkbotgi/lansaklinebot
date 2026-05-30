@@ -969,6 +969,7 @@ function buildAllCommandsFlex(isAdminUser) {
     { title: '📞 ค้นหาเบอร์', desc: 'พิมพ์ เบอร์โทรศัพท์ 10 หลัก' },
     { title: '👮 ตำรวจ', desc: 'ดูทำเนียบบุคลากร สภ.ลานสัก' },
     { title: '🏘️ ผู้นำตำบล', desc: 'ดูทำเนียบผู้นำตำบล' },
+    { title: '📍 จุดเสี่ยง', desc: '/จุดเสี่ยง เพื่อดู QR Code' },
     { title: '⛽ ปั๊มน้ำมัน', desc: '/เบอร์ปั๊ม เพื่อดูเบอร์โทร' },
     { title: '🌐 เว็บไซต์', desc: 'ดูลิงก์เว็บไซต์ที่เกี่ยวข้อง' },
   ];
@@ -977,6 +978,7 @@ function buildAllCommandsFlex(isAdminUser) {
     { title: '➕ เพิ่มข้อมูล', desc: '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | ...' },
     { title: '✏️ แก้ไขข้อมูล', desc: '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่' },
     { title: '❌ ลบข้อมูล', desc: '/ลบ ชื่อ นามสกุล' },
+    { title: '📍 จุดเสี่ยง', desc: '/จุดเสี่ยง หรือ /qrcode' },
     { title: '📍 รายการสถานที่', desc: '/รายการสถานที่' },
     { title: '📢 Broadcast', desc: '/broadcast [ข้อความ]' },
     { title: '🔄 ล้าง Cache', desc: '/ล้างcache' },
