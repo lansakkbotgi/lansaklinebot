@@ -98,17 +98,26 @@ async function fetchSheet(sheetName) {
 
     } else if (sheetName === SHEET_LOCATIONS) {
       // ── บันทึกสถานที่ ──
-      // A=วัน/เวลา B=ชื่อสถานที่ C=ที่อยู่ D=Lat E=Long F=ผู้บันทึก G=สถานะ/คดี
-      data = dataRows.map(row => ({
-        dateTime:  (row[0] || '').trim(),
-        title:     (row[1] || '').trim(),
-        address:   (row[2] || '').trim(),
-        latitude:  (row[3] || '').trim(),
-        longitude: (row[4] || '').trim(),
-        user:      (row[5] || '').trim(),
-        status:    (row[6] || '').trim(),
-        sheetType: 'location',
-      }));
+      // รองรับ 2 รูปแบบ: 
+      // 1. แบบเก่า: A=วัน/เวลา, B=ชื่อสถานที่, C=ที่อยู่, D=Lat, E=Long, F=ผู้บันทึก, G=สถานะ
+      // 2. แบบใหม่ (ตรงกับผู้ต้องหา): B=ชื่อสถานที่, C=ที่อยู่, D=Lat, E=Long, F=ผู้บันทึก, G=สถานะ, H=วัน/เวลา
+      data = dataRows.map(row => {
+        // ตรวจสอบว่าวันที่อยู่คอลัมน์ไหน (A หรือ H)
+        const dateA = (row[0] || '').trim();
+        const dateH = (row[7] || '').trim();
+        const hasDateA = dateA.includes('เธเธ') || dateA.includes('มกรา') || dateA.includes('256') || dateA.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/);
+        
+        return {
+          dateTime:  hasDateA ? dateA : (dateH || dateA),
+          title:     (row[1] || '').trim() || 'สถานที่ไม่มีชื่อ',
+          address:   (row[2] || '').trim(),
+          latitude:  (row[3] || '').trim(),
+          longitude: (row[4] || '').trim(),
+          user:      (row[5] || '').trim(),
+          status:    (row[6] || '').trim(),
+          sheetType: 'location',
+        };
+      });
 
     } else {
       // ── ผู้ต้องหา (default) ──

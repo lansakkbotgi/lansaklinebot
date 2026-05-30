@@ -29,6 +29,7 @@ function isAdminCommand(text) {
          text.startsWith('/สถานะ') ||
          text.startsWith('/ล้างcache') ||
          text.startsWith('/adminhelp') ||
+         text.startsWith('/รายการสถานที่') ||
          text.startsWith('/whoami');
 }
 
