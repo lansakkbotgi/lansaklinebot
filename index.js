@@ -279,7 +279,7 @@ async function handleEvent(event) {
 
   const greetingWords = ['สวัสดี','hello','hi','หวัดดี','เริ่ม','เมนู','help','วิธีใช้'];
   if (greetingWords.some(w => userText.toLowerCase().includes(w))) {
-    return replyMessage(replyToken, buildAllCommandsFlex(await isAdmin(userId)));
+    return replyMessage(replyToken, buildWelcomeFlex());
   }
 
   if (userText.includes('เว็บไซต์')) return replyMessage(replyToken, buildWebsiteFlex());
