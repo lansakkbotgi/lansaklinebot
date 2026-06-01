@@ -240,6 +240,10 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildAddAdminConfirmFlex(adminData, result.success, result.message));
     }
 
+    if (userText === '/ดักไอพี') {
+      return replyText(replyToken, '🌐 ลิงก์สำหรับดักไอพี (Copy): https://urlto.me/2HAe4');
+    }
+
     if (userText.startsWith('/เพิ่ม')) {
       const args = userText.replace('/เพิ่ม', '').trim();
       if (!args) return replyMessage(replyToken, buildQuickAddFlex());

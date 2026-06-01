@@ -52,7 +52,8 @@ function isAdminCommand(text) {
          text.startsWith('/adminhelp') ||
          text.startsWith('/รายการสถานที่') ||
          text.startsWith('/whoami') ||
-         text.startsWith('/เพิ่มแอดมิน');
+         text.startsWith('/เพิ่มแอดมิน') ||
+         text.startsWith('/ดักไอพี');
 }
 
 /**
@@ -283,6 +284,7 @@ function buildAdminHelpFlex() {
           buildHelpItem('📊 ดูระบบ', '/สถิติ, /สถานะ, /ล้างcache', '#f7fafc', '#4a5568'),
           buildHelpItem('🆔 ดู ID', '/whoami', '#fafafa', '#555555'),
           buildHelpItem('👑 เพิ่ม Admin', '/เพิ่มแอดมิน [userId] | [ชื่อ]', '#fff5f5', '#c53030'),
+          buildHelpItem('🌐 ดักไอพี', '/ดักไอพี', '#f0f4ff', '#1a3a6e'),
         ],
       },
     },
