@@ -2,18 +2,39 @@ const {
   appendWatchlistPerson, 
   deletePerson, 
   updatePersonField, 
-  isConfigured 
+  isConfigured,
+  loadAdminsFromSheet,
+  addAdminInSheet
 } = require('./sheets-writer');
 
-// Admin LINE User IDs (ใส่ได้หลายคน)
-const ADMIN_IDS = (process.env.ADMIN_LINE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+// Admin LINE User IDs (ใส่ได้หลายคน) จาก ENV (เป็น Master Admin)
+const ENV_ADMIN_IDS = (process.env.ADMIN_LINE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+// Cache สำหรับ Admin IDs จาก Sheet
+let sheetAdminCache = [];
+let lastCacheUpdate = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 นาที
+
+/**
+ * โหลดรายชื่อ Admin ทั้งหมด (รวม ENV + Sheet)
+ */
+async function getAllAdminIds() {
+  const now = Date.now();
+  if (now - lastCacheUpdate > CACHE_TTL) {
+    const fromSheet = await loadAdminsFromSheet();
+    sheetAdminCache = fromSheet;
+    lastCacheUpdate = now;
+    console.log(`👤 อัปเดตรายชื่อแอดมินจาก Sheet: ${sheetAdminCache.length} คน`);
+  }
+  return [...new Set([...ENV_ADMIN_IDS, ...sheetAdminCache])];
+}
 
 /**
  * ตรวจว่าเป็น Admin หรือไม่
  */
-function isAdmin(userId) {
-  if (ADMIN_IDS.length === 0) return false; 
-  return ADMIN_IDS.includes(userId);
+async function isAdmin(userId) {
+  const allAdmins = await getAllAdminIds();
+  return allAdmins.includes(userId);
 }
 
 /**
@@ -30,7 +51,8 @@ function isAdminCommand(text) {
          text.startsWith('/ล้างcache') ||
          text.startsWith('/adminhelp') ||
          text.startsWith('/รายการสถานที่') ||
-         text.startsWith('/whoami');
+         text.startsWith('/whoami') ||
+         text.startsWith('/เพิ่มแอดมิน');
 }
 
 /**
@@ -202,6 +224,40 @@ function buildEditConfirmFlex(data, success, message) {
 }
 
 /**
+ * Parse คำสั่ง /เพิ่มแอดมิน
+ * รูปแบบ: /เพิ่มแอดมิน [userId] | [ชื่อเล่น/ชื่อจริง]
+ */
+function parseAddAdminCommand(text) {
+  const content = text.replace(/^\/เพิ่มแอดมิน\s+/, '').trim();
+  const parts = content.split('|').map(s => s.trim());
+  if (parts.length < 2) return null;
+  return {
+    targetUserId: parts[0],
+    displayName: parts[1]
+  };
+}
+
+/**
+ * สร้าง Flex Message ยืนยันการเพิ่ม Admin
+ */
+function buildAddAdminConfirmFlex(data, success, message) {
+  return {
+    type: 'flex',
+    altText: success ? `✅ เพิ่ม Admin สำเร็จ` : '❌ เพิ่ม Admin ไม่สำเร็จ',
+    contents: {
+      type: 'bubble', size: 'kilo',
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '16px', spacing: 'sm',
+        contents: [
+          { type: 'text', text: success ? '✅ เพิ่ม Admin สำเร็จ' : '❌ เพิ่ม Admin ไม่สำเร็จ', color: success ? '#27ae60' : '#cc3333', weight: 'bold' },
+          { type: 'text', text: success ? `ผู้ใช้ "${data.displayName}" (${data.targetUserId}) ได้รับสิทธิ์ Admin แล้ว` : (message || 'เกิดข้อผิดพลาด'), color: '#555555', size: 'sm', wrap: true },
+        ],
+      },
+    },
+  };
+}
+
+/**
  * สร้าง Flex Message คำแนะนำการใช้ Admin
  */
 function buildAdminHelpFlex() {
@@ -226,6 +282,7 @@ function buildAdminHelpFlex() {
           buildHelpItem('✏️ แก้ไขข้อมูล', '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่', '#fffaf0', '#b45309'),
           buildHelpItem('📊 ดูระบบ', '/สถิติ, /สถานะ, /ล้างcache', '#f7fafc', '#4a5568'),
           buildHelpItem('🆔 ดู ID', '/whoami', '#fafafa', '#555555'),
+          buildHelpItem('👑 เพิ่ม Admin', '/เพิ่มแอดมิน [userId] | [ชื่อ]', '#fff5f5', '#c53030'),
         ],
       },
     },
@@ -323,13 +380,16 @@ module.exports = {
   parseAddCommand,
   parseDeleteCommand,
   parseEditCommand,
+  parseAddAdminCommand,
   appendWatchlistPerson,
   deletePerson,
   updatePersonField,
+  addAdminInSheet,
   buildAddConfirmFlex,
   buildDeleteConfirmFlex,
   buildEditConfirmFlex,
+  buildAddAdminConfirmFlex,
   buildAdminHelpFlex,
   buildSuspectListFlex,
-  ADMIN_IDS,
+  ADMIN_IDS: ENV_ADMIN_IDS,
 };

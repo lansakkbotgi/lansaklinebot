@@ -7,6 +7,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_WATCHLIST = 'ผู้ต้องหา';
 const SHEET_USERS     = 'รายชื่อผู้ใช้'; // แผ่นงานใหม่สำหรับเก็บ ID คนใช้บอท
 const SHEET_LOCATIONS = 'บันทึกสถานที่'; // แผ่นงานสำหรับบันทึกสถานที่
+const SHEET_ADMINS    = 'รายชื่อแอดมิน'; // แผ่นงานสำหรับเก็บ ID แอดมิน
 
 /**
  * บันทึกสถานที่ลง Google Sheets
@@ -242,6 +243,54 @@ async function loadFollowersFromSheet() {
   }
 }
 
+/**
+ * โหลดรายชื่อ Admin ทั้งหมดจาก Google Sheets
+ */
+async function loadAdminsFromSheet() {
+  const sheets = getSheetsClient();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_ADMINS}!A:B`,
+    });
+    const rows = response.data.values || [];
+    // คืนค่าเฉพาะ userId
+    return rows.slice(1).map(row => row[0]);
+  } catch (err) {
+    console.error('Error loading admins from sheet:', err.message);
+    return [];
+  }
+}
+
+/**
+ * เพิ่ม Admin ใหม่ลง Google Sheets
+ */
+async function addAdminInSheet(userId, displayName, addedBy) {
+  const sheets = getSheetsClient();
+  try {
+    // เช็คว่ามีอยู่แล้วหรือยัง
+    const existingAdmins = await loadAdminsFromSheet();
+    if (existingAdmins.includes(userId)) {
+      return { success: false, message: 'ผู้ใช้นี้เป็น Admin อยู่แล้ว' };
+    }
+
+    const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+    const row = [userId, displayName || 'ไม่ระบุชื่อ', now, addedBy || 'System'];
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_ADMINS}!A:D`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [row] },
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('Error adding admin to sheet:', err.message);
+    return { success: false, message: err.message };
+  }
+}
+
 function isConfigured() {
   const config = {
     GOOGLE_CLIENT_EMAIL: !!process.env.GOOGLE_CLIENT_EMAIL,
@@ -255,5 +304,6 @@ function isConfigured() {
 module.exports = { 
   appendWatchlistPerson, deletePerson, updatePersonField, 
   trackUserInSheet, loadFollowersFromSheet, isConfigured, SHEET_WATCHLIST,
-  appendLocationRecord
+  appendLocationRecord,
+  loadAdminsFromSheet, addAdminInSheet
 };

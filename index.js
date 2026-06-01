@@ -95,7 +95,7 @@ async function handleEvent(event) {
           replyToken: replyToken,
           messages: [
             { type: 'text', text: welcomeText },
-            buildAllCommandsFlex(isAdmin(userId))
+            buildAllCommandsFlex(await isAdmin(userId))
           ]
         });
       } catch (err) { console.error('Follow error:', err); }
@@ -177,7 +177,8 @@ async function handleEvent(event) {
   // ─────────────────────────────────────────────────────────
   if (isAdminCommand(userText)) {
     if (userText === '/whoami') return replyText(replyToken, `🆔 User ID: ${userId}`);
-    if (!isAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Admin เท่านั้นครับ');
+    const isUserAdmin = await isAdmin(userId);
+    if (!isUserAdmin) return replyText(replyToken, '🔒 เฉพาะ Admin เท่านั้นครับ');
 
     if (userText === '/adminhelp') return replyMessage(replyToken, buildAdminHelpFlex());
     if (userText === '/ล้างcache') { clearCache(); return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อยครับ'); }
@@ -224,6 +225,15 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildEditConfirmFlex(editData, result.success, result.message));
     }
 
+    if (userText.startsWith('/เพิ่มแอดมิน ')) {
+      const { parseAddAdminCommand, buildAddAdminConfirmFlex, addAdminInSheet } = require('./admin');
+      const adminData = parseAddAdminCommand(userText);
+      if (!adminData) return replyText(replyToken, '❌ รูปแบบ: /เพิ่มแอดมิน [userId] | [ชื่อ]');
+      
+      const result = await addAdminInSheet(adminData.targetUserId, adminData.displayName, `Admin (${userId})`);
+      return replyMessage(replyToken, buildAddAdminConfirmFlex(adminData, result.success, result.message));
+    }
+
     if (userText.startsWith('/เพิ่ม')) {
       const args = userText.replace('/เพิ่ม', '').trim();
       if (!args) return replyMessage(replyToken, buildQuickAddFlex());
@@ -259,7 +269,7 @@ async function handleEvent(event) {
 
   const greetingWords = ['สวัสดี','hello','hi','หวัดดี','เริ่ม','เมนู','help','วิธีใช้'];
   if (greetingWords.some(w => userText.toLowerCase().includes(w))) {
-    return replyMessage(replyToken, buildAllCommandsFlex(isAdmin(userId)));
+    return replyMessage(replyToken, buildAllCommandsFlex(await isAdmin(userId)));
   }
 
   if (userText.includes('เว็บไซต์')) return replyMessage(replyToken, buildWebsiteFlex());
@@ -308,7 +318,7 @@ async function handleEvent(event) {
 
   // คำสั่งทั้งหมด
   if (userText === '/คำสั่ง') {
-    return replyMessage(replyToken, buildAllCommandsFlex(isAdmin(userId)));
+    return replyMessage(replyToken, buildAllCommandsFlex(await isAdmin(userId)));
   }
 
   // เบอร์โทรศัพท์ปั๊มน้ำมัน
@@ -353,7 +363,7 @@ async function handleEvent(event) {
   if (/^(0[0-9]{8,9})$/.test(userText.replace(/\D/g, ''))) {
     const results = await searchByPhone(userText);
     if (results.length === 0) return replyMessage(replyToken, buildNotFoundFlex(userText));
-    return replyMessage(replyToken, buildCarouselFlex(results, userText, isAdmin(userId)));
+    return replyMessage(replyToken, buildCarouselFlex(results, userText, await isAdmin(userId)));
   }
 
   // 2.5 ระบบค้นหา
@@ -395,7 +405,7 @@ async function handleEvent(event) {
       // ... แสดงผล ...
       if (results.length === 1) {
         const p = results[0];
-        const bubble = buildSmartCard(p, isAdmin(userId));
+        const bubble = buildSmartCard(p, await isAdmin(userId));
         return replyMessage(replyToken, { type: 'flex', altText: `พบ: ${p.fullName}`, contents: bubble });
       }
 
@@ -407,7 +417,7 @@ async function handleEvent(event) {
         return replyMessage(replyToken, buildLeaderCarouselFlex(results, searchQuery));
       }
 
-      return replyMessage(replyToken, buildCarouselFlex(results, searchQuery, isAdmin(userId)));
+      return replyMessage(replyToken, buildCarouselFlex(results, searchQuery, await isAdmin(userId)));
     }
 
     return replyMessage(replyToken, buildNotFoundFlex(searchQuery));
