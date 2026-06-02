@@ -25,13 +25,15 @@ const {
 const { 
   isAdmin, isAdminCommand, 
   parseAddCommand, parseDeleteCommand, parseEditCommand,
+  parseAddAdminCommand, parseBlockCommand,
   buildAddConfirmFlex, buildDeleteConfirmFlex, buildEditConfirmFlex, 
-  buildAdminHelpFlex, buildSuspectListFlex, ADMIN_IDS
+  buildAddAdminConfirmFlex, buildBlockConfirmFlex,
+  buildAdminHelpFlex, buildSuspectListFlex, buildUserListFlex, ADMIN_IDS
 } = require('./admin');
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
   trackUserInSheet, loadFollowersFromSheet,
-  appendLocationRecord,
+  appendLocationRecord, blockUserInSheet, loadBlockedUsersFromSheet,
   isConfigured: isSheetConfigured 
 } = require('./sheets-writer');
 const { trackUser, broadcastToAll, getStats, buildBroadcastResultFlex } = require('./broadcast');
@@ -75,6 +77,15 @@ async function handleEvent(event) {
   const sourceId = groupId || roomId || userId; // ID สำหรับส่งข้อความกลับ
   const replyToken = event.replyToken;
   const isGroup    = event.source.type === 'group' || event.source.type === 'room';
+
+  // ── ตรวจสอบการปิดกั้น (Block) ──
+  if (userId) {
+    const blockedUsers = await loadBlockedUsersFromSheet();
+    if (blockedUsers.includes(userId)) {
+      console.log(`🚫 Ignore message from blocked user: ${userId}`);
+      return; // ไม่ตอบโต้ใดๆ
+    }
+  }
 
   // ── เมื่อบอตถูกดึงเข้ากลุ่ม ──
   if (event.type === 'join') {
@@ -242,6 +253,24 @@ async function handleEvent(event) {
 
     if (userText === '/ดักไอพี') {
       return replyText(replyToken, '🌐 ลิงก์สำหรับดักไอพี (Copy): https://urlto.me/2HAe4');
+    }
+
+    if (userText === '/รายชื่อผู้ใช้') {
+      const followers = await loadFollowersFromSheet();
+      return replyMessage(replyToken, buildUserListFlex(followers));
+    }
+
+    if (userText.startsWith('/block ')) {
+      const targetId = parseBlockCommand(userText);
+      if (!targetId) return replyText(replyToken, '❌ รูปแบบ: /block [userId]');
+      
+      // หาชื่อผู้ใช้จากรายการที่มีอยู่
+      const followers = await loadFollowersFromSheet();
+      const user = followers.find(f => f.userId === targetId);
+      const displayName = user ? user.displayName : 'ไม่ทราบชื่อ';
+      
+      const result = await blockUserInSheet(targetId, displayName, `Admin (${userId})`);
+      return replyMessage(replyToken, buildBlockConfirmFlex(targetId, result.success, result.message));
     }
 
     if (userText.startsWith('/เพิ่ม')) {

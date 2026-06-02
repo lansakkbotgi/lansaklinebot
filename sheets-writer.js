@@ -8,6 +8,7 @@ const SHEET_WATCHLIST = 'ผู้ต้องหา';
 const SHEET_USERS     = 'รายชื่อผู้ใช้'; // แผ่นงานใหม่สำหรับเก็บ ID คนใช้บอท
 const SHEET_LOCATIONS = 'บันทึกสถานที่'; // แผ่นงานสำหรับบันทึกสถานที่
 const SHEET_ADMINS    = 'รายชื่อแอดมิน'; // แผ่นงานสำหรับเก็บ ID แอดมิน
+const SHEET_BLOCKED   = 'รายชื่อผู้ใช้ที่ถูกปิดกั้น'; // แผ่นงานสำหรับเก็บ ID คนที่โดนบล็อก
 
 /**
  * บันทึกสถานที่ลง Google Sheets
@@ -291,6 +292,47 @@ async function addAdminInSheet(userId, displayName, addedBy) {
   }
 }
 
+/**
+ * บันทึกผู้ใช้ที่ถูกปิดกั้นลง Google Sheets
+ */
+async function blockUserInSheet(userId, displayName, blockedBy) {
+  const sheets = getSheetsClient();
+  try {
+    const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+    const row = [userId, displayName || 'ไม่ระบุชื่อ', now, blockedBy || 'Admin'];
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_BLOCKED}!A:D`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [row] },
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('Error blocking user in sheet:', err.message);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * โหลดรายชื่อผู้ใช้ที่ถูกปิดกั้นทั้งหมดจาก Google Sheets
+ */
+async function loadBlockedUsersFromSheet() {
+  const sheets = getSheetsClient();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_BLOCKED}!A:A`,
+    });
+    const rows = response.data.values || [];
+    return rows.slice(1).map(row => row[0]);
+  } catch (err) {
+    console.error('Error loading blocked users from sheet:', err.message);
+    return [];
+  }
+}
+
 function isConfigured() {
   const config = {
     GOOGLE_CLIENT_EMAIL: !!process.env.GOOGLE_CLIENT_EMAIL,
@@ -305,5 +347,6 @@ module.exports = {
   appendWatchlistPerson, deletePerson, updatePersonField, 
   trackUserInSheet, loadFollowersFromSheet, isConfigured, SHEET_WATCHLIST,
   appendLocationRecord,
-  loadAdminsFromSheet, addAdminInSheet
+  loadAdminsFromSheet, addAdminInSheet,
+  blockUserInSheet, loadBlockedUsersFromSheet
 };

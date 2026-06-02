@@ -4,7 +4,9 @@ const {
   updatePersonField, 
   isConfigured,
   loadAdminsFromSheet,
-  addAdminInSheet
+  addAdminInSheet,
+  blockUserInSheet,
+  loadBlockedUsersFromSheet
 } = require('./sheets-writer');
 
 // Admin LINE User IDs (ใส่ได้หลายคน) จาก ENV (เป็น Master Admin)
@@ -53,7 +55,9 @@ function isAdminCommand(text) {
          text.startsWith('/รายการสถานที่') ||
          text.startsWith('/whoami') ||
          text.startsWith('/เพิ่มแอดมิน') ||
-         text.startsWith('/ดักไอพี');
+         text.startsWith('/ดักไอพี') ||
+         text.startsWith('/block') ||
+         text.startsWith('/รายชื่อผู้ใช้');
 }
 
 /**
@@ -135,6 +139,16 @@ function parseEditCommand(text) {
     field: mainParts[1],
     newValue: mainParts[2]
   };
+}
+
+/**
+ * Parse คำสั่ง /block
+ * รูปแบบ: /block [userId]
+ */
+function parseBlockCommand(text) {
+  const targetUserId = text.replace(/^\/block\s+/, '').trim();
+  if (!targetUserId || targetUserId === '/block') return null;
+  return targetUserId;
 }
 
 /**
@@ -259,6 +273,26 @@ function buildAddAdminConfirmFlex(data, success, message) {
 }
 
 /**
+ * สร้าง Flex Message ยืนยันการปิดกั้น (Block)
+ */
+function buildBlockConfirmFlex(targetUserId, success, message) {
+  return {
+    type: 'flex',
+    altText: success ? `✅ ปิดกั้นการใช้งานสำเร็จ` : '❌ ปิดกั้นไม่สำเร็จ',
+    contents: {
+      type: 'bubble', size: 'kilo',
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '16px', spacing: 'sm',
+        contents: [
+          { type: 'text', text: success ? '✅ ปิดกั้นสำเร็จ' : '❌ ปิดกั้นไม่สำเร็จ', color: success ? '#27ae60' : '#cc3333', weight: 'bold' },
+          { type: 'text', text: success ? `ผู้ใช้ ID: ${targetUserId} ถูกปิดกั้นการใช้งานแล้ว` : (message || 'เกิดข้อผิดพลาด'), color: '#555555', size: 'sm', wrap: true },
+        ],
+      },
+    },
+  };
+}
+
+/**
  * สร้าง Flex Message คำแนะนำการใช้ Admin
  */
 function buildAdminHelpFlex() {
@@ -284,6 +318,8 @@ function buildAdminHelpFlex() {
           buildHelpItem('📊 ดูระบบ', '/สถิติ, /สถานะ, /ล้างcache', '#f7fafc', '#4a5568'),
           buildHelpItem('🆔 ดู ID', '/whoami', '#fafafa', '#555555'),
           buildHelpItem('👑 เพิ่ม Admin', '/เพิ่มแอดมิน [userId] | [ชื่อ]', '#fff5f5', '#c53030'),
+          buildHelpItem('🚫 ปิดกั้นผู้ใช้', '/block [userId]', '#fff5f5', '#c53030'),
+          buildHelpItem('👥 รายชื่อผู้ใช้', '/รายชื่อผู้ใช้', '#f0f4ff', '#1a3a6e'),
           buildHelpItem('🌐 ดักไอพี', '/ดักไอพี', '#f0f4ff', '#1a3a6e'),
         ],
       },
@@ -355,6 +391,68 @@ function buildSuspectListFlex(suspects) {
   };
 }
 
+/**
+ * สร้าง Flex Message แสดงรายชื่อผู้ใช้ทั้งหมด (สำหรับ Admin)
+ */
+function buildUserListFlex(users) {
+  const items = users.slice(-20).reverse().map(u => ({
+    type: 'box', layout: 'horizontal', paddingAll: '8px', margin: 'sm', backgroundColor: '#f8f9fa', cornerRadius: '8px',
+    contents: [
+      {
+        type: 'box', layout: 'vertical', flex: 4,
+        contents: [
+          { type: 'text', text: u.displayName || 'ไม่ระบุชื่อ', weight: 'bold', size: 'sm', wrap: true },
+          { type: 'text', text: `ID: ${u.userId}`, color: '#888888', size: 'xxs', wrap: true },
+        ],
+      },
+      {
+        type: 'box', layout: 'vertical', flex: 1, justifyContent: 'center',
+        contents: [
+          { 
+            type: 'text', text: 'บล็อก', 
+            color: '#cc3333', 
+            size: 'xs', weight: 'bold', align: 'end',
+            action: {
+              type: 'message',
+              label: 'บล็อก',
+              text: `/block ${u.userId}`
+            }
+          },
+        ],
+      },
+    ],
+  }));
+
+  if (users.length === 0) {
+    items.push({ type: 'text', text: 'ไม่พบข้อมูลผู้ใช้งาน', align: 'center', margin: 'md', color: '#888888' });
+  }
+
+  return {
+    type: 'flex',
+    altText: '👥 รายชื่อผู้ใช้งานบอท',
+    contents: {
+      type: 'bubble', size: 'mega',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#1a3a6e', paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '👥 รายชื่อผู้ใช้งานบอท', color: '#ffffff', weight: 'bold', size: 'md' },
+          { type: 'text', text: `ทั้งหมด ${users.length} รายการ (แสดง 20 ล่าสุด)`, color: '#a8c4e8', size: 'xs' },
+        ],
+      },
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '12px',
+        contents: items,
+      },
+      footer: {
+        type: 'box', layout: 'vertical', paddingAll: '8px',
+        contents: [
+          { type: 'text', text: 'กด "บล็อก" เพื่อปิดกั้นการใช้งานรายบุคคล', size: 'xxs', color: '#aaaaaa', align: 'center' }
+        ]
+      }
+    },
+  };
+}
+
 function buildHelpItem(title, cmd, bgColor, titleColor) {
   return {
     type: 'box', layout: 'vertical', backgroundColor: bgColor, cornerRadius: '8px', paddingAll: '10px', margin: 'sm',
@@ -383,14 +481,19 @@ module.exports = {
   parseDeleteCommand,
   parseEditCommand,
   parseAddAdminCommand,
+  parseBlockCommand,
   appendWatchlistPerson,
   deletePerson,
   updatePersonField,
   addAdminInSheet,
+  blockUserInSheet,
+  loadBlockedUsersFromSheet,
   buildAddConfirmFlex,
   buildDeleteConfirmFlex,
   buildEditConfirmFlex,
   buildAddAdminConfirmFlex,
+  buildBlockConfirmFlex,
+  buildUserListFlex,
   buildAdminHelpFlex,
   buildSuspectListFlex,
   ADMIN_IDS: ENV_ADMIN_IDS,
