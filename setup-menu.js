@@ -50,15 +50,15 @@ async function setupRichMenu() {
       // ── แถวล่าง ──
       {
         bounds: { x: 0,    y: 843, width: 833, height: 843 },
-        action: { type: 'message', label: 'เว็บไซต์',         text: 'เว็บไซต์' },
+        action: { type: 'message', label: 'รายการเมนู',      text: '/คำสั่ง' },
       },
       {
         bounds: { x: 833,  y: 843, width: 834, height: 843 },
-        action: { type: 'message', label: 'แจ้งเหตุ',          text: 'แจ้งเหตุ' },
+        action: { type: 'message', label: 'วิธีใช้งาน',      text: 'วิธีใช้' },
       },
       {
         bounds: { x: 1667, y: 843, width: 833, height: 843 },
-        action: { type: 'message', label: 'ข้อมูลสถานี',       text: 'ข้อมูลสถานี' },
+        action: { type: 'message', label: 'จุดเสี่ยง',        text: '/จุดเสี่ยง' },
       },
     ],
   };
