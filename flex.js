@@ -317,8 +317,8 @@ function buildWelcomeFlex() {
           buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       'ค้นหาชื่อ',         '#1a3a6e'),
           buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',    '#1a5276'),
           buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',         'ทำเนียบผู้นำตำบล',  '#1d6a4a'),
-          buildMenuButton('📜', 'รายการเมนู',               '/คำสั่ง',          '#5d4037'),
-          buildMenuButton('📖', 'วิธีใช้งานระบบ',            'วิธีใช้',           '#cc3333'),
+          buildMenuButton('📜', 'รายการเมนู',               '/เมนู',           '#5d4037'),
+          buildMenuButton('📖', 'วิธีใช้งานระบบ',            '/คำสั่ง',          '#cc3333'),
           buildMenuButton('📋', 'ตรวจสอบหมายจับ',            'ตรวจสอบหมายจับ',    '#b45309'),
           buildMenuButton('📍', 'จุดเสี่ยง / QR Code',      '/จุดเสี่ยง',        '#e67e22'),
           buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่', '#555555'),
@@ -964,88 +964,99 @@ function buildFuelStationFlex() {
 }
 
 function buildAllCommandsFlex(isAdminUser) {
-  const userCommands = [
-    { title: '🔍 ค้นหาชื่อ', desc: 'พิมพ์ ชื่อ-นามสกุล เพื่อค้นหา' },
-    { title: '📞 ค้นหาเบอร์', desc: 'พิมพ์ เบอร์โทรศัพท์ 10 หลัก' },
-    { title: '👮 ตำรวจ', desc: 'ดูทำเนียบบุคลากร สภ.ลานสัก' },
-    { title: '🏘️ ผู้นำตำบล', desc: 'ดูทำเนียบผู้นำตำบล' },
-    { title: '📍 จุดเสี่ยง', desc: '/จุดเสี่ยง เพื่อดู QR Code' },
-    { title: '⛽ ปั๊มน้ำมัน', desc: '/เบอร์ปั๊ม เพื่อดูเบอร์โทร' },
-    { title: '🌐 เว็บไซต์', desc: 'ดูลิงก์เว็บไซต์ที่เกี่ยวข้อง' },
-  ];
-
-  const adminCommands = [
-    { title: '➕ เพิ่มข้อมูล', desc: '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | ...' },
-    { title: '✏️ แก้ไขข้อมูล', desc: '/แก้ไข ชื่อ นามสกุล | ฟิลด์ | ค่าใหม่' },
-    { title: '❌ ลบข้อมูล', desc: '/ลบ ชื่อ นามสกุล' },
-    { title: '📍 จุดเสี่ยง', desc: '/จุดเสี่ยง หรือ /qrcode' },
-    { title: '📍 รายการสถานที่', desc: '/รายการสถานที่' },
-    { title: '📢 Broadcast', desc: '/broadcast [ข้อความ]' },
-    { title: '🔄 ล้าง Cache', desc: '/ล้างcache' },
-    { title: '📊 สถิติระบบ', desc: '/สถิติ หรือ /สถานะ' },
-  ];
-
   const contents = [
     {
       type: 'text',
-      text: '📌 คำสั่งที่ใช้งานได้',
+      text: '📖 วิธีใช้งานและรายการคำสั่ง',
       weight: 'bold',
       size: 'md',
       color: '#1a3a6e',
     },
+    {
+      type: 'text',
+      text: 'ยินดีต้อนรับสู่ระบบผู้ช่วยสายตรวจ สภ.ลานสัก ท่านสามารถใช้งานระบบได้ง่ายๆ ดังนี้:',
+      size: 'xs',
+      color: '#555555',
+      wrap: true,
+      margin: 'sm',
+    },
     { type: 'separator', margin: 'md' },
     {
       type: 'text',
-      text: '👤 สำหรับผู้ใช้งานทั่วไป',
+      text: '🔍 การสืบค้นข้อมูล',
       weight: 'bold',
       size: 'sm',
       margin: 'md',
       color: '#2c3e50',
     },
-  ];
-
-  userCommands.forEach(cmd => {
-    contents.push({
-      type: 'box',
-      layout: 'horizontal',
+    {
+      type: 'text',
+      text: '• ค้นหาบุคคล: พิมพ์ "ชื่อ" หรือ "นามสกุล" ได้ทันที เช่น "สมชาย" หรือ "ใจดี"\n• ค้นหาเบอร์: พิมพ์เบอร์โทร 10 หลัก เพื่อดูเครือข่ายและประวัติในระบบ\n• ทำเนียบตำรวจ: พิมพ์ "ตำรวจ" หรือเลือกจากเมนู\n• ทำเนียบผู้นำ: พิมพ์ "ผู้นำตำบล" หรือ "ผู้ใหญ่บ้าน"',
+      size: 'xs',
+      color: '#7f8c8d',
+      wrap: true,
       margin: 'sm',
-      contents: [
-        { type: 'text', text: cmd.title, size: 'xs', weight: 'bold', color: '#27ae60', flex: 2 },
-        { type: 'text', text: cmd.desc, size: 'xs', color: '#7f8c8d', flex: 3, wrap: true },
-      ],
-    });
-  });
+    },
+    {
+      type: 'text',
+      text: '📍 ระบบจุดเสี่ยง (QR Code)',
+      weight: 'bold',
+      size: 'sm',
+      margin: 'md',
+      color: '#2c3e50',
+    },
+    {
+      type: 'text',
+      text: 'พิมพ์ "/จุดเสี่ยง" เพื่อเลือกหมวดหมู่สถานที่และรับ QR Code สำหรับแสกนลงเวลาตรวจในพื้นที่ต่างๆ',
+      size: 'xs',
+      color: '#7f8c8d',
+      wrap: true,
+      margin: 'sm',
+    },
+    {
+      type: 'text',
+      text: '📋 คำสั่งควบคุมระบบ',
+      weight: 'bold',
+      size: 'sm',
+      margin: 'md',
+      color: '#2c3e50',
+    },
+    {
+      type: 'text',
+      text: '• /เมนู : แสดงเมนูหลักแบบปุ่มกด\n• /คำสั่ง : แสดงวิธีใช้งานนี้\n• /เบอร์ปั๊ม : ดูเบอร์โทรศัพท์ปั๊มน้ำมันในพื้นที่',
+      size: 'xs',
+      color: '#7f8c8d',
+      wrap: true,
+      margin: 'sm',
+    },
+  ];
 
   if (isAdminUser) {
     contents.push({ type: 'separator', margin: 'lg' });
     contents.push({
       type: 'text',
-      text: '🔐 สำหรับ Admin',
+      text: '🔐 ส่วนเจ้าหน้าที่ (Admin Only)',
       weight: 'bold',
       size: 'sm',
       margin: 'md',
       color: '#c0392b',
     });
-
-    adminCommands.forEach(cmd => {
-      contents.push({
-        type: 'box',
-        layout: 'horizontal',
-        margin: 'sm',
-        contents: [
-          { type: 'text', text: cmd.title, size: 'xs', weight: 'bold', color: '#e67e22', flex: 2 },
-          { type: 'text', text: cmd.desc, size: 'xs', color: '#7f8c8d', flex: 3, wrap: true },
-        ],
-      });
+    contents.push({
+      type: 'text',
+      text: '• เพิ่มข้อมูล: /เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ...\n• แก้ไข/ลบ: /แก้ไข หรือ /ลบ ตามด้วยชื่อ-นามสกุล\n• จัดการ: /สถิติ, /ล้างcache, /broadcast',
+      size: 'xs',
+      color: '#7f8c8d',
+      wrap: true,
+      margin: 'sm',
     });
   }
 
   return {
     type: 'flex',
-    altText: '📋 รายการคำสั่งทั้งหมด',
+    altText: '📋 วิธีใช้งานระบบสายตรวจภูธรลานสัก',
     contents: {
       type: 'bubble',
-      size: 'kilo',
+      size: 'mega',
       body: {
         type: 'box',
         layout: 'vertical',
@@ -1058,7 +1069,7 @@ function buildAllCommandsFlex(isAdminUser) {
         contents: [
           {
             type: 'text',
-            text: 'พิมพ์คำสั่งตามที่ระบุเพื่อใช้งาน',
+            text: 'สอบถามปัญหาการใช้งาน ติดต่อแอดมินระบบ',
             size: 'xxs',
             color: '#aaaaaa',
             align: 'center',

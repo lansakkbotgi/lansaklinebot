@@ -50,11 +50,11 @@ async function setupRichMenu() {
       // ── แถวล่าง ──
       {
         bounds: { x: 0,    y: 843, width: 833, height: 843 },
-        action: { type: 'message', label: 'รายการเมนู',      text: '/คำสั่ง' },
+        action: { type: 'message', label: 'รายการเมนู',      text: '/เมนู' },
       },
       {
         bounds: { x: 833,  y: 843, width: 834, height: 843 },
-        action: { type: 'message', label: 'วิธีใช้งาน',      text: 'วิธีใช้' },
+        action: { type: 'message', label: 'วิธีใช้งาน',      text: '/คำสั่ง' },
       },
       {
         bounds: { x: 1667, y: 843, width: 833, height: 843 },
