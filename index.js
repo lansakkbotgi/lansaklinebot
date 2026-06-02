@@ -261,6 +261,12 @@ async function handleEvent(event) {
     }
 
     if (userText.startsWith('/block ')) {
+      // 🛡️ จำกัดสิทธิ์: เฉพาะ Master Admin เท่านั้นที่สั่งบล็อกได้
+      const MASTER_ADMIN_ID = 'Ufa63dfbbf9007b97d94aced0528efb8c';
+      if (userId !== MASTER_ADMIN_ID) {
+        return replyText(replyToken, '❌ ขออภัยครับ เฉพาะ Master Admin เท่านั้นที่มีสิทธิ์ปิดกั้นการใช้งานผู้ใช้');
+      }
+
       const targetId = parseBlockCommand(userText);
       if (!targetId) return replyText(replyToken, '❌ รูปแบบ: /block [userId]');
       
