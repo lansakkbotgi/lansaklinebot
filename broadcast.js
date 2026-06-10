@@ -10,16 +10,32 @@ async function trackUser(userId, displayName) {
 
 /**
  * ส่งข้อความ Broadcast ไปยังทุกคน (ดึงรายชื่อจาก Google Sheets)
+ * @param {boolean} includeMenu - หากเป็น true จะแนบปุ่ม Quick Reply สำหรับเปิดเมนูไปด้วย
  */
-async function broadcastToAll(client, message) {
+async function broadcastToAll(client, message, includeMenu = false) {
   const followers = await loadFollowersFromSheet();
   if (followers.length === 0) {
     return { sent: 0, failed: 0, total: 0 };
   }
 
-  const lineMessage = typeof message === 'string'
+  let lineMessage = typeof message === 'string'
     ? { type: 'text', text: message }
-    : message;
+    : JSON.parse(JSON.stringify(message)); // Clone object
+
+  if (includeMenu && lineMessage.type === 'text') {
+    lineMessage.quickReply = {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📋 เปิดเมนู',
+            text: '/เมนู'
+          }
+        }
+      ]
+    };
+  }
 
   let sent = 0, failed = 0;
 
@@ -97,7 +113,7 @@ function removeFollower(userId) {
 /**
  * ส่งข้อความ Broadcast ไปยังบุคคลที่ระบุชื่อ (displayName)
  */
-async function broadcastToTarget(client, message, targetName) {
+async function broadcastToTarget(client, message, targetName, includeMenu = false) {
   const followers = await loadFollowersFromSheet();
   const targetFollowers = followers.filter(f => 
     f.displayName.toLowerCase().includes(targetName.toLowerCase())
@@ -107,9 +123,24 @@ async function broadcastToTarget(client, message, targetName) {
     return { sent: 0, failed: 0, total: 0, notFound: true };
   }
 
-  const lineMessage = typeof message === 'string'
+  let lineMessage = typeof message === 'string'
     ? { type: 'text', text: message }
-    : message;
+    : JSON.parse(JSON.stringify(message));
+
+  if (includeMenu && lineMessage.type === 'text') {
+    lineMessage.quickReply = {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📋 เปิดเมนู',
+            text: '/เมนู'
+          }
+        }
+      ]
+    };
+  }
 
   let sent = 0, failed = 0;
 

@@ -293,8 +293,10 @@ async function handleEvent(event) {
       } catch (err) { return replyMessage(replyToken, buildAddConfirmFlex(person, false, err.message)); }
     }
 
-    if (userText.startsWith('/broadcast ')) {
-      const fullText = userText.replace('/broadcast ', '').trim();
+    if (userText.startsWith('/broadcast ') || userText.startsWith('/broadcast-menu ')) {
+      const isMenuBroadcast = userText.startsWith('/broadcast-menu ');
+      const cmd = isMenuBroadcast ? '/broadcast-menu ' : '/broadcast ';
+      const fullText = userText.replace(cmd, '').trim();
       let res, msgToBroadcast, targetName = null;
 
       if (fullText.startsWith('@')) {
@@ -303,15 +305,15 @@ async function handleEvent(event) {
         msgToBroadcast = parts.slice(1).join(' ').trim();
         
         if (!msgToBroadcast) {
-          return replyText(replyToken, '❌ กรุณาระบุข้อความหลังชื่อ: /broadcast @ชื่อ ข้อความ');
+          return replyText(replyToken, `❌ กรุณาระบุข้อความหลังชื่อ: ${cmd}@ชื่อ ข้อความ`);
         }
 
-        await replyText(replyToken, `📤 กำลังส่งข้อความหา "${targetName}"...`);
-        res = await broadcastToTarget(client, msgToBroadcast, targetName);
+        await replyText(replyToken, `📤 กำลังส่งข้อความหา "${targetName}"${isMenuBroadcast ? ' (+ปุ่มเมนู)' : ''}...`);
+        res = await broadcastToTarget(client, msgToBroadcast, targetName, isMenuBroadcast);
       } else {
         msgToBroadcast = fullText;
-        await replyText(replyToken, '📤 กำลังส่งข้อความหาทุกคน...');
-        res = await broadcastToAll(client, msgToBroadcast);
+        await replyText(replyToken, `📤 กำลังส่งข้อความหาทุกคน${isMenuBroadcast ? ' (+ปุ่มเมนู)' : ''}...`);
+        res = await broadcastToAll(client, msgToBroadcast, isMenuBroadcast);
       }
 
       return client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(res, msgToBroadcast, targetName)] });
