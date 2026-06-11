@@ -314,32 +314,40 @@ async function handleEvent(event) {
     // ─────────────────────────────────────────────────────────
 
     if (userText.includes('ทำเนียบบุคลากร') || userText === 'ตำรวจ') {
+      if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ ข้อมูลทำเนียบบุคลากรจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       return replyMessage(replyToken, buildPersonnelMenuFlex());
     }
     
     if (userText.includes('ทำเนียบผู้นำตำบล') || userText === 'ผู้นำตำบล' || userText.includes('ผู้ใหญ่บ้าน')) {
+      if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ ข้อมูลผู้นำตำบลจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       return replyMessage(replyToken, buildVillageLeaderMenuFlex());
     }
 
     const greetingWords = ['สวัสดี','hello','hi','หวัดดี','เริ่ม','เมนู','help','วิธีใช้'];
     if (greetingWords.some(w => userText.toLowerCase().includes(w))) {
-      return replyMessage(replyToken, buildWelcomeFlex());
+      return replyMessage(replyToken, buildWelcomeFlex(isUserAdmin));
     }
 
     if (userText.includes('เว็บไซต์')) return replyMessage(replyToken, buildWebsiteFlex());
     if (userText.includes('ข้อมูลสถานี')) return replyMessage(replyToken, buildStationFlex());
-    if (userText.includes('คำนวณปริมาณน้ำมัน')) return replyText(replyToken, '⛽ คำนวณปริมาณน้ำมัน 5 ปั๊มกรุณาส่งข้อมูลมาให้เพื่อคำนวณ');
+    if (userText.includes('คำนวณปริมาณน้ำมัน')) {
+      if (!isUserAdmin) return replyText(replyToken, '🔒 คำสั่งนี้จำกัดเฉพาะเจ้าหน้าที่ครับ');
+      return replyText(replyToken, '⛽ คำนวณปริมาณน้ำมัน 5 ปั๊มกรุณาส่งข้อมูลมาให้เพื่อคำนวณ');
+    }
     
     if (userText === '/จุดเสี่ยง' || userText === '/qrcode') {
+      if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ เมนูจุดเสี่ยงจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       return replyMessage(replyToken, buildAllRiskLocationsMenuFlex());
     }
 
     if (userText.startsWith('หมวดจุดเสี่ยง ')) {
+      if (!isUserAdmin) return replyText(replyToken, '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       const category = userText.replace('หมวดจุดเสี่ยง ', '').trim();
       return replyMessage(replyToken, buildRiskLocationMenuFlex(category));
     }
 
     if (userText.startsWith('ขอคิวอาร์ ')) {
+      if (!isUserAdmin) return replyText(replyToken, '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       const locationName = userText.replace('ขอคิวอาร์ ', '').trim();
       let baseURL = process.env.BASE_URL || '';
       if (baseURL && !baseURL.startsWith('http')) baseURL = `https://${baseURL}`;
@@ -430,6 +438,17 @@ async function handleEvent(event) {
 
     if (userText.length >= 2) {
       if (userText === 'ค้นหาชื่อ') return replyText(replyToken, '🔍 พิมพ์ ชื่อ-นามสกุล หรือ เบอร์โทร ที่ต้องการค้นหาได้เลยครับ');
+      
+      // ค้นหารายชื่อ/ผู้ต้องหา จำกัดสิทธิ์เฉพาะ Admin
+      if (!isUserAdmin) {
+        // อนุญาตให้ค้นหาแค่เบอร์โทร (ที่ผ่าน Regex ด้านบนมาแล้ว) 
+        // ถ้าเป็นข้อความทั่วไปที่ไม่ใช่เบอร์โทร ให้บล็อก
+        const isLikelyPhone = /^[0-9- ]+$/.test(userText);
+        if (!isLikelyPhone) {
+          return replyText(replyToken, '🔒 ขออภัยครับ ระบบค้นหารายชื่อและข้อมูลผู้ต้องหาจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
+        }
+      }
+
       const isPersonnelSearch = userText.startsWith('บุคลากร');
       const isLeaderSearch    = userText.startsWith('ผู้นำตำบล');
       let searchQuery = userText.replace(/^(ค้นหา|ตรวจสอบ|เช็ค|ส่อง|check|search|หา|บุคลากร|ผู้นำตำบล|บอท|bot)\s*/i, '').trim();
