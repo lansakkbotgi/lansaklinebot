@@ -192,6 +192,15 @@ async function handleEvent(event) {
 
     const isUserAdmin = await isAdmin(userId);
 
+    // ── ตรวจสอบคำสั่ง Master Admin พิเศษก่อน ──
+    if (userText === '/บทบาท') {
+      if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 ขออภัยครับ เฉพาะ Master Admin เท่านั้นที่สามารถตรวจสอบบทบาทได้ครับ');
+      const { loadFollowersFromSheet: loadUsers } = require('./sheets-writer');
+      const users = await loadUsers();
+      const { buildUserRoleListFlex } = require('./admin');
+      return replyMessage(replyToken, buildUserRoleListFlex(users));
+    }
+
     // ─────────────────────────────────────────────────────────
     // [1] คำสั่ง Admin
     // ─────────────────────────────────────────────────────────
@@ -200,7 +209,11 @@ async function handleEvent(event) {
       if (!isUserAdmin) return replyText(replyToken, '🔒 เฉพาะ Admin เท่านั้นครับ');
 
       if (userText === '/adminhelp') return replyMessage(replyToken, buildAdminHelpFlex());
-      if (userText === '/ล้างcache') { clearCache(); return replyText(replyToken, '🔄 ล้าง Cache เรียบร้อยครับ'); }
+      if (userText === '/ล้างcache') { 
+        clearCache(); 
+        await refreshUserCache(); 
+        return replyText(replyToken, '🔄 ล้าง Cache และอัปเดตสิทธิ์เรียบร้อยครับ'); 
+      }
       
       if (userText === '/รายชื่อ') {
         const suspects = await fetchAllData();
@@ -263,14 +276,6 @@ async function handleEvent(event) {
       if (userText === '/รายชื่อผู้ใช้') {
         const followers = await loadFollowersFromSheet();
         return replyMessage(replyToken, buildUserListFlex(followers));
-      }
-
-      if (userText === '/บทบาท') {
-        if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Master Admin เท่านั้นที่สามารถตรวจสอบบทบาทได้ครับ');
-        const { loadFollowersFromSheet: loadUsers } = require('./sheets-writer');
-        const users = await loadUsers();
-        const { buildUserRoleListFlex } = require('./admin');
-        return replyMessage(replyToken, buildUserRoleListFlex(users));
       }
 
       if (userText.startsWith('/block ')) {
