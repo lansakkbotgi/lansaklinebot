@@ -363,7 +363,7 @@ async function handleEvent(event) {
             } finally {
               riskReminderTimers.delete(userId);
             }
-          }, 90 * 60 * 1000); // 90 mins
+          }, 60 * 60 * 1000); // 60 mins
           riskReminderTimers.set(userId, timer);
         }
       }
