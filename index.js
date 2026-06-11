@@ -49,6 +49,9 @@ const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_TOKEN,
 });
 
+// เก็บ Timer สำหรับแจ้งเตือนจุดเสี่ยง (1.5 ชม.)
+const riskReminderTimers = new Map();
+
 const app = express();
 app.use(express.static('public'));
 
@@ -342,6 +345,27 @@ async function handleEvent(event) {
       if (baseURL && !baseURL.startsWith('http')) baseURL = `https://${baseURL}`;
       baseURL = baseURL.replace(/\/$/, '');
       const imageURL = `${baseURL}/qrcodes/${encodeURIComponent(locationName)}.png`;
+      
+      // ── แจ้งเตือนส่งรายงานจุดเสี่ยง (1.5 ชม. หลังจากขอดู QR) ──
+      if (userId) {
+        if (riskReminderTimers.has(userId)) {
+          clearTimeout(riskReminderTimers.get(userId));
+        }
+        const timer = setTimeout(async () => {
+          try {
+            await client.pushMessage({
+              to: userId,
+              messages: [{ type: 'text', text: '!!!!!อย่าลืมส่งรายงานจุดเสี่ยงนะครับ' }]
+            });
+            console.log(`🔔 Reminder sent to ${userId} for location: ${locationName}`);
+          } catch (err) {
+            console.error(`❌ Failed to send reminder to ${userId}:`, err.message);
+          } finally {
+            riskReminderTimers.delete(userId);
+          }
+        }, 90 * 60 * 1000); // 90 mins
+        riskReminderTimers.set(userId, timer);
+      }
       
       return client.replyMessage({
         replyToken: replyToken,
