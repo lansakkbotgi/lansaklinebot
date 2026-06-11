@@ -6,7 +6,8 @@ const {
   loadAdminsFromSheet,
   addAdminInSheet,
   blockUserInSheet,
-  loadBlockedUsersFromSheet
+  loadBlockedUsersFromSheet,
+  loadFollowersFromSheet
 } = require('./sheets-writer');
 
 // Admin LINE User IDs (ใส่ได้หลายคน) จาก ENV (เป็น Master Admin)
@@ -18,15 +19,23 @@ let lastCacheUpdate = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 นาที
 
 /**
- * โหลดรายชื่อ Admin ทั้งหมด (รวม ENV + Sheet)
+ * โหลดรายชื่อ Admin ทั้งหมด (รวม ENV + Admin Sheet + User List Sheet roles)
  */
 async function getAllAdminIds() {
   const now = Date.now();
   if (now - lastCacheUpdate > CACHE_TTL) {
-    const fromSheet = await loadAdminsFromSheet();
-    sheetAdminCache = fromSheet;
+    // 1. โหลดจากหน้า "รายชื่อแอดมิน" (เดิม)
+    const fromAdminSheet = await loadAdminsFromSheet();
+    
+    // 2. โหลดจากหน้า "รายชื่อผู้ใช้" และกรองคนที่มีบทบาท admin หรือ adminmaster
+    const followers = await loadFollowersFromSheet();
+    const fromUserRoles = followers
+      .filter(u => u.role === 'admin' || u.role === 'adminmaster')
+      .map(u => u.userId);
+
+    sheetAdminCache = [...new Set([...fromAdminSheet, ...fromUserRoles])];
     lastCacheUpdate = now;
-    console.log(`👤 อัปเดตรายชื่อแอดมินจาก Sheet: ${sheetAdminCache.length} คน`);
+    console.log(`👤 อัปเดตรายชื่อแอดมินรวม: ${sheetAdminCache.length} คน`);
   }
   return [...new Set([...ENV_ADMIN_IDS, ...sheetAdminCache])];
 }

@@ -211,11 +211,11 @@ async function trackUserInSheet(userId, displayName) {
     if (existingIds.includes(userId)) return false;
 
     const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-    // A: userId, B: displayName, C: timestamp
-    const row = [userId, displayName || '', now];
+    // A: userId, B: displayName, C: timestamp, D: บทบาท (เริ่มต้นเป็น people)
+    const row = [userId, displayName || '', now, 'people'];
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_USERS}!A:C`,
+      range: `${SHEET_USERS}!A:D`,
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [row] },
@@ -228,20 +228,21 @@ async function trackUserInSheet(userId, displayName) {
 }
 
 /**
- * โหลดรายชื่อผู้ใช้ทั้งหมดจาก Google Sheets
+ * โหลดรายชื่อผู้ใช้ทั้งหมดจาก Google Sheets พร้อมบทบาท
  */
 async function loadFollowersFromSheet() {
   const sheets = getSheetsClient();
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_USERS}!A:B`,
+      range: `${SHEET_USERS}!A:D`,
     });
     const rows = response.data.values || [];
-    // A: userId, B: displayName
+    // A: userId, B: displayName, C: timestamp, D: role
     return rows.slice(1).map(row => ({ 
       userId: row[0], 
-      displayName: row[1] || ''
+      displayName: row[1] || '',
+      role: (row[3] || 'people').toLowerCase().trim()
     }));
   } catch (err) {
     console.error('Error loading followers:', err.message);
