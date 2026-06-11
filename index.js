@@ -346,10 +346,21 @@ async function handleEvent(event) {
       baseURL = baseURL.replace(/\/$/, '');
       const imageURL = `${baseURL}/qrcodes/${encodeURIComponent(locationName)}.png`;
       
-      // ── แจ้งเตือนส่งรายงานจุดเสี่ยง (1.5 ชม. หลังจากขอดู QR) ──
+      const messages = [
+        { type: 'text', text: `📸 นี่คือ QR Code สำหรับแสกนจุดตรวจ: ${locationName}` },
+        { type: 'image', originalContentUrl: imageURL, previewImageUrl: imageURL },
+        {
+          type: 'text',
+          text: '✅ ท่านสามารถแสกน QR Code ด้านบนเพื่อลงเวลาตรวจ และกดปุ่มด้านล่างเพื่อเลือกสถานที่อื่นๆ ครับ',
+          quickReply: {
+            items: [{ type: 'action', action: { type: 'message', label: '📍 เลือกสถานที่อื่น', text: '/จุดเสี่ยง' } }]
+          }
+        }
+      ];
+
+      // ── แจ้งเตือนส่งรายงานจุดเสี่ยง (1 ชม. หลังจากขอดู QR) ──
       if (userId) {
         // หากไม่มี Timer อยู่ ให้สร้างใหม่ (นับจากจุดแรกที่กด)
-        // หากมีอยู่แล้ว ให้ปล่อยให้นับเวลาเดิมต่อไปจนจบ (ไม่รีเซ็ต)
         if (!riskReminderTimers.has(userId)) {
           const timer = setTimeout(async () => {
             try {
@@ -365,22 +376,15 @@ async function handleEvent(event) {
             }
           }, 60 * 60 * 1000); // 60 mins
           riskReminderTimers.set(userId, timer);
+
+          // เพิ่มข้อความแจ้งผู้ใช้ว่าเริ่มนับเวลาแล้ว (เฉพาะจุดแรก)
+          messages.unshift({ type: 'text', text: '⏳ เริ่มนับเวลา 1 ชั่วโมงในการปฏิบัติหน้าที่จุดเสี่ยงครับ อย่าลืมส่งรายงานเมื่อเสร็จสิ้นภารกิจนะครับ' });
         }
       }
       
       return client.replyMessage({
         replyToken: replyToken,
-        messages: [
-          { type: 'text', text: `📸 นี่คือ QR Code สำหรับแสกนจุดตรวจ: ${locationName}` },
-          { type: 'image', originalContentUrl: imageURL, previewImageUrl: imageURL },
-          {
-            type: 'text',
-            text: '✅ ท่านสามารถแสกน QR Code ด้านบนเพื่อลงเวลาตรวจ และกดปุ่มด้านล่างเพื่อเลือกสถานที่อื่นๆ ครับ',
-            quickReply: {
-              items: [{ type: 'action', action: { type: 'message', label: '📍 เลือกสถานที่อื่น', text: '/จุดเสี่ยง' } }]
-            }
-          }
-        ]
+        messages: messages
       });
     }
 
