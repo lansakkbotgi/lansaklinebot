@@ -385,7 +385,6 @@ async function handleEvent(event) {
     }
     
     if (userText.includes('ทำเนียบผู้นำตำบล') || userText === 'ผู้นำตำบล' || userText.includes('ผู้ใหญ่บ้าน')) {
-      if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ ข้อมูลผู้นำตำบลจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       return replyMessage(replyToken, buildVillageLeaderMenuFlex());
     }
 
