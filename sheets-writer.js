@@ -25,20 +25,19 @@ async function appendLocationRecord(locationData, userName) {
   });
 
   const row = [
-    '',                               // A: ยศ (ว่าง)
+    dateTimeStr,                      // A: วัน/เวลา
     locationData.title || 'สถานที่ไม่มีชื่อ', // B: ชื่อสถานที่
     locationData.address || '-',      // C: ที่อยู่
     locationData.latitude.toString(), // D: Latitude
     locationData.longitude.toString(),// E: Longitude
     userName || 'Unknown',            // F: ผู้บันทึก
     'รอดำเนินการ',                     // G: สถานะ
-    dateTimeStr,                      // H: วันที่/เวลา
-    'LINE Bot'                        // I: ระบบที่บันทึก
+    'LINE Bot'                        // H: ระบบที่บันทึก
   ];
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_LOCATIONS}!A:I`,
+    range: `${SHEET_LOCATIONS}!A:H`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] },
