@@ -1022,6 +1022,22 @@ function buildAllCommandsFlex(isAdminUser) {
     },
     {
       type: 'text',
+      text: '🏠 ระบบบันทึกสถานที่',
+      weight: 'bold',
+      size: 'sm',
+      margin: 'md',
+      color: '#2c3e50',
+    },
+    {
+      type: 'text',
+      text: '• บันทึกจุดตรวจ: เพียง "ส่งตำแหน่งที่ตั้ง" (Location) มาให้บอท ระบบจะบันทึกลงฐานข้อมูลทันที\n• ดูรายการ: พิมพ์ "/รายการสถานที่" เพื่อดูรายการที่บันทึกไว้ล่าสุด',
+      size: 'xs',
+      color: '#7f8c8d',
+      wrap: true,
+      margin: 'sm',
+    },
+    {
+      type: 'text',
       text: '📋 คำสั่งควบคุมระบบ',
       weight: 'bold',
       size: 'sm',
