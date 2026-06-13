@@ -31,7 +31,7 @@ async function appendLocationRecord(locationData, userName) {
     locationData.latitude.toString(), // D: Latitude
     locationData.longitude.toString(),// E: Longitude
     userName || 'Unknown',            // F: ผู้บันทึก
-    'รอดำเนินการ',                     // G: สถานะ
+    'รอดำเนินการ',                     // G: รายงานเหตุ
     'LINE Bot'                        // H: ระบบที่บันทึก
   ];
 
