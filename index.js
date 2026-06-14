@@ -30,7 +30,9 @@ const {
   buildAddConfirmFlex, buildDeleteConfirmFlex, buildEditConfirmFlex, 
   buildEditOptionsFlex,
   buildAddAdminConfirmFlex, buildBlockConfirmFlex,
-  buildAdminHelpFlex, buildSuspectListFlex, buildUserListFlex, ADMIN_IDS
+  buildAdminHelpFlex, buildSuspectListFlex, buildUserListFlex, 
+  setEditSession, getEditSession, clearEditSession,
+  ADMIN_IDS
 } = require('./admin');
 const { 
   appendWatchlistPerson, deletePerson, updatePersonField,
@@ -208,6 +210,39 @@ async function handleEvent(event) {
     }
 
     if (!userText) return;
+
+    // ── ตรวจสอบ Session การแก้ไข (Stateful Edit) ──
+    const editSession = getEditSession(userId);
+    if (editSession && event.type === 'message' && event.message.type === 'text') {
+      if (userText === 'ยกเลิก') {
+        clearEditSession(userId);
+        return replyText(replyToken, '❌ ยกเลิกการแก้ไขแล้วครับ');
+      }
+      // บันทึกค่าใหม่
+      const result = await updatePersonField(editSession.firstName, editSession.lastName, editSession.field, userText);
+      if (result.success) clearCache();
+      const editData = { ...editSession, newValue: userText };
+      clearEditSession(userId);
+      return replyMessage(replyToken, buildEditConfirmFlex(editData, result.success, result.message));
+    }
+
+    // ── ตรวจสอบ Postback พิเศษ ──
+    if (event.type === 'postback' && userText.startsWith('action=')) {
+      const params = new URLSearchParams(userText);
+      const action = params.get('action');
+
+      if (action === 'edit_field') {
+        const sessionData = {
+          firstName: params.get('firstName'),
+          lastName: params.get('lastName'),
+          field: params.get('field'),
+          rank: params.get('rank')
+        };
+        setEditSession(userId, sessionData);
+        const name = `${sessionData.rank} ${sessionData.firstName} ${sessionData.lastName}`.trim();
+        return replyText(replyToken, `✏️ กรุณาพิมพ์ค่าใหม่สำหรับ "${sessionData.field}" ของ ${name}\n\n(หรือพิมพ์ "ยกเลิก" เพื่อยกเลิกการแก้ไข)`);
+      }
+    }
 
     console.log(`📩 [${event.source.type}] From: ${userId || 'unknown'} Text: "${userText}"`);
 

@@ -229,6 +229,31 @@ function parseEditCommand(text) {
   }
 }
 
+// เก็บ Session การแก้ไขข้อมูล (ชั่วคราวใน Memory)
+const editSessions = new Map(); // userId -> { firstName, lastName, field, rank }
+
+/**
+ * จัดการ Session การแก้ไข
+ */
+function setEditSession(userId, data) {
+  editSessions.set(userId, { ...data, timestamp: Date.now() });
+}
+
+function getEditSession(userId) {
+  const session = editSessions.get(userId);
+  if (!session) return null;
+  // หมดอายุใน 2 นาที
+  if (Date.now() - session.timestamp > 120000) {
+    editSessions.delete(userId);
+    return null;
+  }
+  return session;
+}
+
+function clearEditSession(userId) {
+  editSessions.delete(userId);
+}
+
 /**
  * สร้าง Flex Message แสดงปุ่มเลือกฟิลด์ที่จะแก้ไข
  */
@@ -265,9 +290,10 @@ function buildEditOptionsFlex(person) {
               style: 'secondary',
               color: '#fff7ed',
               action: {
-                type: 'message',
+                type: 'postback',
                 label: `${f.icon} แก้ไข${f.label}`,
-                text: `/แก้ไข ${name} | ${f.field} | [ใส่ค่าใหม่ที่นี่]`
+                data: `action=edit_field&firstName=${person.firstName}&lastName=${person.lastName}&field=${f.field}&rank=${person.rank || 'นาย'}`,
+                displayText: `แก้ไข${f.label} ของ ${name}`
               },
               margin: 'sm'
             }))
@@ -275,7 +301,7 @@ function buildEditOptionsFlex(person) {
           { type: 'separator', margin: 'lg' },
           {
             type: 'text',
-            text: '💡 กดปุ่มด้านบน แล้วแก้ไขข้อความในช่องแชทตรง "[ใส่ค่าใหม่ที่นี่]" ให้เป็นข้อมูลจริงแล้วกดส่ง',
+            text: '💡 กดปุ่มด้านบน แล้วบอตจะรอรับข้อมูลใหม่จากคุณครับ',
             size: 'xs', color: '#92400e', wrap: true, margin: 'md'
           }
         ]
@@ -704,5 +730,8 @@ module.exports = {
   buildUserRoleListFlex,
   buildAdminHelpFlex,
   buildSuspectListFlex,
+  setEditSession,
+  getEditSession,
+  clearEditSession,
   ADMIN_IDS: ENV_ADMIN_IDS,
 };
