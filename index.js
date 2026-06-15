@@ -341,55 +341,6 @@ async function handleEvent(event) {
     }
 
     const isUserAdmin = await isAdmin(userId);
-    console.log(`👤 User: ${userId} | Admin: ${isUserAdmin}`);
-
-    // ── [0] คำสั่ง Sync Users (ย้ายขึ้นมาบนสุดเพื่อให้แน่ใจว่าทำงาน) ──
-    if (userText === '/sync_users') {
-      if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Master Admin เท่านั้นที่สามารถซิงค์ข้อมูลผู้ใช้ได้ครับ');
-      
-      await replyText(replyToken, '⏳ [Sync v1.1] ระบบกำลังเริ่มกู้คืนรายชื่อจาก LINE... (โปรดรอสักครู่)');
-      
-      // รันในพื้นหลังเพื่อไม่ให้ webhook timeout
-      (async () => {
-        try {
-          let allIds = [];
-          let nextToken = undefined;
-          do {
-            const res = await client.getFollowers(nextToken);
-            allIds = allIds.concat(res.userIds);
-            nextToken = res.next;
-          } while (nextToken);
-
-          const existingFollowers = await loadFollowersFromSheet();
-          const existingIds = existingFollowers.map(f => f.userId);
-          const newIds = allIds.filter(id => !existingIds.includes(id));
-
-          if (newIds.length === 0) {
-            return client.pushMessage({ to: userId, messages: [{ type: 'text', text: '✅ ข้อมูลผู้ใช้เป็นปัจจุบันอยู่แล้ว ไม่พบรายชื่อตกหล่นครับ' }] });
-          }
-
-          let synced = 0;
-          for (const targetId of newIds) {
-            try {
-              let name = 'ผู้ใช้เก่า (Legacy)';
-              try {
-                const profile = await client.getProfile(targetId);
-                name = profile.displayName;
-              } catch (err) {}
-              await trackUserInSheet(targetId, name);
-              synced++;
-              if (synced % 10 === 0) await new Promise(r => setTimeout(r, 500));
-            } catch (err) {}
-          }
-          await refreshUserCache(); // อัปเดต Cache สิทธิ์การใช้งานทันที
-          await client.pushMessage({ to: userId, messages: [{ type: 'text', text: `✅ กู้คืนรายชื่อตกหล่นสำเร็จ ${synced} รายการเรียบร้อยครับ` }] });
-        } catch (err) {
-          console.error('Background Sync error:', err);
-          await client.pushMessage({ to: userId, messages: [{ type: 'text', text: `❌ เกิดข้อผิดพลาดในการซิงค์: ${err.message}` }] });
-        }
-      })();
-      return; 
-    }
 
     // ── ตรวจสอบคำสั่ง Master Admin พิเศษก่อน ──
     if (userText === '/บทบาท') {
