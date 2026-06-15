@@ -280,7 +280,7 @@ function buildWelcomeFlex(isAdminUser = false) {
       color: '#555555',
       margin: 'none',
     },
-    buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       'ค้นหาชื่อ',         '#1a3a6e'),
+    buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       '/ค้นหาชื่อผู้ต้องหา', '#1a3a6e'),
     buildMenuButton('📋', 'รายชื่อบุคคลสุ่มเสี่ยง',    '/รายชื่อ',          '#b45309'),
   ];
 
@@ -389,7 +389,7 @@ function buildPersonnelMenuFlex() {
           buildMenuButton('🚦', 'งานจราจร',               'บุคลากร งานจราจร',              '#1a5276'),
           buildMenuButton('📋', 'ช่วยราชการ',              'บุคลากร ช่วยราชการ',            '#1a5276'),
           buildMenuButton('👥', 'แสดงรายชื่อทั้งหมด',       'บุคลากร ทั้งหมด',              '#1a5276'),
-          buildMenuButton('👤', 'ค้นหาตามชื่อ',           'ค้นหาชื่อ',                     '#555555'),
+          buildMenuButton('👤', 'ค้นหาตามชื่อ',           'ค้นหาชื่อเจ้าหน้าที่',           '#555555'),
         ],
       },
       footer: {
@@ -586,7 +586,7 @@ function buildVillageLeaderMenuFlex() {
           buildMenuButton('🍃', 'ตำบลป่าอ้อ',       'ผู้นำตำบล ป่าอ้อ',      '#1d6a4a'),
           buildMenuButton('🏡', 'ตำบลประดู่ยืน',    'ผู้นำตำบล ประดู่ยืน',   '#1d6a4a'),
           buildMenuButton('📋', 'แสดงรายชื่อทั้งหมด', 'ผู้นำตำบล ทั้งหมด',      '#27ae60'),
-          buildMenuButton('🔎', 'ค้นหาตามชื่อ',     'ค้นหาชื่อ',             '#555555'),
+          buildMenuButton('🔎', 'ค้นหาตามชื่อ',     'ค้นหาชื่อเจ้าหน้าที่',           '#555555'),
         ],
       },
       footer: {

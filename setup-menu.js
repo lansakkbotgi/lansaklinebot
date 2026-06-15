@@ -37,7 +37,7 @@ async function setupRichMenu() {
       // ── แถวบน ──
       {
         bounds: { x: 0,    y: 0, width: 833, height: 843 },
-        action: { type: 'message', label: 'ค้นหาชื่อ',       text: 'ค้นหาชื่อ' },
+        action: { type: 'message', label: 'ค้นหาชื่อ',       text: '/ค้นหาชื่อผู้ต้องหา' },
       },
       {
         bounds: { x: 833,  y: 0, width: 834, height: 843 },
