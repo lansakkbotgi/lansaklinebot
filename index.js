@@ -25,13 +25,14 @@ const {
 // ── ระบบเสริม ──
 const { 
   isAdmin, isMasterAdmin, isAdminCommand, refreshUserCache,
-  parseAddCommand, parseDeleteCommand, parseEditCommand,
+  extractName, parseAddCommand, parseDeleteCommand, parseEditCommand,
   parseAddAdminCommand, parseBlockCommand,
   buildAddConfirmFlex, buildDeleteConfirmFlex, buildEditConfirmFlex, 
   buildEditOptionsFlex,
   buildAddAdminConfirmFlex, buildBlockConfirmFlex,
   buildAdminHelpFlex, buildSuspectListFlex, buildUserListFlex, 
   setEditSession, getEditSession, clearEditSession,
+  setAddSession, getAddSession, clearAddSession,
   ADMIN_IDS
 } = require('./admin');
 const { 
@@ -226,6 +227,67 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildEditConfirmFlex(editData, result.success, result.message));
     }
 
+    // ── ตรวจสอบ Session การเพิ่มข้อมูล (Step-by-Step) ──
+    const addSession = getAddSession(userId);
+    if (addSession && event.type === 'message' && event.message.type === 'text') {
+      if (userText === 'ยกเลิก') {
+        clearAddSession(userId);
+        return replyText(replyToken, '❌ ยกเลิกการเพิ่มข้อมูลแล้วครับ');
+      }
+
+      // ตรรกะ Step-by-Step
+      let nextStep = addSession.step + 1;
+      let nextData = { ...addSession };
+
+      switch (addSession.step) {
+        case 1: // รับชื่อ-นามสกุล
+          const names = extractName(userText);
+          nextData.rank = names.rank;
+          nextData.firstName = names.firstName;
+          nextData.lastName = names.lastName;
+          setAddSession(userId, { ...nextData, step: nextStep });
+          return replyText(replyToken, `👤 บันทึกชื่อ: ${nextData.rank} ${nextData.firstName} ${nextData.lastName}\n\n(2/5) ต่อไปกรุณาระบุ "คดี/ข้อหา" (หรือพิมพ์ "-" หากไม่ทราบ)`);
+
+        case 2: // รับคดี
+          nextData.crime = userText;
+          setAddSession(userId, { ...nextData, step: nextStep });
+          return replyText(replyToken, `📋 บันทึกคดี: ${nextData.crime}\n\n(3/5) ต่อไปกรุณาระบุ "สถานะ" (เช่น เฝ้าระวัง, พ้นโทษ, มีหมายจับ)`);
+
+        case 3: // รับสถานะ
+          nextData.status = userText;
+          setAddSession(userId, { ...nextData, step: nextStep });
+          return replyText(replyToken, `🔴 บันทึกสถานะ: ${nextData.status}\n\n(4/5) ต่อไปกรุณาระบุ "พื้นที่" (เช่น ต.ลานสัก, อ.เมือง)`);
+
+        case 4: // รับพื้นที่
+          nextData.area = userText;
+          setAddSession(userId, { ...nextData, step: nextStep });
+          return replyText(replyToken, `📍 บันทึกพื้นที่: ${nextData.area}\n\n(5/5) สุดท้ายกรุณาระบุ "หมายเลขคดี" (หรือพิมพ์ "-" หากไม่มี)`);
+
+        case 5: // รับหมายเลขคดี และ บันทึก
+          nextData.caseNo = userText;
+          const finalPerson = {
+            rank: nextData.rank,
+            firstName: nextData.firstName,
+            lastName: nextData.lastName,
+            crime: nextData.crime,
+            status: nextData.status,
+            area: nextData.area,
+            caseNo: nextData.caseNo,
+            addedBy: `Admin (${userId})`
+          };
+          
+          try {
+            await appendWatchlistPerson(finalPerson);
+            clearCache();
+            clearAddSession(userId);
+            return replyMessage(replyToken, buildAddConfirmFlex(finalPerson, true));
+          } catch (err) {
+            clearAddSession(userId);
+            return replyMessage(replyToken, buildAddConfirmFlex(finalPerson, false, err.message));
+          }
+      }
+    }
+
     // ── ตรวจสอบ Postback พิเศษ ──
     if (event.type === 'postback' && userText.startsWith('action=')) {
       const params = new URLSearchParams(userText);
@@ -390,9 +452,13 @@ async function handleEvent(event) {
 
       if (userText.startsWith('/เพิ่ม')) {
         const args = userText.replace('/เพิ่ม', '').trim();
-        if (!args) return replyMessage(replyToken, buildQuickAddFlex());
         
         if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Master Admin เท่านั้นที่สามารถเพิ่มรายชื่อใหม่ได้ครับ');
+
+        if (!args) {
+          setAddSession(userId, { step: 1 });
+          return replyText(replyToken, '➕ เริ่มระบบเพิ่มข้อมูลใหม่แบบทีละขั้นตอน\n\n(1/5) กรุณาพิมพ์ "ยศ ชื่อ นามสกุล"\n(เช่น ร.ต.อ. สมชาย ใจดี หรือ นายสมบูรณ์ ดีใจ)\n\nหรือพิมพ์ "ยกเลิก" เพื่อออกจากการเพิ่มข้อมูล');
+        }
 
         const person = parseAddCommand(userText, userId);
         if (!person) return replyText(replyToken, '❌ รูปแบบ: /เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ...');

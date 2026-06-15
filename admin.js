@@ -231,6 +231,7 @@ function parseEditCommand(text) {
 
 // เก็บ Session การแก้ไขข้อมูล (ชั่วคราวใน Memory)
 const editSessions = new Map(); // userId -> { firstName, lastName, field, rank }
+const addSessions  = new Map(); // userId -> { step, rank, firstName, lastName, crime, status, area, caseNo }
 
 /**
  * จัดการ Session การแก้ไข
@@ -252,6 +253,28 @@ function getEditSession(userId) {
 
 function clearEditSession(userId) {
   editSessions.delete(userId);
+}
+
+/**
+ * จัดการ Session การเพิ่มข้อมูล
+ */
+function setAddSession(userId, data) {
+  addSessions.set(userId, { ...data, timestamp: Date.now() });
+}
+
+function getAddSession(userId) {
+  const session = addSessions.get(userId);
+  if (!session) return null;
+  // หมดอายุใน 5 นาที (เผื่อหาข้อมูล)
+  if (Date.now() - session.timestamp > 300000) {
+    addSessions.delete(userId);
+    return null;
+  }
+  return session;
+}
+
+function clearAddSession(userId) {
+  addSessions.delete(userId);
 }
 
 /**
@@ -481,7 +504,7 @@ function buildAdminHelpFlex() {
         type: 'box', layout: 'vertical', paddingAll: '12px', spacing: 'sm',
         contents: [
           buildHelpItem('➕ เพิ่มบุคคล', '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี', '#f0f4ff', '#1a3a6e'),
-          buildHelpItem('📋 รายชื่อผู้ต้องหา', '/รายชื่อ', '#f0fff4', '#27ae60'),
+          buildHelpItem('📋 รายชื่อบุคคลสุ่มเสี่ยง', '/รายชื่อ', '#f0fff4', '#27ae60'),
           buildHelpItem('🗑️ ลบบุคคล', '/ลบ ชื่อ นามสกุล', '#fff5f5', '#c53030'),
           buildHelpItem('✏️ แก้ไขข้อมูล', '/แก้ไข ชื่อ นามสกุล', '#fffaf0', '#b45309'),
           buildHelpItem('📢 ส่งข้อความ', '/broadcast [ข้อความ] หรือ /broadcast @ชื่อ [ข้อความ]', '#fdf2f2', '#991b1b'),
@@ -503,26 +526,45 @@ function buildAdminHelpFlex() {
  * สร้าง Flex Message แสดงรายชื่อผู้ต้องหาทั้งหมด (สำหรับ Admin)
  */
 function buildSuspectListFlex(suspects) {
-  const items = suspects.slice(0, 20).map(s => ({
-    type: 'box', layout: 'horizontal', paddingAll: '8px', margin: 'sm', backgroundColor: '#f8f9fa', cornerRadius: '8px',
+  const items = suspects.slice(0, 25).map(s => ({
+    type: 'box', layout: 'vertical', paddingAll: '12px', margin: 'md', backgroundColor: '#ffffff', cornerRadius: 'md',
+    borderWidth: '1px', borderColor: '#e0e0e0',
     contents: [
       {
-        type: 'box', layout: 'vertical', flex: 4,
+        type: 'box', layout: 'horizontal',
         contents: [
-          { type: 'text', text: `${s.rank} ${s.firstName} ${s.lastName}`.trim(), weight: 'bold', size: 'sm', wrap: true },
-          { type: 'text', text: s.crime || '-', color: '#888888', size: 'xs', wrap: true },
-        ],
-      },
-      {
-        type: 'box', layout: 'vertical', flex: 2, justifyContent: 'center',
-        contents: [
+          { type: 'text', text: `${s.rank} ${s.firstName} ${s.lastName}`.trim(), weight: 'bold', size: 'sm', color: '#1a5276', flex: 4, wrap: true },
           { 
-            type: 'text', text: s.status || 'เฝ้าระวัง', 
-            color: s.status === 'มีหมายจับ' ? '#cc3333' : '#e67e22', 
-            size: 'xs', weight: 'bold', align: 'end' 
+            type: 'box', layout: 'vertical', flex: 2, backgroundColor: s.status === 'มีหมายจับ' ? '#ffebee' : '#fff3e0', cornerRadius: 'xl', paddingAll: '2px',
+            contents: [
+              { 
+                type: 'text', text: s.status || 'เฝ้าระวัง', 
+                color: s.status === 'มีหมายจับ' ? '#cc3333' : '#e67e22', 
+                size: 'xxs', weight: 'bold', align: 'center' 
+              }
+            ]
           },
         ],
       },
+      {
+        type: 'box', layout: 'vertical', margin: 'md', spacing: 'xs',
+        contents: [
+          {
+            type: 'box', layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '📋 คดี:', size: 'xs', color: '#888888', flex: 1 },
+              { type: 'text', text: s.crime || '-', size: 'xs', color: '#444444', flex: 4, wrap: true }
+            ]
+          },
+          {
+            type: 'box', layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '📍 พื้นที่:', size: 'xs', color: '#888888', flex: 1 },
+              { type: 'text', text: s.area || '-', size: 'xs', color: '#444444', flex: 4, wrap: true }
+            ]
+          }
+        ]
+      }
     ],
     action: {
       type: 'message',
@@ -533,30 +575,30 @@ function buildSuspectListFlex(suspects) {
 
   if (suspects.length === 0) {
     items.push({ type: 'text', text: 'ไม่พบข้อมูลผู้ต้องหา', align: 'center', margin: 'md', color: '#888888' });
-  } else if (suspects.length > 20) {
-    items.push({ type: 'text', text: `... และอีก ${suspects.length - 20} รายการ`, align: 'center', margin: 'md', color: '#aaaaaa', size: 'xs' });
+  } else if (suspects.length > 25) {
+    items.push({ type: 'text', text: `... และอีก ${suspects.length - 25} รายการ`, align: 'center', margin: 'md', color: '#aaaaaa', size: 'xs' });
   }
 
   return {
     type: 'flex',
-    altText: '📋 รายชื่อผู้ต้องหา/เฝ้าระวัง',
+    altText: '📋 รายชื่อบุคคลสุ่มเสี่ยง',
     contents: {
       type: 'bubble', size: 'mega',
       header: {
         type: 'box', layout: 'vertical', backgroundColor: '#1a5276', paddingAll: '16px',
         contents: [
-          { type: 'text', text: '📋 รายชื่อผู้ต้องหา/เฝ้าระวัง', color: '#ffffff', weight: 'bold', size: 'md' },
+          { type: 'text', text: '📋 รายชื่อบุคคลสุ่มเสี่ยง', color: '#ffffff', weight: 'bold', size: 'md' },
           { type: 'text', text: `ทั้งหมด ${suspects.length} รายการ`, color: '#aed6f1', size: 'xs' },
         ],
       },
       body: {
-        type: 'box', layout: 'vertical', paddingAll: '12px',
+        type: 'box', layout: 'vertical', paddingAll: '8px', backgroundColor: '#f8f9fa',
         contents: items,
       },
       footer: {
         type: 'box', layout: 'vertical', paddingAll: '8px',
         contents: [
-          { type: 'text', text: 'แตะที่รายชื่อเพื่อดูรายละเอียด', size: 'xxs', color: '#aaaaaa', align: 'center' }
+          { type: 'text', text: 'แตะที่การ์ดเพื่อดูรายละเอียดฉบับเต็ม', size: 'xxs', color: '#aaaaaa', align: 'center' }
         ]
       }
     },
@@ -709,6 +751,7 @@ module.exports = {
   isMasterAdmin,
   isAdminCommand,
   refreshUserCache,
+  extractName,
   parseAddCommand,
   parseDeleteCommand,
   parseEditCommand,
@@ -733,5 +776,8 @@ module.exports = {
   setEditSession,
   getEditSession,
   clearEditSession,
+  setAddSession,
+  getAddSession,
+  clearAddSession,
   ADMIN_IDS: ENV_ADMIN_IDS,
 };

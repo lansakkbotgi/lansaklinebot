@@ -315,13 +315,13 @@ function buildWelcomeFlex() {
             margin: 'none',
           },
           buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       'ค้นหาชื่อ',         '#1a3a6e'),
+          buildMenuButton('📋', 'รายชื่อบุคคลสุ่มเสี่ยง',    '/รายชื่อ',          '#b45309'),
           buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',    '#1a5276'),
           buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',         'ทำเนียบผู้นำตำบล',  '#1d6a4a'),
           buildMenuButton('⛽', 'เบอร์ปั๊ม',               '/เบอร์ปั๊ม',        '#5d4037'),
-          buildMenuButton('🛢️', 'เว็ปไซต์ส่งรายงานน้ำมัน', 'https://inquisitive-bonbon-e2996a.netlify.app/', '#008080', 'uri'),
+          buildMenuButton('🛢️', 'เว็ปไซต์ส่งรายงานน้ำมัน', 'https://canva.link/ccad8llkz0upv9s', '#008080', 'uri'),
           buildMenuButton('🏍️', 'เว็ปไซต์สายตรวจลานสัก',     'https://liff.line.me/2010319438-PkvEgigE', '#1a3a6e', 'uri'),
           buildMenuButton('📖', 'วิธีใช้งาน',                '/คำสั่ง',          '#cc3333'),
-          buildMenuButton('📋', 'ตรวจสอบหมายจับ',            'ตรวจสอบหมายจับ',    '#b45309'),
           buildMenuButton('📍', 'จุดเสี่ยง / QR Code',      '/จุดเสี่ยง',        '#e67e22'),
           buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่', '#555555'),
         ],
@@ -1127,7 +1127,7 @@ function buildQuickAddFlex() {
         contents: [
           {
             type: 'text',
-            text: 'แตะที่ข้อความด้านล่างเพื่อคัดลอกและแก้ไข:',
+            text: 'กดปุ่มด้านล่างเพื่อเริ่มการเพิ่มข้อมูลแบบทีละขั้นตอน:',
             size: 'xs',
             color: '#888888',
             wrap: true,
@@ -1141,16 +1141,17 @@ function buildQuickAddFlex() {
             contents: [
               {
                 type: 'text',
-                text: '/เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ | พื้นที่ | หมายเลขคดี',
-                size: 'xs',
-                color: '#2c3e50',
-                wrap: true,
+                text: '➕ กดเพื่อเริ่มการเพิ่มข้อมูล',
+                size: 'sm',
+                color: '#27ae60',
+                weight: 'bold',
+                align: 'center',
               },
             ],
             action: {
               type: 'message',
-              label: 'Copy Template',
-              text: '/เพิ่ม\nนาย/นาง/ยศ ชื่อ นามสกุล:\nคดี:\nสถานะ:\nพื้นที่:\nหมายเลขคดี:',
+              label: 'เริ่มเพิ่มข้อมูล',
+              text: '/เพิ่ม',
             },
           },
           {
@@ -1159,7 +1160,7 @@ function buildQuickAddFlex() {
             spacing: 'xs',
             contents: [
               { type: 'text', text: '💡 คำแนะนำ:', size: 'xxs', color: '#aaaaaa' },
-              { type: 'text', text: 'คัดลอกข้อความด้านบนไปกรอกข้อมูล\nระบุ นาย/นาง หรือยศ มาด้วย (ถ้าไม่ใส่ระบบจะเติม "นาย" ให้เอง)\nอันไหนไม่มีให้เว้นว่างไว้ ระบบจะใส่ "-" ให้ครับ', size: 'xxs', color: '#aaaaaa', wrap: true },
+              { type: 'text', text: 'บอทจะให้ท่านกรอกข้อมูลทีละขั้นตอนจนครบ\nหรือหากท่านสะดวกแบบเดิม สามารถพิมพ์:\n/เพิ่ม ยศ ชื่อ นามสกุล | คดี | สถานะ...', size: 'xxs', color: '#aaaaaa', wrap: true },
             ],
           },
         ],
