@@ -569,7 +569,7 @@ async function handleEvent(event) {
       });
     }
 
-    if (userText === '/เมนู') return replyMessage(replyToken, buildWelcomeFlex());
+    if (userText === '/เมนู') return replyMessage(replyToken, buildWelcomeFlex(isUserAdmin));
     if (userText === '/คำสั่ง') return replyMessage(replyToken, buildAllCommandsFlex(isUserAdmin));
 
     const fuelKeywords = ['/เบอร์โทรน้ำมัน', '/เบอร์ปั๊ม', '/เบอร์น้ำมัน'];

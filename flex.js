@@ -271,7 +271,35 @@ function buildNotFoundFlex(query) {
 /**
  * Flex Message เมนูหลัก (Welcome)
  */
-function buildWelcomeFlex() {
+function buildWelcomeFlex(isAdminUser = false) {
+  const menuContents = [
+    {
+      type: 'text',
+      text: 'เลือกบริการที่ต้องการ:',
+      size: 'sm',
+      color: '#555555',
+      margin: 'none',
+    },
+    buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       'ค้นหาชื่อ',         '#1a3a6e'),
+    buildMenuButton('📋', 'รายชื่อบุคคลสุ่มเสี่ยง',    '/รายชื่อ',          '#b45309'),
+  ];
+
+  // ถ้าเป็น Admin ให้เพิ่มเมนู "เพิ่มรายชื่อ"
+  if (isAdminUser) {
+    menuContents.push(buildMenuButton('➕', 'เพิ่มบุคคลสุ่มเสี่ยง', '/เพิ่ม', '#27ae60'));
+  }
+
+  menuContents.push(
+    buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',    '#1a5276'),
+    buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',         'ทำเนียบผู้นำตำบล',  '#1d6a4a'),
+    buildMenuButton('⛽', 'เบอร์ปั๊ม',               '/เบอร์ปั๊ม',        '#5d4037'),
+    buildMenuButton('🛢️', 'เว็ปไซต์ส่งรายงานน้ำมัน', 'https://canva.link/ccad8llkz0upv9s', '#008080', 'uri'),
+    buildMenuButton('🏍️', 'เว็ปไซต์สายตรวจลานสัก',     'https://liff.line.me/2010319438-PkvEgigE', '#1a3a6e', 'uri'),
+    buildMenuButton('📖', 'วิธีใช้งาน',                '/คำสั่ง',          '#cc3333'),
+    buildMenuButton('📍', 'จุดเสี่ยง / QR Code',      '/จุดเสี่ยง',        '#e67e22'),
+    buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่', '#555555')
+  );
+
   return {
     type: 'flex',
     altText: '📋 รายการเมนู — ระบบสายตรวจภูธรลานสัก',
@@ -306,25 +334,7 @@ function buildWelcomeFlex() {
         layout: 'vertical',
         paddingAll: '16px',
         spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: 'เลือกบริการที่ต้องการ:',
-            size: 'sm',
-            color: '#555555',
-            margin: 'none',
-          },
-          buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       'ค้นหาชื่อ',         '#1a3a6e'),
-          buildMenuButton('📋', 'รายชื่อบุคคลสุ่มเสี่ยง',    '/รายชื่อ',          '#b45309'),
-          buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',    '#1a5276'),
-          buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',         'ทำเนียบผู้นำตำบล',  '#1d6a4a'),
-          buildMenuButton('⛽', 'เบอร์ปั๊ม',               '/เบอร์ปั๊ม',        '#5d4037'),
-          buildMenuButton('🛢️', 'เว็ปไซต์ส่งรายงานน้ำมัน', 'https://canva.link/ccad8llkz0upv9s', '#008080', 'uri'),
-          buildMenuButton('🏍️', 'เว็ปไซต์สายตรวจลานสัก',     'https://liff.line.me/2010319438-PkvEgigE', '#1a3a6e', 'uri'),
-          buildMenuButton('📖', 'วิธีใช้งาน',                '/คำสั่ง',          '#cc3333'),
-          buildMenuButton('📍', 'จุดเสี่ยง / QR Code',      '/จุดเสี่ยง',        '#e67e22'),
-          buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่', '#555555'),
-        ],
+        contents: menuContents,
       },
     },
   };
