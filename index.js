@@ -42,7 +42,7 @@ const {
   isConfigured: isSheetConfigured,
   setUserReminderTime, getDueReminders
 } = require('./sheets-writer');
-const { trackUser, broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
+const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
 const { askAI } = require('./ai');
 
 // ===== Line SDK Config =====
@@ -131,7 +131,6 @@ async function handleEvent(event) {
           const displayName = profile.displayName || 'ไม่ระบุชื่อ';
           const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
           
-          trackUser(userId, displayName);
           await trackUserInSheet(userId, displayName);
           
           // แจ้งเตือน Master Admin ทุกคน (จาก ENV และ Sheets)
@@ -312,7 +311,6 @@ async function handleEvent(event) {
     if (userId) {
       try {
         const profile = await client.getProfile(userId);
-        trackUser(userId, profile.displayName);
         await trackUserInSheet(userId, profile.displayName);
       } catch (err) { 
         console.error('Track user error:', err.message);

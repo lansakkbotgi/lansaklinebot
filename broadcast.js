@@ -1,14 +1,6 @@
 const { trackUserInSheet, loadFollowersFromSheet } = require('./sheets-writer');
 
 /**
- * บันทึก userId เมื่อมีการส่งข้อความ
- */
-async function trackUser(userId, displayName) {
-  if (!userId) return;
-  return await trackUserInSheet(userId, displayName);
-}
-
-/**
  * ส่งข้อความ Broadcast ไปยังทุกคน (ดึงรายชื่อจาก Google Sheets)
  * @param {boolean} includeMenu - หากเป็น true จะแนบปุ่ม Quick Reply สำหรับเปิดเมนูไปด้วย
  */
@@ -162,7 +154,6 @@ async function broadcastToTarget(client, message, targetName, includeMenu = fals
 }
 
 module.exports = {
-  trackUser,
   broadcastToAll,
   broadcastToTarget,
   removeFollower,

@@ -270,15 +270,46 @@ async function loadAdminsFromSheet() {
 }
 
 /**
+ * อัปเดตบทบาทของ User (คอลัมน์ D)
+ */
+async function updateUserRoleInSheet(userId, role) {
+  const sheets = getSheetsClient();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_USERS}!A:A`,
+    });
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === userId);
+    if (rowIndex === -1) return false;
+
+    // คอลัมน์ D คือ index 3
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_USERS}!D${rowIndex + 1}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[role]] },
+    });
+    return true;
+  } catch (e) {
+    console.error('Error updating user role:', e.message);
+    return false;
+  }
+}
+
+/**
  * เพิ่ม Admin ใหม่ลง Google Sheets
  */
 async function addAdminInSheet(userId, displayName, addedBy) {
   const sheets = getSheetsClient();
   try {
-    // เช็คว่ามีอยู่แล้วหรือยัง
+    // 1. อัปเดตบทบาทในหน้า "รายชื่อผู้ใช้" เป็น admin
+    await updateUserRoleInSheet(userId, 'admin');
+
+    // 2. เช็คว่ามีในหน้า "รายชื่อแอดมิน" แล้วหรือยัง
     const existingAdmins = await loadAdminsFromSheet();
     if (existingAdmins.includes(userId)) {
-      return { success: false, message: 'ผู้ใช้นี้เป็น Admin อยู่แล้ว' };
+      return { success: true, message: 'ผู้ใช้นี้เป็น Admin อยู่แล้ว (อัปเดตบทบาทในรายชื่อผู้ใช้เรียบร้อย)' };
     }
 
     const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
@@ -304,6 +335,9 @@ async function addAdminInSheet(userId, displayName, addedBy) {
 async function blockUserInSheet(userId, displayName, blockedBy) {
   const sheets = getSheetsClient();
   try {
+    // 1. อัปเดตบทบาทในหน้า "รายชื่อผู้ใช้" เป็น blocked
+    await updateUserRoleInSheet(userId, 'blocked');
+
     const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
     const row = [userId, displayName || 'ไม่ระบุชื่อ', now, blockedBy || 'Admin'];
     
@@ -413,5 +447,6 @@ module.exports = {
   appendLocationRecord,
   loadAdminsFromSheet, addAdminInSheet,
   blockUserInSheet, loadBlockedUsersFromSheet,
-  setUserReminderTime, getDueReminders
+  setUserReminderTime, getDueReminders,
+  updateUserRoleInSheet
 };
