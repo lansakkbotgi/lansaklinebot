@@ -80,10 +80,36 @@ setInterval(async () => {
 }, 60 * 1000);
 
 const app = express();
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 // Session สำหรับรอรับชื่อค้นทะเบียนราษฎร์
 const xapiWaitingUsers = new Map(); // userId -> true
 
+// ── ฟังก์ชัน Proxy รูปภาพ: ดาวน์โหลดรูปจาก API แล้วเสิร์ฟผ่าน server ตัวเอง ──
+async function proxyImageUrl(srcUrl) {
+  if (!srcUrl) return null;
+  try {
+    const resp = await fetch(srcUrl, { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) return null;
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    const ext = srcUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+    const filename = crypto.randomBytes(8).toString('hex') + '.' + ext;
+    const dir = path.join(__dirname, 'public', 'tmp');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), buffer);
+    // ลบรูปอัตโนมัติหลัง 5 นาที
+    setTimeout(() => {
+      try { fs.unlinkSync(path.join(dir, filename)); } catch {}
+    }, 5 * 60 * 1000);
+    const base = (process.env.BASE_URL || '').replace(/\/$/, '');
+    return `${base}/tmp/${filename}`;
+  } catch (err) {
+    console.error('proxyImageUrl error:', err.message);
+    return null;
+  }
+}
 
 app.use(express.static('public'));
 
@@ -238,8 +264,8 @@ async function handleEvent(event) {
         }
         const messages = [buildPersonInfoFlex(json.data)];
         if (json.image?.url) {
-          const imgUrl = json.image.url.replace(/^http:\/\//i, 'https://');
-          messages.push({ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl });
+          const imgUrl = await proxyImageUrl(json.image.url);
+          if (imgUrl) messages.push({ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl });
         }
         return client.replyMessage({ replyToken, messages });
       } catch (err) {
@@ -630,8 +656,8 @@ async function handleEvent(event) {
         }
         const messages = [buildPersonInfoFlex(json.data)];
         if (json.image?.url) {
-          const imgUrl = json.image.url.replace(/^http:\/\//i, 'https://');
-          messages.push({ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl });
+          const imgUrl = await proxyImageUrl(json.image.url);
+          if (imgUrl) messages.push({ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl });
         }
         return client.replyMessage({ replyToken, messages });
       } catch (err) {
