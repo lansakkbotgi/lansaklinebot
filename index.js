@@ -249,6 +249,11 @@ async function handleEvent(event) {
         xapiWaitingUsers.delete(userId);
         return replyText(replyToken, '❌ ยกเลิกการค้นหาแล้วครับ');
       }
+      // ตรวจสิทธิ์อีกครั้งก่อนค้นหา
+      if (!await isMasterAdmin(userId)) {
+        xapiWaitingUsers.delete(userId);
+        return replyText(replyToken, '🔒 ขออภัยครับ ระบบค้นทะเบียนราษฎร์จำกัดเฉพาะ Master Admin เท่านั้น');
+      }
       // รับชื่อที่พิมพ์มา → ค้นหาทันที
       const query = userText.trim();
       xapiWaitingUsers.delete(userId);
@@ -635,11 +640,13 @@ async function handleEvent(event) {
     // กดปุ่มเมนู → set session รอชื่อ (logic จัดการข้างบนแล้ว)
     // พิมพ์ตรง  → /ค้นชื่อนามสกุล ชื่อ นามสกุล
     if (userText === '/ค้นหารายชื่อบุคคล') {
+      if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 ขออภัยครับ ระบบค้นทะเบียนราษฎร์จำกัดเฉพาะ Master Admin เท่านั้น');
       xapiWaitingUsers.set(userId, true);
       return replyText(replyToken, '👤 ค้นทะเบียนราษฎร์\n\nกรุณาพิมพ์ ชื่อ-นามสกุล ที่ต้องการค้นหา\n\n(พิมพ์ "ยกเลิก" เพื่อออก)');
     }
 
     if (userText.startsWith('/ค้นชื่อนามสกุล')) {
+      if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 ขออภัยครับ ระบบค้นทะเบียนราษฎร์จำกัดเฉพาะ Master Admin เท่านั้น');
       const query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
       if (!query) {
         return replyText(replyToken, '🔍 รูปแบบ: /ค้นชื่อนามสกุล ชื่อ นามสกุล');
