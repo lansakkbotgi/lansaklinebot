@@ -3,9 +3,12 @@
 //  รองรับ: แชทส่วนตัว, แชทกลุ่ม, ระบบ Admin, และ Gemini AI
 // ============================================================
 
+
+
 require('dotenv').config();
 const line    = require('@line/bot-sdk');
 const express = require('express');
+const axios = require('axios');
 const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchLocations, clearCache, caches } = require('./database');
 const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
@@ -77,6 +80,21 @@ setInterval(async () => {
     console.error('Error in reminder interval:', err.message);
   }
 }, 60 * 1000);
+
+// ระบบรอรับชื่อจากผู้ใช้
+const nameSearchSessions = new Map();
+
+function setNameSearchSession(userId) {
+  nameSearchSessions.set(userId, true);
+}
+
+function isWaitingName(userId) {
+  return nameSearchSessions.has(userId);
+}
+
+function clearNameSearchSession(userId) {
+  nameSearchSessions.delete(userId);
+}
 
 const app = express();
 app.use(express.static('public'));
@@ -338,6 +356,46 @@ async function handleEvent(event) {
       }
     }
 
+    if (isWaitingName(userId)) {
+
+  clearNameSearchSession(userId);
+
+  try {
+
+    const fullName = userText.trim();
+
+    const apiUrl =
+      `http://85.203.4.220:8787/xapi/query/true?token=9kzaswq.xyz&type=name&value=${encodeURIComponent(fullName)}`;
+
+    const { data } = await axios.get(apiUrl, {
+      timeout: 30000
+    });
+
+    if (!data) {
+      return replyText(
+        replyToken,
+        `❌ ไม่พบข้อมูล ${fullName}`
+      );
+    }
+
+    return replyText(
+      replyToken,
+      JSON.stringify(data, null, 2)
+    );
+
+  } catch (err) {
+
+    console.error('Name Search Error:', err);
+
+    return replyText(
+      replyToken,
+      '❌ เกิดข้อผิดพลาดในการค้นหาข้อมูล'
+    );
+
+  }
+
+}
+
     const isUserAdmin = await isAdmin(userId);
 
     // ── ตรวจสอบคำสั่ง Master Admin พิเศษก่อน ──
@@ -492,6 +550,17 @@ async function handleEvent(event) {
     // ─────────────────────────────────────────────────────────
     // [2] คำสั่งทั่วไป / ค้นหา
     // ─────────────────────────────────────────────────────────
+
+    if (userText === '/ค้นหารายชื่อบุคคลนามสกุล') {
+
+  setNameSearchSession(userId);
+
+  return replyText(
+    replyToken,
+    '🔍 กรุณาเขียนชื่อ-นามสกุลที่ต้องการค้นหา'
+  );
+
+}
 
     if (userText.includes('ทำเนียบบุคลากร') || userText === 'ตำรวจ') {
       if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ ข้อมูลทำเนียบบุคลากรจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
