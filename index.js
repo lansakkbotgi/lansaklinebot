@@ -20,6 +20,7 @@ const {
   buildRiskCategoryMenuFlex,
   buildRiskLocationMenuFlex,
   buildAllRiskLocationsMenuFlex,
+  buildPersonInfoFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -235,29 +236,7 @@ async function handleEvent(event) {
           return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ
 กรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }
-        const d = json.data;
-        const imageUrl = json.image?.url || null;
-        let text = '';
-        text += `👤 ชื่อ-นามสกุล
-${d.name || '—'}
-`;
-        text += `
-🪪 เลขบัตรประจำตัว
-${d.pid || '—'}
-`;
-        if (d.phone)   text += `
-📞 เบอร์โทรศัพท์
-${d.phone}
-`;
-        if (d.address) text += `
-📍 ที่อยู่
-${d.address}
-`;
-        text += `
-⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
-        const msgs = [{ type: 'text', text }];
-        if (imageUrl) msgs.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
-        return client.replyMessage({ replyToken, messages: msgs });
+        return replyMessage(replyToken, buildPersonInfoFlex(json.data, json.image?.url || null));
       } catch (err) {
         console.error('xapi waiting search error:', err.message);
         return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่
@@ -644,61 +623,7 @@ ${d.address}
           return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ
 กรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }
-       const d = json.data;
-const imageUrl = json.image?.url || null;
-
-console.log('IMAGE URL =', imageUrl);
-
-let text = '';
-text += `👤 ชื่อ-นามสกุล
-${d.name || '—'}
-`;
-
-text += `
-🪪 เลขบัตรประจำตัว
-${d.pid || '—'}
-`;
-
-if (d.phone) text += `
-📞 เบอร์โทรศัพท์
-${d.phone}
-`;
-
-if (d.address) text += `
-📍 ที่อยู่
-${d.address}
-`;
-
-text += `
-⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
-
-const msgs = [
-  {
-    type: 'text',
-    text
-  }
-];
-
-if (
-  imageUrl &&
-  imageUrl.startsWith('https://')
-) {
-  msgs.push({
-    type: 'image',
-    originalContentUrl: imageUrl,
-    previewImageUrl: imageUrl
-  });
-}
-
-return client.replyMessage({
-  replyToken,
-  messages: msgs
-});
-        text += `
-⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
-        const msgs = [{ type: 'text', text }];
-        if (imageUrl) msgs.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
-        return client.replyMessage({ replyToken, messages: msgs });
+        return replyMessage(replyToken, buildPersonInfoFlex(json.data, json.image?.url || null));
       } catch (err) {
         console.error('xapi search error:', err.message);
         return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่

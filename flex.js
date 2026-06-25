@@ -1643,6 +1643,116 @@ function buildAllRiskLocationsMenuFlex() {
   };
 }
 
+/**
+ * Flex Message การ์ดสีดำแสดงข้อมูลบุคคลจากทะเบียนราษฎร์
+ */
+function buildPersonInfoFlex(d, imageUrl = null) {
+  const rows = [];
+
+  const addRow = (icon, label, value) => {
+    if (!value) return;
+    rows.push({
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'xs',
+      contents: [
+        {
+          type: 'text',
+          text: `${icon} ${label}`,
+          size: 'xs',
+          color: '#8899aa',
+          weight: 'bold',
+        },
+        {
+          type: 'text',
+          text: String(value),
+          size: 'sm',
+          color: '#ffffff',
+          wrap: true,
+        },
+      ],
+    });
+  };
+
+  addRow('👤', 'ชื่อ-นามสกุล',     d.name    || '—');
+  addRow('🪪', 'เลขบัตรประจำตัว', d.pid     || '—');
+  addRow('📞', 'เบอร์โทรศัพท์',   d.phone   || null);
+  addRow('📍', 'ที่อยู่',          d.address || null);
+
+  const bodyContents = [
+    // Header bar
+    {
+      type: 'box',
+      layout: 'horizontal',
+      backgroundColor: '#16213e',
+      paddingAll: 'sm',
+      cornerRadius: 'md',
+      contents: [
+        { type: 'text', text: '📋', size: 'sm', flex: 0 },
+        {
+          type: 'text',
+          text: ' ข้อมูลใบอนุญาต',
+          size: 'sm',
+          color: '#ffffff',
+          weight: 'bold',
+          margin: 'xs',
+        },
+      ],
+    },
+    { type: 'separator', margin: 'md', color: '#334455' },
+    {
+      type: 'box',
+      layout: 'vertical',
+      margin: 'md',
+      spacing: 'lg',
+      contents: rows,
+    },
+  ];
+
+  // รูปภาพ (ถ้ามีและเป็น https)
+  if (imageUrl && imageUrl.startsWith('https://')) {
+    bodyContents.push({ type: 'separator', margin: 'md', color: '#334455' });
+    bodyContents.push({
+      type: 'image',
+      url: imageUrl,
+      size: 'lg',
+      aspectMode: 'fit',
+      margin: 'md',
+      align: 'center',
+    });
+  }
+
+  // คำเตือน
+  bodyContents.push({
+    type: 'text',
+    text: '⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่',
+    size: 'xs',
+    color: '#ff6b6b',
+    margin: 'lg',
+    align: 'center',
+    wrap: true,
+  });
+
+  return {
+    type: 'flex',
+    altText: `ข้อมูล: ${d.name || '—'}`,
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      styles: {
+        body: { backgroundColor: '#1a1a2e' },
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        paddingAll: 'lg',
+        contents: bodyContents,
+      },
+    },
+  };
+}
+
 module.exports = {
   buildResultFlex,
   buildCarouselFlex,
@@ -1665,4 +1775,5 @@ module.exports = {
   buildRiskCategoryMenuFlex,
   buildRiskLocationMenuFlex,
   buildAllRiskLocationsMenuFlex,
+  buildPersonInfoFlex,
 };
