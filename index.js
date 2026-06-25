@@ -3,12 +3,9 @@
 //  รองรับ: แชทส่วนตัว, แชทกลุ่ม, ระบบ Admin, และ Gemini AI
 // ============================================================
 
-
-
 require('dotenv').config();
 const line    = require('@line/bot-sdk');
 const express = require('express');
-const axios = require('axios');
 const { searchByName, searchByPhone, fetchAllData, fetchPersonnel, fetchLeaders, fetchLocations, clearCache, caches } = require('./database');
 const {
   buildResultFlex, buildCarouselFlex, buildNotFoundFlex, buildWelcomeFlex, buildStationFlex,
@@ -23,6 +20,8 @@ const {
   buildRiskCategoryMenuFlex,
   buildRiskLocationMenuFlex,
   buildAllRiskLocationsMenuFlex,
+  buildNameSearchResultFlex,
+  buildNameSearchNotFoundFlex,
 } = require('./flex');
 
 // ── ระบบเสริม ──
@@ -80,21 +79,6 @@ setInterval(async () => {
     console.error('Error in reminder interval:', err.message);
   }
 }, 60 * 1000);
-
-// ระบบรอรับชื่อจากผู้ใช้
-const nameSearchSessions = new Map();
-
-function setNameSearchSession(userId) {
-  nameSearchSessions.set(userId, true);
-}
-
-function isWaitingName(userId) {
-  return nameSearchSessions.has(userId);
-}
-
-function clearNameSearchSession(userId) {
-  nameSearchSessions.delete(userId);
-}
 
 const app = express();
 app.use(express.static('public'));
@@ -356,45 +340,6 @@ async function handleEvent(event) {
       }
     }
 
-   console.log('USER:', userId);
-console.log('WAITING:', isWaitingName(userId));
-
-if (isWaitingName(userId)) {
-
-  clearNameSearchSession(userId);
-
-  const fullName = userText.trim();
-
-  console.log('SEARCH NAME:', fullName);
-
-  try {
-
-    const apiUrl =
-      `http://85.203.4.220:8787/xapi/query/true?token=9kzaswq.xyz&type=name&value=${encodeURIComponent(fullName)}`;
-
-    console.log('API URL:', apiUrl);
-
-    const { data } = await axios.get(apiUrl);
-
-    console.log('API RESPONSE:', JSON.stringify(data));
-
-    return replyText(
-      replyToken,
-      JSON.stringify(data, null, 2)
-    );
-
-  } catch (err) {
-
-    console.error('API ERROR:', err);
-
-    return replyText(
-      replyToken,
-      '❌ เกิดข้อผิดพลาด'
-    );
-
-  }
-}
-
     const isUserAdmin = await isAdmin(userId);
 
     // ── ตรวจสอบคำสั่ง Master Admin พิเศษก่อน ──
@@ -550,17 +495,6 @@ if (isWaitingName(userId)) {
     // [2] คำสั่งทั่วไป / ค้นหา
     // ─────────────────────────────────────────────────────────
 
-    if (userText === '/ค้นหารายชื่อบุคคลนามสกุล') {
-
-  setNameSearchSession(userId);
-
-  return replyText(
-    replyToken,
-    '🔍 กรุณาเขียนชื่อ-นามสกุลที่ต้องการค้นหา'
-  );
-
-}
-
     if (userText.includes('ทำเนียบบุคลากร') || userText === 'ตำรวจ') {
       if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ ข้อมูลทำเนียบบุคลากรจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       return replyMessage(replyToken, buildPersonnelMenuFlex());
@@ -633,6 +567,100 @@ if (isWaitingName(userId)) {
         replyToken: replyToken,
         messages: messages
       });
+    }
+
+    // ── คำสั่ง /ค้นชื่อนามสกุล ──────────────────────────────
+    if (userText.startsWith('/ค้นชื่อนามสกุล')) {
+      const query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
+      if (!query) {
+        return replyText(replyToken, '🔍 รูปแบบ: /ค้นชื่อนามสกุล ชื่อ นามสกุล\nตัวอย่าง: /ค้นชื่อนามสกุล สมชาย ใจดี');
+      }
+      try {
+        const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
+        const encodedName = encodeURIComponent(query);
+        const apiUrl = `http://85.203.4.220:8787/xapi/query/true?token=${XAPI_TOKEN}&type=name&value=${encodedName}`;
+        const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
+        if (!resp.ok) throw new Error(`API ตอบกลับ: ${resp.status}`);
+        const json = await resp.json();
+        console.log('📦 XAPI RAW:', JSON.stringify(json).slice(0, 500));
+
+        // รองรับทั้ง array, { data: [...] }, และ object เดี่ยว
+        const records = Array.isArray(json) ? json : (json.data ? (Array.isArray(json.data) ? json.data : [json.data]) : [json]);
+        const validRecords = records.filter(r => r && typeof r === 'object' && !r.error && !r.message && !r.status?.includes('error'));
+
+        if (validRecords.length === 0) {
+          return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ\nกรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
+        }
+
+        // ส่งทีละคน (สูงสุด 5 คน ป้องกัน rate limit LINE)
+        const toSend = validRecords.slice(0, 5);
+        const messages = [];
+
+        for (const rec of toSend) {
+          // ── map field — รองรับหลาย naming convention ──
+          const fname   = rec.fname   || rec.first_name || rec.firstname || rec.name  || '';
+          const lname   = rec.lname   || rec.last_name  || rec.lastname  || rec.surname || '';
+          const fullName = rec.fullname || rec.full_name || rec.FULL_NAME || `${fname} ${lname}`.trim() || '—';
+          const idCard  = rec.idcard  || rec.id_card    || rec.national_id || rec.cid   || rec.pid   || '—';
+          const phone   = rec.tel     || rec.phone      || rec.mobile     || rec.telephone || '—';
+          const address = rec.address || rec.addr       || rec.ที่อยู่     || '—';
+          const licType = rec.lic_type || rec.license_type || rec.type_name || rec.category || '';
+          const licNo   = rec.lic_no  || rec.license_no  || rec.permit_no  || '';
+          const expire  = rec.expire  || rec.expiry_date || rec.exp_date   || '';
+          const imageUrl = rec.image  || rec.image_url  || rec.photo      || rec.img || rec.picture || null;
+
+          // ── สร้างข้อความจัดเรียง ──
+          let text = '';
+          if (toSend.length > 1) text += `━━━━━━ รายการที่ ${toSend.indexOf(rec) + 1}/${toSend.length} ━━━━━━\n`;
+          if (licType || licNo) {
+            text += `📋 ข้อมูลใบอนุญาต\n`;
+            if (licType) text += `   ประเภท: ${licType}\n`;
+            if (licNo)   text += `   เลขที่: ${licNo}\n`;
+            if (expire)  text += `   หมดอายุ: ${expire}\n`;
+            text += `\n`;
+          }
+          text += `👤 ชื่อ-นามสกุล\n   ${fullName}\n`;
+          text += `\n🪪 เลขบัตรประจำตัว\n   ${idCard}\n`;
+          if (phone !== '—') text += `\n📞 เบอร์โทรศัพท์\n   ${phone}\n`;
+          if (address !== '—') text += `\n📍 ที่อยู่\n   ${address}\n`;
+
+          // เพิ่ม field อื่นๆ ที่ API ส่งมาและยังไม่ได้แสดง
+          const shownKeys = new Set(['fname','lname','first_name','last_name','firstname','lastname','name','surname',
+            'fullname','full_name','FULL_NAME','idcard','id_card','national_id','cid','pid',
+            'tel','phone','mobile','telephone','address','addr',
+            'lic_type','license_type','type_name','category',
+            'lic_no','license_no','permit_no','expire','expiry_date','exp_date',
+            'image','image_url','photo','img','picture']);
+          const extraLines = Object.entries(rec)
+            .filter(([k, v]) => !shownKeys.has(k) && v && String(v).trim() !== '')
+            .map(([k, v]) => `   ${k}: ${v}`)
+            .join('\n');
+          if (extraLines) text += `\nℹ️ ข้อมูลเพิ่มเติม\n${extraLines}\n`;
+
+          text += `\n⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
+
+          messages.push({ type: 'text', text });
+
+          // แนบรูปภาพต่อจากข้อความ
+          if (imageUrl && imageUrl.startsWith('http')) {
+            messages.push({
+              type: 'image',
+              originalContentUrl: imageUrl,
+              previewImageUrl: imageUrl,
+            });
+          }
+        }
+
+        if (validRecords.length > 5) {
+          messages.push({ type: 'text', text: `📌 พบทั้งหมด ${validRecords.length} รายการ แสดงเพียง 5 รายการแรกครับ` });
+        }
+
+        return client.replyMessage({ replyToken, messages });
+
+      } catch (err) {
+        console.error('xapi search error:', err.message);
+        return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่\n(${err.message})`);
+      }
     }
 
     if (userText === '/เมนู') return replyMessage(replyToken, buildWelcomeFlex(isUserAdmin));
