@@ -356,27 +356,27 @@ async function handleEvent(event) {
       }
     }
 
-    if (isWaitingName(userId)) {
+   console.log('USER:', userId);
+console.log('WAITING:', isWaitingName(userId));
+
+if (isWaitingName(userId)) {
 
   clearNameSearchSession(userId);
 
-  try {
+  const fullName = userText.trim();
 
-    const fullName = userText.trim();
+  console.log('SEARCH NAME:', fullName);
+
+  try {
 
     const apiUrl =
       `http://85.203.4.220:8787/xapi/query/true?token=9kzaswq.xyz&type=name&value=${encodeURIComponent(fullName)}`;
 
-    const { data } = await axios.get(apiUrl, {
-      timeout: 30000
-    });
+    console.log('API URL:', apiUrl);
 
-    if (!data) {
-      return replyText(
-        replyToken,
-        `❌ ไม่พบข้อมูล ${fullName}`
-      );
-    }
+    const { data } = await axios.get(apiUrl);
+
+    console.log('API RESPONSE:', JSON.stringify(data));
 
     return replyText(
       replyToken,
@@ -385,15 +385,14 @@ async function handleEvent(event) {
 
   } catch (err) {
 
-    console.error('Name Search Error:', err);
+    console.error('API ERROR:', err);
 
     return replyText(
       replyToken,
-      '❌ เกิดข้อผิดพลาดในการค้นหาข้อมูล'
+      '❌ เกิดข้อผิดพลาด'
     );
 
   }
-
 }
 
     const isUserAdmin = await isAdmin(userId);
