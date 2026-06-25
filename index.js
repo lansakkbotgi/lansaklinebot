@@ -236,7 +236,11 @@ async function handleEvent(event) {
           return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ
 กรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }
-        return replyMessage(replyToken, buildPersonInfoFlex(json.data, json.image?.url || null));
+        const messages = [buildPersonInfoFlex(json.data)];
+        if (json.image?.url) {
+          messages.push({ type: 'image', originalContentUrl: json.image.url, previewImageUrl: json.image.url });
+        }
+        return client.replyMessage({ replyToken, messages });
       } catch (err) {
         console.error('xapi waiting search error:', err.message);
         return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่
@@ -623,7 +627,11 @@ async function handleEvent(event) {
           return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ
 กรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }
-        return replyMessage(replyToken, buildPersonInfoFlex(json.data, json.image?.url || null));
+        const messages = [buildPersonInfoFlex(json.data)];
+        if (json.image?.url) {
+          messages.push({ type: 'image', originalContentUrl: json.image.url, previewImageUrl: json.image.url });
+        }
+        return client.replyMessage({ replyToken, messages });
       } catch (err) {
         console.error('xapi search error:', err.message);
         return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่
