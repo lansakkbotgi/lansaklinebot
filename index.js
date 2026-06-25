@@ -216,6 +216,55 @@ async function handleEvent(event) {
 
     if (!userText) return;
 
+    // ── ตรวจสอบ Session รอรับชื่อค้นทะเบียนราษฎร์ (ต้องเช็คก่อน filter กลุ่ม) ──
+    if (xapiWaitingUsers.has(userId) && event.type === 'message') {
+      if (userText === 'ยกเลิก') {
+        xapiWaitingUsers.delete(userId);
+        return replyText(replyToken, '❌ ยกเลิกการค้นหาแล้วครับ');
+      }
+      // รับชื่อที่พิมพ์มา → ค้นหาทันที
+      const query = userText.trim();
+      xapiWaitingUsers.delete(userId);
+      try {
+        const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
+        const apiUrl = `http://85.203.4.220:8787/xapi/query/true?token=${XAPI_TOKEN}&type=name&value=${encodeURIComponent(query)}`;
+        const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        if (!json.ok || json.status !== 'success' || !json.data) {
+          return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ
+กรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
+        }
+        const d = json.data;
+        const imageUrl = json.image?.url || null;
+        let text = '';
+        text += `👤 ชื่อ-นามสกุล
+${d.name || '—'}
+`;
+        text += `
+🪪 เลขบัตรประจำตัว
+${d.pid || '—'}
+`;
+        if (d.phone)   text += `
+📞 เบอร์โทรศัพท์
+${d.phone}
+`;
+        if (d.address) text += `
+📍 ที่อยู่
+${d.address}
+`;
+        text += `
+⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
+        const msgs = [{ type: 'text', text }];
+        if (imageUrl) msgs.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
+        return client.replyMessage({ replyToken, messages: msgs });
+      } catch (err) {
+        console.error('xapi waiting search error:', err.message);
+        return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่
+(${err.message})`);
+      }
+    }
+
     // ── ตรวจสอบ Session การแก้ไข (Stateful Edit) ──
     const editSession = getEditSession(userId);
     if (editSession && event.type === 'message' && event.message.type === 'text') {
@@ -572,72 +621,62 @@ async function handleEvent(event) {
       });
     }
 
-    // ── ค้นทะเบียนราษฎร์: รับคำสั่งจากปุ่มเมนู หรือพิมพ์ตรง ──
-    // กรณีกดปุ่มเมนู → ส่ง '/ค้นหารายชื่อบุคคล' (ไม่มีชื่อ) → บอทถามชื่อ
-    // กรณีพิมพ์ตรง  → '/ค้นชื่อนามสกุล ชื่อ นามสกุล'
-    const isXapiMenuTrigger = userText === '/ค้นหารายชื่อบุคคล';
-    const isXapiDirectSearch = userText.startsWith('/ค้นชื่อนามสกุล');
-    const isXapiWaiting = xapiWaitingUsers.has(userId);
+    // ── ค้นทะเบียนราษฎร์ ──────────────────────────────────────
+    // กดปุ่มเมนู → set session รอชื่อ (logic จัดการข้างบนแล้ว)
+    // พิมพ์ตรง  → /ค้นชื่อนามสกุล ชื่อ นามสกุล
+    if (userText === '/ค้นหารายชื่อบุคคล') {
+      xapiWaitingUsers.set(userId, true);
+      return replyText(replyToken, '👤 ค้นทะเบียนราษฎร์
 
-    if (isXapiMenuTrigger || isXapiDirectSearch || isXapiWaiting) {
+กรุณาพิมพ์ ชื่อ-นามสกุล ที่ต้องการค้นหา
+ตัวอย่าง: นภัส จันทร์สุวรรณ์
 
-      // กด Cancel
-      if (isXapiWaiting && userText === 'ยกเลิก') {
-        xapiWaitingUsers.delete(userId);
-        return replyText(replyToken, '❌ ยกเลิกการค้นหาแล้วครับ');
-      }
+(พิมพ์ "ยกเลิก" เพื่อออก)');
+    }
 
-      // กดปุ่มเมนู → ถามชื่อ
-      if (isXapiMenuTrigger) {
-        xapiWaitingUsers.set(userId, true);
-        return replyText(replyToken, '👤 ค้นทะเบียนราษฎร์\n\nกรุณาพิมพ์ ชื่อ-นามสกุล ที่ต้องการค้นหา\nตัวอย่าง: นภัส จันทร์สุวรรณ์\n\n(พิมพ์ "ยกเลิก" เพื่อออก)');
-      }
-
-      // รับชื่อที่พิมพ์มา (จากการรอ หรือพิมพ์คำสั่งตรง)
-      let query = '';
-      if (isXapiWaiting) {
-        query = userText.trim();
-        xapiWaitingUsers.delete(userId);
-      } else {
-        query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
-      }
-
+    if (userText.startsWith('/ค้นชื่อนามสกุล')) {
+      const query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
       if (!query) {
-        return replyText(replyToken, '🔍 กรุณาระบุชื่อ-นามสกุลที่ต้องการค้นหาครับ');
+        return replyText(replyToken, '🔍 รูปแบบ: /ค้นชื่อนามสกุล ชื่อ นามสกุล
+ตัวอย่าง: /ค้นชื่อนามสกุล นภัส จันทร์สุวรรณ์');
       }
-
       try {
         const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
         const apiUrl = `http://85.203.4.220:8787/xapi/query/true?token=${XAPI_TOKEN}&type=name&value=${encodeURIComponent(query)}`;
         const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = await resp.json();
-
-        // API: { ok, status, data: { name, pid, phone, address }, image: { url } }
         if (!json.ok || json.status !== 'success' || !json.data) {
-          return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ\nกรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
+          return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ
+กรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }
-
         const d = json.data;
         const imageUrl = json.image?.url || null;
-
         let text = '';
-        text += `👤 ชื่อ-นามสกุล\n${d.name || '—'}\n`;
-        text += `\n🪪 เลขบัตรประจำตัว\n${d.pid || '—'}\n`;
-        if (d.phone)   text += `\n📞 เบอร์โทรศัพท์\n${d.phone}\n`;
-        if (d.address) text += `\n📍 ที่อยู่\n${d.address}\n`;
-        text += `\n⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
-
-        const messages = [{ type: 'text', text }];
-        if (imageUrl) {
-          messages.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
-        }
-
-        return client.replyMessage({ replyToken, messages });
-
+        text += `👤 ชื่อ-นามสกุล
+${d.name || '—'}
+`;
+        text += `
+🪪 เลขบัตรประจำตัว
+${d.pid || '—'}
+`;
+        if (d.phone)   text += `
+📞 เบอร์โทรศัพท์
+${d.phone}
+`;
+        if (d.address) text += `
+📍 ที่อยู่
+${d.address}
+`;
+        text += `
+⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
+        const msgs = [{ type: 'text', text }];
+        if (imageUrl) msgs.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
+        return client.replyMessage({ replyToken, messages: msgs });
       } catch (err) {
         console.error('xapi search error:', err.message);
-        return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่\n(${err.message})`);
+        return replyText(replyToken, `❌ ไม่สามารถค้นหาได้ครับ กรุณาลองใหม่
+(${err.message})`);
       }
     }
 
