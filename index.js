@@ -79,6 +79,11 @@ setInterval(async () => {
 }, 60 * 1000);
 
 const app = express();
+
+// Session สำหรับรอรับชื่อค้นทะเบียนราษฎร์
+const xapiWaitingUsers = new Map(); // userId -> true
+
+
 app.use(express.static('public'));
 
 app.post('/webhook', line.middleware(lineConfig), (req, res) => {
@@ -567,12 +572,40 @@ async function handleEvent(event) {
       });
     }
 
-    // ── คำสั่ง /ค้นชื่อนามสกุล ──────────────────────────────
-    if (userText.startsWith('/ค้นชื่อนามสกุล')) {
-      const query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
-      if (!query) {
-        return replyText(replyToken, '🔍 รูปแบบ: /ค้นชื่อนามสกุล ชื่อ นามสกุล\nตัวอย่าง: /ค้นชื่อนามสกุล นภัส จันทร์สุวรรณ์');
+    // ── ค้นทะเบียนราษฎร์: รับคำสั่งจากปุ่มเมนู หรือพิมพ์ตรง ──
+    // กรณีกดปุ่มเมนู → ส่ง '/ค้นหารายชื่อบุคคล' (ไม่มีชื่อ) → บอทถามชื่อ
+    // กรณีพิมพ์ตรง  → '/ค้นชื่อนามสกุล ชื่อ นามสกุล'
+    const isXapiMenuTrigger = userText === '/ค้นหารายชื่อบุคคล';
+    const isXapiDirectSearch = userText.startsWith('/ค้นชื่อนามสกุล');
+    const isXapiWaiting = xapiWaitingUsers.has(userId);
+
+    if (isXapiMenuTrigger || isXapiDirectSearch || isXapiWaiting) {
+
+      // กด Cancel
+      if (isXapiWaiting && userText === 'ยกเลิก') {
+        xapiWaitingUsers.delete(userId);
+        return replyText(replyToken, '❌ ยกเลิกการค้นหาแล้วครับ');
       }
+
+      // กดปุ่มเมนู → ถามชื่อ
+      if (isXapiMenuTrigger) {
+        xapiWaitingUsers.set(userId, true);
+        return replyText(replyToken, '👤 ค้นทะเบียนราษฎร์\n\nกรุณาพิมพ์ ชื่อ-นามสกุล ที่ต้องการค้นหา\nตัวอย่าง: นภัส จันทร์สุวรรณ์\n\n(พิมพ์ "ยกเลิก" เพื่อออก)');
+      }
+
+      // รับชื่อที่พิมพ์มา (จากการรอ หรือพิมพ์คำสั่งตรง)
+      let query = '';
+      if (isXapiWaiting) {
+        query = userText.trim();
+        xapiWaitingUsers.delete(userId);
+      } else {
+        query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
+      }
+
+      if (!query) {
+        return replyText(replyToken, '🔍 กรุณาระบุชื่อ-นามสกุลที่ต้องการค้นหาครับ');
+      }
+
       try {
         const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
         const apiUrl = `http://85.203.4.220:8787/xapi/query/true?token=${XAPI_TOKEN}&type=name&value=${encodeURIComponent(query)}`;
@@ -580,7 +613,7 @@ async function handleEvent(event) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = await resp.json();
 
-        // API structure: { ok, status, message, data: { name, pid, phone, address }, image: { url, expires_at } }
+        // API: { ok, status, data: { name, pid, phone, address }, image: { url } }
         if (!json.ok || json.status !== 'success' || !json.data) {
           return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ\nกรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }
@@ -588,31 +621,16 @@ async function handleEvent(event) {
         const d = json.data;
         const imageUrl = json.image?.url || null;
 
-        // ── สร้างข้อความจัดเรียง ──
         let text = '';
-        text += `👤 ชื่อ-นามสกุล\n`;
-        text += `${d.name || '—'}\n`;
-        text += `\n🪪 เลขบัตรประจำตัว\n`;
-        text += `${d.pid || '—'}\n`;
-        if (d.phone) {
-          text += `\n📞 เบอร์โทรศัพท์\n`;
-          text += `${d.phone}\n`;
-        }
-        if (d.address) {
-          text += `\n📍 ที่อยู่\n`;
-          text += `${d.address}\n`;
-        }
+        text += `👤 ชื่อ-นามสกุล\n${d.name || '—'}\n`;
+        text += `\n🪪 เลขบัตรประจำตัว\n${d.pid || '—'}\n`;
+        if (d.phone)   text += `\n📞 เบอร์โทรศัพท์\n${d.phone}\n`;
+        if (d.address) text += `\n📍 ที่อยู่\n${d.address}\n`;
         text += `\n⚠️ ข้อมูลนี้เป็นความลับ ห้ามเผยแพร่`;
 
         const messages = [{ type: 'text', text }];
-
-        // แนบรูปภาพต่อจากข้อความ (URL หมดอายุใน 5 นาที)
         if (imageUrl) {
-          messages.push({
-            type: 'image',
-            originalContentUrl: imageUrl,
-            previewImageUrl: imageUrl,
-          });
+          messages.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
         }
 
         return client.replyMessage({ replyToken, messages });
