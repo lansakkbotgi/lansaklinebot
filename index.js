@@ -89,35 +89,71 @@ const crypto = require('crypto');
 const xapiWaitingUsers = new Map(); // userId -> true
 
 // ── ฟังก์ชัน Helper: ค้น XAPI และจัดการ status=multiple ──
-async function xapiSearch({ query, type = 'name', replyToken, userId, proxyImageUrlFn }) {
+async function xapiSearch({ query, type = 'name', proxyImageUrlFn }) {
   const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
   const apiUrl = `http://85.203.4.220:8787/xapi/query/true?token=${XAPI_TOKEN}&type=${type}&value=${encodeURIComponent(query)}`;
-  const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const json = await resp.json();
+  console.log(`[xapiSearch] type=${type} query=${query}`);
 
-  // กรณีชื่อซ้ำ — แสดงรายการให้เลือก
-  if (json.status === 'multiple' && Array.isArray(json.data?.matches)) {
+  const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(20000) });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+  const rawText = await resp.text();
+  console.log(`[xapiSearch] raw (500c): ${rawText.substring(0, 500)}`);
+
+  let json;
+  try { json = JSON.parse(rawText); }
+  catch (e) { throw new Error(`JSON parse error: ${e.message}`); }
+
+  // ── กรณีพบชื่อซ้ำ (status=multiple) ──
+  // รองรับ: json.data.matches, json.matches, json.data เป็น array
+  const matchesArr =
+    (Array.isArray(json.data?.matches) && json.data.matches.length ? json.data.matches : null) ||
+    (Array.isArray(json.matches) && json.matches.length ? json.matches : null) ||
+    (Array.isArray(json.data) && json.data.length > 0 ? json.data : null);
+
+  const isMultiple = json.status === 'multiple' || (matchesArr && matchesArr.length > 1);
+
+  if (isMultiple && matchesArr && matchesArr.length > 0) {
+    console.log(`[xapiSearch] multiple: ${matchesArr.length} matches`);
     return {
       type: 'multiple',
       messages: [
-        { type: 'text', text: `🔍 พบชื่อซ้ำกัน ${json.data.matches.length} คน\nกรุณาเลือกบุคคลที่ต้องการดูข้อมูล\n\n💡 สามารถค้นหาได้ด้วยเลขบัตรประชาชน 13 หลัก` },
-        buildPersonMatchesFlex(query, json.data.matches),
+        {
+          type: 'text',
+          text: `🔍 พบชื่อซ้ำกัน ${matchesArr.length} คน\nกรุณาเลือกบุคคลที่ต้องการดูข้อมูล\n\n💡 สามารถค้นหาได้ด้วยเลขบัตรประชาชน 13 หลัก`,
+        },
+        buildPersonMatchesFlex(query, matchesArr),
       ],
     };
   }
 
-  if (!json.ok || json.status !== 'success' || !json.data) {
+  // ── กรณีพบ 1 คน ──
+  // รองรับ: json.data (object), json.result, json.person
+  const personData =
+    (json.data && !Array.isArray(json.data) && typeof json.data === 'object' ? json.data : null) ||
+    (typeof json.result === 'object' && json.result ? json.result : null) ||
+    (typeof json.person === 'object' && json.person ? json.person : null);
+
+  // ok ถ้ามีข้อมูล name หรือ pid แม้ json.ok จะเป็น false
+  const hasData = personData && (personData.name || personData.fullname || personData.pid || personData.cid);
+  const isOk = json.ok === true || json.ok === 1 || json.status === 'success' || json.status === 'found' || json.status === 'ok' || hasData;
+
+  if (!isOk || !hasData) {
+    console.log(`[xapiSearch] not found: ok=${json.ok} status=${json.status} hasData=${!!hasData}`);
     return { type: 'notfound' };
   }
 
-  const messages = [buildPersonInfoFlex(json.data)];
-  if (json.image?.url) {
-    const imgUrl = await proxyImageUrlFn(json.image.url);
+  console.log(`[xapiSearch] success: name=${personData.name || personData.fullname}`);
+  const messages = [buildPersonInfoFlex(personData)];
+
+  const imageUrl = json.image?.url || json.image_url || personData.image_url || personData.image || null;
+  if (imageUrl) {
+    const imgUrl = await proxyImageUrlFn(imageUrl);
     if (imgUrl) messages.push({ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl });
   }
   return { type: 'success', messages };
 }
+
 
 // ── ฟังก์ชัน Proxy รูปภาพ: ดาวน์โหลดรูปจาก API แล้วเสิร์ฟผ่าน server ตัวเอง ──
 async function proxyImageUrl(srcUrl) {
@@ -275,7 +311,7 @@ async function handleEvent(event) {
 
     if (!userText) return;
 
-    // ── ตรวจสอบ Session รอรับชื่อค้นทะเบียนราษฎร์ (ต้องเช็คก่อน filter กลุ่ม) ──
+    // ── ตรวจสอบ Session รอรับชื่อ/เลขบัตรค้นทะเบียนราษฎร์ (ต้องเช็คก่อน filter กลุ่ม) ──
     if (xapiWaitingUsers.has(userId) && event.type === 'message') {
       if (userText === 'ยกเลิก') {
         xapiWaitingUsers.delete(userId);
@@ -286,13 +322,16 @@ async function handleEvent(event) {
         xapiWaitingUsers.delete(userId);
         return replyText(replyToken, '🔒 ขออภัยครับ ระบบค้นทะเบียนราษฎร์จำกัดเฉพาะ Master Admin เท่านั้น');
       }
-      // รับชื่อที่พิมพ์มา → ค้นหาทันที
       const query = userText.trim();
       xapiWaitingUsers.delete(userId);
+      // ตรวจว่าเป็นเลขบัตรประชาชน 13 หลักหรือไม่
+      const isPid = /^[0-9]{13}$/.test(query.replace(/[-\s]/g, ''));
+      const searchType = isPid ? 'pid' : 'name';
+      const cleanQuery = isPid ? query.replace(/[-\s]/g, '') : query;
       try {
-        const result = await xapiSearch({ query, type: 'name', replyToken, userId, proxyImageUrlFn: proxyImageUrl });
+        const result = await xapiSearch({ query: cleanQuery, type: searchType, proxyImageUrlFn: proxyImageUrl });
         if (result.type === 'notfound') {
-          return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ\nกรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
+          return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ\nกรุณาตรวจสอบการสะกดชื่อ-นามสกุล หรือเลขบัตรประชาชน`);
         }
         return client.replyMessage({ replyToken, messages: result.messages });
       } catch (err) {
@@ -663,7 +702,7 @@ async function handleEvent(event) {
       const ref = userText.replace('/xapi-ref ', '').trim();
       if (!ref) return replyText(replyToken, '❌ ไม่พบรหัสอ้างอิง');
       try {
-        const result = await xapiSearch({ query: ref, type: 'ref', replyToken, userId, proxyImageUrlFn: proxyImageUrl });
+        const result = await xapiSearch({ query: ref, type: 'ref', proxyImageUrlFn: proxyImageUrl });
         if (result.type === 'notfound') return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ ref "${ref}" ครับ`);
         return client.replyMessage({ replyToken, messages: result.messages });
       } catch (err) {
@@ -678,7 +717,7 @@ async function handleEvent(event) {
     if (userText === '/ค้นหารายชื่อบุคคล') {
       if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 ขออภัยครับ ระบบค้นทะเบียนราษฎร์จำกัดเฉพาะ Master Admin เท่านั้น');
       xapiWaitingUsers.set(userId, true);
-      return replyText(replyToken, '👤 ค้นทะเบียนราษฎร์\n\nกรุณาพิมพ์ ชื่อ-นามสกุล ที่ต้องการค้นหา\n\n(พิมพ์ "ยกเลิก" เพื่อออก)');
+      return replyText(replyToken, '👤 ค้นทะเบียนราษฎร์\n\nกรุณาพิมพ์ ชื่อ-นามสกุล หรือ เลขบัตรประชาชน 13 หลัก ที่ต้องการค้นหา\n\n(พิมพ์ "ยกเลิก" เพื่อออก)');
     }
 
     if (userText.startsWith('/ค้นชื่อนามสกุล')) {
@@ -688,7 +727,11 @@ async function handleEvent(event) {
         return replyText(replyToken, '🔍 รูปแบบ: /ค้นชื่อนามสกุล ชื่อ นามสกุล');
       }
       try {
-        const result = await xapiSearch({ query, type: 'name', replyToken, userId, proxyImageUrlFn: proxyImageUrl });
+        // ตรวจว่าเป็นเลขบัตรประชาชน 13 หลักหรือไม่
+        const isPidQ = /^[0-9]{13}$/.test(query.replace(/[-\s]/g, ''));
+        const qType = isPidQ ? 'pid' : 'name';
+        const cleanQ = isPidQ ? query.replace(/[-\s]/g, '') : query;
+        const result = await xapiSearch({ query: cleanQ, type: qType, proxyImageUrlFn: proxyImageUrl });
         if (result.type === 'notfound') {
           return replyText(replyToken, `🔍 ไม่พบข้อมูลสำหรับ "${query}" ครับ\nกรุณาตรวจสอบการสะกดชื่อ-นามสกุล`);
         }

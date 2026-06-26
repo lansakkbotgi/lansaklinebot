@@ -1674,10 +1674,22 @@ function buildPersonInfoFlex(d, imageUrl = null) {
     });
   };
 
-  addRow('👤', 'ชื่อ-นามสกุล',     d.name    || '—');
-  addRow('🪪', 'เลขบัตรประจำตัว', d.pid     || '—');
-  addRow('📞', 'เบอร์โทรศัพท์',   d.phone   || null);
-  addRow('📍', 'ที่อยู่',          d.address || null);
+  // รองรับ field name หลายรูปแบบจาก API
+  const dName    = d.name || d.fullname || d.full_name || [d.firstname || d.fname, d.lastname || d.lname].filter(Boolean).join(' ') || '—';
+  const dPid     = d.pid  || d.cid      || d.national_id || d.idcard || '—';
+  const dPhone   = d.phone || d.mobile  || d.telephone || d.tel || null;
+  const dAddress = d.address || d.addr  || d.full_address || null;
+  const dBirth   = d.birthday || d.birthdate || d.dob || d.birth || null;
+  const dFather  = d.father || d.father_name || null;
+  const dMother  = d.mother || d.mother_name || null;
+
+  addRow('👤', 'ชื่อ-นามสกุล',     dName);
+  addRow('🪪', 'เลขบัตรประจำตัว', dPid);
+  addRow('📞', 'เบอร์โทรศัพท์',   dPhone);
+  addRow('📍', 'ที่อยู่',          dAddress);
+  if (dBirth)  addRow('🎂', 'วันเกิด',      dBirth);
+  if (dFather) addRow('👨', 'ชื่อบิดา',     dFather);
+  if (dMother) addRow('👩', 'ชื่อมารดา',    dMother);
 
   const bodyContents = [
     // Header bar
@@ -1733,7 +1745,7 @@ function buildPersonInfoFlex(d, imageUrl = null) {
 
   return {
     type: 'flex',
-    altText: `ข้อมูล: ${d.name || '—'}`,
+    altText: `ข้อมูล: ${dName}`,
     contents: {
       type: 'bubble',
       size: 'kilo',
@@ -1757,10 +1769,11 @@ function buildPersonInfoFlex(d, imageUrl = null) {
  */
 function buildPersonMatchesFlex(query, matches) {
   const bubbles = matches.map((m, idx) => {
-    const name    = m.name    || m.fullname || '—';
-    const pid     = m.pid     || m.cid      || '—';
-    const address = m.address || m.addr     || '';
-    const ref     = m.ref     || m.id       || '';
+    // รองรับ field name หลายรูปแบบที่ API อาจคืนมา
+    const name    = m.name || m.fullname || m.full_name || m.fname || [m.firstname, m.lastname].filter(Boolean).join(' ') || '—';
+    const pid     = m.pid  || m.cid      || m.national_id || m.idcard || '—';
+    const address = m.address || m.addr  || m.location || m.district || '';
+    const ref     = m.ref  || m.id       || m._id || m.ref_id || m.key || '';
 
     const infoRows = [];
     if (pid && pid !== '—') {
