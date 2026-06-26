@@ -34,31 +34,40 @@ async function setupRichMenu() {
     name: 'เมนูหลักสายตรวจลานสัก',
     chatBarText: '📋 เมนูหลัก',
     areas: [
-      // ── แถวบน ──
+      // ── แถวบน 4 ปุ่ม (แต่ละปุ่มกว้าง 625px) ──
       {
-        bounds: { x: 0,    y: 0, width: 833, height: 843 },
-        action: { type: 'message', label: 'ค้นหาชื่อ',       text: '/ค้นหาชื่อผู้ต้องหา' },
+        bounds: { x: 0,    y: 0, width: 625, height: 843 },
+        action: { type: 'message', label: 'ค้นหาชื่อ', text: '/ค้นหาชื่อผู้ต้องหา' },
       },
       {
-        bounds: { x: 833,  y: 0, width: 834, height: 843 },
-        action: { type: 'message', label: 'ทำเนียบบุคลากร',  text: 'ทำเนียบบุคลากร' },
+        bounds: { x: 625,  y: 0, width: 625, height: 843 },
+        action: { type: 'message', label: 'ทำเนียบบุคลากร', text: 'ทำเนียบบุคลากร' },
       },
       {
-        bounds: { x: 1667, y: 0, width: 833, height: 843 },
-        action: { type: 'message', label: 'ทำเนียบผู้นำตำบล', text: 'ทำเนียบผู้นำตำบล' },
+        // ✅ ปุ่มที่ 3 — เว็บสายตรวจลานสัก (เปิด LIFF)
+        bounds: { x: 1250, y: 0, width: 625, height: 843 },
+        action: {
+          type: 'uri',
+          label: 'เว็บสายตรวจลานสัก',
+          uri: 'https://liff.line.me/2010319438-PkvEgigE',
+        },
       },
-      // ── แถวล่าง ──
+      {
+        bounds: { x: 1875, y: 0, width: 625, height: 843 },
+        action: { type: 'message', label: 'ผู้นำตำบล', text: 'ทำเนียบผู้นำตำบล' },
+      },
+      // ── แถวล่าง 3 ปุ่ม ──
       {
         bounds: { x: 0,    y: 843, width: 833, height: 843 },
-        action: { type: 'message', label: 'รายการเมนู',      text: '/เมนู' },
+        action: { type: 'message', label: 'รายการเมนู', text: '/เมนู' },
       },
       {
         bounds: { x: 833,  y: 843, width: 834, height: 843 },
-        action: { type: 'message', label: 'วิธีใช้งาน',      text: '/คำสั่ง' },
+        action: { type: 'message', label: 'วิธีใช้งาน', text: '/คำสั่ง' },
       },
       {
         bounds: { x: 1667, y: 843, width: 833, height: 843 },
-        action: { type: 'message', label: 'จุดเสี่ยง',        text: '/จุดเสี่ยง' },
+        action: { type: 'message', label: 'จุดเสี่ยง', text: '/จุดเสี่ยง' },
       },
     ],
   };
