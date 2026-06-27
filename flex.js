@@ -272,7 +272,8 @@ function buildNotFoundFlex(query) {
  * Flex Message เมนูหลัก (Welcome)
  */
 function buildWelcomeFlex(isAdminUser = false) {
-  const menuContents = [
+  // ── Bubble 1: เมนูหลัก ──
+  const bubble1Contents = [
     {
       type: 'text',
       text: 'เลือกบริการที่ต้องการ:',
@@ -280,68 +281,91 @@ function buildWelcomeFlex(isAdminUser = false) {
       color: '#555555',
       margin: 'none',
     },
-    buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',       '/ค้นหาชื่อผู้ต้องหา', '#1a3a6e'),
-    buildMenuButton('📋', 'รายชื่อบุคคลสุ่มเสี่ยง',    '/รายชื่อ',          '#b45309'),
-    buildMenuButton('👤','ค้นทะเบียนราษฎร์ (ชื่อ/เลขบัตร)','/ค้นหารายชื่อบุคคล','#6c5ce7'),
+    buildMenuButton('🔍', 'ค้นหาชื่อผู้ต้องหา',              '/ค้นหาชื่อผู้ต้องหา', '#1a3a6e'),
+    buildMenuButton('📋', 'รายชื่อบุคคลสุ่มเสี่ยง',           '/รายชื่อ',            '#b45309'),
+    buildMenuButton('👤', 'ค้นทะเบียนราษฎร์ (ชื่อ/เลขบัตร)', '/ค้นหารายชื่อบุคคล', '#6c5ce7'),
   ];
 
   // ถ้าเป็น Admin ให้เพิ่มเมนู "เพิ่มรายชื่อ"
   if (isAdminUser) {
-    menuContents.push(buildMenuButton('➕', 'เพิ่มบุคคลสุ่มเสี่ยง', '/เพิ่ม', '#27ae60'));
+    bubble1Contents.push(buildMenuButton('➕', 'เพิ่มบุคคลสุ่มเสี่ยง', '/เพิ่ม', '#27ae60'));
+  } else {
+    // ถ้ายังไม่ใช่ Admin ให้แสดงปุ่มยืนยันตัวตน
+    bubble1Contents.push(buildMenuButton('🔐', 'ยืนยันตัวตนเจ้าหน้าที่', '/ยืนยันตัวตน', '#7d3c98'));
   }
 
-  // ถ้ายังไม่ใช่ Admin ให้แสดงปุ่มยืนยันตัวตน
-  if (!isAdminUser) {
-    menuContents.push(buildMenuButton('🔐', 'ยืนยันตัวตนเจ้าหน้าที่', '/ยืนยันตัวตน', '#7d3c98'));
-  }
-
-  menuContents.push(
-    buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',    '#1a5276'),
-    buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',         'ทำเนียบผู้นำตำบล',  '#1d6a4a'),
-    buildMenuButton('⛽', 'เบอร์ปั๊ม',               '/เบอร์ปั๊ม',        '#5d4037'),
-    buildMenuButton('🛢️', 'เว็ปไซต์ส่งรายงานน้ำมัน', 'https://canva.link/ccad8llkz0upv9s', '#008080', 'uri'),
-    buildMenuButton('🏍️', 'เว็ปไซต์สายตรวจลานสัก',     'https://liff.line.me/2010319438-PkvEgigE', '#1a3a6e', 'uri'),
-    buildMenuButton('📖', 'วิธีใช้งาน',                '/คำสั่ง',          '#cc3333'),
-    buildMenuButton('📍', 'จุดเสี่ยง / QR Code',      '/จุดเสี่ยง',        '#e67e22'),
-    buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่', '#555555')
+  bubble1Contents.push(
+    buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',   '#1a5276'),
+    buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',          'ทำเนียบผู้นำตำบล', '#1d6a4a'),
+    buildMenuButton('📍', 'จุดเสี่ยง / QR Code',       '/จุดเสี่ยง',        '#e67e22')
   );
+
+  // ── Bubble 2: เมนูเสริม ──
+  const bubble2Contents = [
+    {
+      type: 'text',
+      text: 'บริการเพิ่มเติม:',
+      size: 'sm',
+      color: '#555555',
+      margin: 'none',
+    },
+    buildMenuButton('⛽',  'เบอร์ปั๊ม',                 '/เบอร์ปั๊ม',                                     '#5d4037'),
+    buildMenuButton('🛢️', 'เว็ปไซต์ส่งรายงานน้ำมัน',  'https://canva.link/ccad8llkz0upv9s',            '#008080', 'uri'),
+    buildMenuButton('🏍️', 'เว็ปไซต์สายตรวจลานสัก',    'https://liff.line.me/2010319438-PkvEgigE',     '#1a3a6e', 'uri'),
+    buildMenuButton('📖', 'วิธีใช้งาน',                '/คำสั่ง',                                         '#cc3333'),
+    buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่',                              '#555555'),
+  ];
+
+  const makeHeader = (subtitle) => ({
+    type: 'box',
+    layout: 'vertical',
+    backgroundColor: '#1a3a6e',
+    paddingAll: '20px',
+    contents: [
+      { type: 'text', text: '📋 รายการเมนู', color: '#a8c4e8', size: 'sm' },
+      {
+        type: 'text',
+        text: 'สายตรวจภูธรลานสัก',
+        color: '#ffffff',
+        size: 'xl',
+        weight: 'bold',
+        margin: 'sm',
+      },
+      { type: 'text', text: subtitle, color: '#7ec8a0', size: 'sm' },
+    ],
+  });
 
   return {
     type: 'flex',
     altText: '📋 รายการเมนู — ระบบสายตรวจภูธรลานสัก',
     contents: {
-      type: 'bubble',
-      size: 'mega',
-      header: {
-        type: 'box',
-        layout: 'vertical',
-        backgroundColor: '#1a3a6e',
-        paddingAll: '20px',
-        contents: [
-          { type: 'text', text: '📋 รายการเมนู', color: '#a8c4e8', size: 'sm' },
-          {
-            type: 'text',
-            text: 'สายตรวจภูธรลานสัก',
-            color: '#ffffff',
-            size: 'xl',
-            weight: 'bold',
-            margin: 'sm',
+      type: 'carousel',
+      contents: [
+        {
+          type: 'bubble',
+          size: 'mega',
+          header: makeHeader('อ.ลานสัก จ.อุทัยธานี  (1/2)'),
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '16px',
+            spacing: 'sm',
+            contents: bubble1Contents,
           },
-          {
-            type: 'text',
-            text: 'อ.ลานสัก จ.อุทัยธานี',
-            color: '#7ec8a0',
-            size: 'sm',
+        },
+        {
+          type: 'bubble',
+          size: 'mega',
+          header: makeHeader('บริการเพิ่มเติม  (2/2)'),
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '16px',
+            spacing: 'sm',
+            contents: bubble2Contents,
           },
-        ],
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        paddingAll: '16px',
-        spacing: 'sm',
-        contents: menuContents,
-      },
+        },
+      ],
     },
   };
 }
