@@ -806,7 +806,7 @@ async function handleEvent(event) {
       }
     }
 
-    // ── สลับ Rich Menu หน้า (ถัดไป / ย้อนกลับ) ──────────────────
+    // ── สลับ Rich Menu หน้า (ถัดไป / ย้อนกลับ) — ไม่ตอบกลับ ──
     if (userText === '__NEXT_PAGE__' || userText === '__PREV_PAGE__') {
       try {
         const idsPath = require('path').join(__dirname, 'richmenu-ids.json');
@@ -816,7 +816,7 @@ async function handleEvent(event) {
           await client.linkRichMenuIdToUser(userId, targetId);
         }
       } catch (e) { console.error('Switch richmenu error:', e.message); }
-      return; // ไม่ตอบกลับข้อความ ไม่ขึ้นข้อความในแชท
+      return; // ไม่ reply อะไรทั้งนั้น
     }
 
     if (userText === '/เมนู') return replyMessage(replyToken, buildWelcomeFlex(isUserAdmin));
