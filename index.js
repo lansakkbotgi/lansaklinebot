@@ -806,19 +806,6 @@ async function handleEvent(event) {
       }
     }
 
-    // ── สลับ Rich Menu หน้า (ถัดไป / ย้อนกลับ) — ไม่ตอบกลับ ──
-    if (userText === '__NEXT_PAGE__' || userText === '__PREV_PAGE__') {
-      try {
-        const idsPath = require('path').join(__dirname, 'richmenu-ids.json');
-        if (require('fs').existsSync(idsPath) && userId) {
-          const ids = JSON.parse(require('fs').readFileSync(idsPath, 'utf8'));
-          const targetId = userText === '__NEXT_PAGE__' ? ids.page2 : ids.page1;
-          await client.linkRichMenuIdToUser(userId, targetId);
-        }
-      } catch (e) { console.error('Switch richmenu error:', e.message); }
-      return; // ไม่ reply อะไรทั้งนั้น
-    }
-
     if (userText === '/เมนู') return replyMessage(replyToken, buildWelcomeFlex(isUserAdmin));
     if (userText === '/คำสั่ง') return replyMessage(replyToken, buildAllCommandsFlex(isUserAdmin));
 
