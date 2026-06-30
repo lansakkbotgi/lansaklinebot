@@ -516,7 +516,7 @@ function buildPersonnelCardFlex(person) {
         { type: 'separator', margin: 'md', color: '#f0f0f0' },
         buildInfoRow('🏷️', 'ตำแหน่ง',  person.position || '-'),
         buildInfoRow('🏢', 'ฝ่าย/งาน', person.area     || '-'),
-        buildInfoRow('📞', 'โทรศัพท์', person.phone    || '-'),
+        buildPhoneInfoRow('📞', 'โทรศัพท์', person.phone || '-'),
         buildInfoRow('📧', 'อีเมล',   person.email    || '-'),
       ],
     },
@@ -701,7 +701,7 @@ function buildLeaderCardFlex(leader) {
         buildInfoRow('🏷️', 'ตำแหน่ง',   leader.position || '-'),
         buildInfoRow('📍', 'ตำบล',       leader.area     || '-'),
         buildInfoRow('🏘️', 'หมู่ที่',    leader.village  || '-'),
-        buildInfoRow('📞', 'โทรศัพท์',  leader.phone    || '-'),
+        buildPhoneInfoRow('📞', 'โทรศัพท์', leader.phone || '-'),
         buildInfoRow('📅', 'วาระ',       leader.date     || '-'),
       ],
     },
@@ -876,6 +876,41 @@ function buildInfoRow(icon, label, value) {
       { type: 'text', text: icon,  size: 'sm', flex: 0, offsetTop: '1px' },
       { type: 'text', text: label, color: '#888888', size: 'sm', flex: 3, margin: 'sm' },
       { type: 'text', text: value, color: '#333333', size: 'sm', weight: 'bold', flex: 5, wrap: true, align: 'end' },
+    ],
+  };
+}
+
+/**
+ * แถวแสดงเบอร์โทรศัพท์ — กดที่เบอร์แล้วโทรออกได้ทันที (action: tel:)
+ * ถ้าไม่มีเบอร์ (value เป็น '-' หรือว่าง) จะแสดงเป็นข้อความธรรมดา ไม่มีลิงก์
+ */
+function buildPhoneInfoRow(icon, label, value) {
+  const cleanPhone = (value || '').replace(/\D/g, '');
+  const hasPhone = cleanPhone.length >= 9; // เบอร์ไทยอย่างน้อย 9 หลัก
+
+  if (!hasPhone) {
+    return buildInfoRow(icon, label, value || '-');
+  }
+
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    paddingAll: '6px',
+    action: { type: 'uri', label: 'โทรออก', uri: `tel:${cleanPhone}` },
+    contents: [
+      { type: 'text', text: icon,  size: 'sm', flex: 0, offsetTop: '1px' },
+      { type: 'text', text: label, color: '#888888', size: 'sm', flex: 3, margin: 'sm' },
+      {
+        type: 'text',
+        text: `${value}  📲`,
+        color: '#1a73e8',
+        size: 'sm',
+        weight: 'bold',
+        flex: 5,
+        wrap: true,
+        align: 'end',
+        decoration: 'underline',
+      },
     ],
   };
 }
