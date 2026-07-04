@@ -1558,6 +1558,74 @@ function buildRiskCategoryMenuFlex() {
 }
 
 /**
+ * Flex Message แสดง QR Code จุดตรวจ พร้อมเน้นชื่อสถานที่ให้เห็นชัดเจน
+ */
+function buildQRCodeFlex(locationName, imageURL) {
+  return {
+    type: 'flex',
+    altText: `📸 QR Code จุดตรวจ: ${locationName}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#c0392b',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '📍 QR CODE จุดตรวจ', color: '#f5b7b1', size: 'sm', weight: 'bold' },
+          {
+            type: 'text',
+            text: locationName,
+            color: '#ffffff',
+            size: 'xl',
+            weight: 'bold',
+            wrap: true,
+            margin: 'sm',
+          },
+        ],
+      },
+      hero: {
+        type: 'image',
+        url: imageURL,
+        size: 'full',
+        aspectRatio: '1:1',
+        aspectMode: 'fit',
+        backgroundColor: '#ffffff',
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: '✅ กรุณาแสกน QR Code ด้านบนเพื่อลงเวลาตรวจจุดนี้ครับ',
+            size: 'sm',
+            color: '#2c3e50',
+            wrap: true,
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            height: 'sm',
+            color: '#c0392b',
+            action: { type: 'message', label: '📍 เลือกสถานที่อื่น', text: '/จุดเสี่ยง' },
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
  * Flex Message รายชื่อสถานที่ในแต่ละหมวดหมู่
  */
 function buildRiskLocationMenuFlex(category) {
@@ -1922,6 +1990,7 @@ module.exports = {
   buildRiskCategoryMenuFlex,
   buildRiskLocationMenuFlex,
   buildAllRiskLocationsMenuFlex,
+  buildQRCodeFlex,
   buildPersonInfoFlex,
   buildPersonMatchesFlex,
 };

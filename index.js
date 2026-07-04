@@ -20,6 +20,7 @@ const {
   buildRiskCategoryMenuFlex,
   buildRiskLocationMenuFlex,
   buildAllRiskLocationsMenuFlex,
+  buildQRCodeFlex,
   buildPersonInfoFlex,
   buildPersonMatchesFlex,
 } = require('./flex');
@@ -747,15 +748,7 @@ async function handleEvent(event) {
       const imageURL = `${baseURL}/qrcodes/${encodeURIComponent(locationName)}.png`;
       
       const messages = [
-        { type: 'text', text: `📸 นี่คือ QR Code สำหรับแสกนจุดตรวจ: ${locationName}` },
-        { type: 'image', originalContentUrl: imageURL, previewImageUrl: imageURL },
-        {
-          type: 'text',
-          text: '✅ ท่านสามารถแสกน QR Code ด้านบนเพื่อลงเวลาตรวจ และกดปุ่มด้านล่างเพื่อเลือกสถานที่อื่นๆ ครับ',
-          quickReply: {
-            items: [{ type: 'action', action: { type: 'message', label: '📍 เลือกสถานที่อื่น', text: '/จุดเสี่ยง' } }]
-          }
-        }
+        buildQRCodeFlex(locationName, imageURL),
       ];
 
       // ── แจ้งเตือนส่งรายงานจุดเสี่ยง (แบบ Persistent ผ่าน Google Sheets) ──
