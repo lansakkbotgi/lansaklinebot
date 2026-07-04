@@ -748,7 +748,8 @@ async function handleEvent(event) {
       const imageURL = `${baseURL}/qrcodes/${encodeURIComponent(locationName)}.png`;
       
       const messages = [
-        buildQRCodeFlex(locationName, imageURL),
+        { type: 'image', originalContentUrl: imageURL, previewImageUrl: imageURL },
+        buildQRCodeFlex(locationName),
       ];
 
       // ── แจ้งเตือนส่งรายงานจุดเสี่ยง (แบบ Persistent ผ่าน Google Sheets) ──

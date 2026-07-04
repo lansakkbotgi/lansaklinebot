@@ -1560,7 +1560,7 @@ function buildRiskCategoryMenuFlex() {
 /**
  * Flex Message แสดง QR Code จุดตรวจ พร้อมเน้นชื่อสถานที่ให้เห็นชัดเจน
  */
-function buildQRCodeFlex(locationName, imageURL) {
+function buildQRCodeFlex(locationName) {
   return {
     type: 'flex',
     altText: `📸 QR Code จุดตรวจ: ${locationName}`,
@@ -1585,15 +1585,6 @@ function buildQRCodeFlex(locationName, imageURL) {
           },
         ],
       },
-      hero: {
-        type: 'image',
-        url: imageURL,
-        size: 'full',
-        aspectRatio: '1:1',
-        aspectMode: 'fit',
-        backgroundColor: '#ffffff',
-        action: { type: 'uri', label: 'ขยายรูป', uri: imageURL },
-      },
       body: {
         type: 'box',
         layout: 'vertical',
@@ -1602,18 +1593,10 @@ function buildQRCodeFlex(locationName, imageURL) {
         contents: [
           {
             type: 'text',
-            text: '✅ กรุณาแสกน QR Code ด้านบนเพื่อลงเวลาตรวจจุดนี้ครับ',
+            text: 'กรุณาแสกน QR Code ด้านบนเพื่อลงเวลาตรวจจุดนี้ครับ',
             size: 'sm',
             color: '#2c3e50',
             wrap: true,
-          },
-          {
-            type: 'text',
-            text: '💡 แตะที่รูป QR Code เพื่อขยายเต็มจอ',
-            size: 'xs',
-            color: '#7f8c8d',
-            wrap: true,
-            margin: 'sm',
           },
         ],
       },
