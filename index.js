@@ -120,9 +120,6 @@ const xapiWaitingUsers = new Map(); // userId -> true
 // Session สำหรับรอรับรหัสยืนยันตัวตน
 const verifyWaitingUsers = new Map(); // userId -> true
 
-// Session สำหรับรอรับข้อความ Broadcast หลังเลือกรูปแบบการส่ง
-const broadcastWaitingUsers = new Map(); // userId -> { mode: 'all' | 'all-menu' | 'target' | 'target-menu' }
-
 // ── ฟังก์ชัน Helper: ค้น XAPI และจัดการ status=multiple ──
 async function xapiSearch({ query, type = 'name', proxyImageUrlFn }) {
   const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
@@ -439,46 +436,7 @@ async function handleEvent(event) {
       }
     }
 
-    // ── ตรวจสอบ Session รอรับข้อความ Broadcast (หลังเลือกรูปแบบการส่ง) ──
-    if (broadcastWaitingUsers.has(userId) && event.type === 'message' && event.message.type === 'text') {
-      const session = broadcastWaitingUsers.get(userId);
-      broadcastWaitingUsers.delete(userId);
-
-      if (userText === 'ยกเลิก') {
-        return replyText(replyToken, '❌ ยกเลิกการส่ง Broadcast แล้วครับ');
-      }
-
-      if (!await isMasterAdmin(userId)) {
-        return replyText(replyToken, '🔒 ขออภัยครับ ระบบ Broadcast จำกัดเฉพาะ Master Admin เท่านั้น');
-      }
-
-      const isMenuBroadcast = session.mode === 'all-menu' || session.mode === 'target-menu';
-      const isTargetMode = session.mode === 'target' || session.mode === 'target-menu';
-
-      let res, msgToBroadcast, targetName = null;
-
-      if (isTargetMode) {
-        if (!userText.startsWith('@')) {
-          return replyText(replyToken, '❌ รูปแบบไม่ถูกต้องครับ กรุณาพิมพ์ในรูปแบบ: @ชื่อ ข้อความ\n\n(หรือพิมพ์ /broadcast ใหม่เพื่อเริ่มต้นอีกครั้ง)');
-        }
-        const parts = userText.split(' ');
-        targetName = parts[0].substring(1);
-        msgToBroadcast = parts.slice(1).join(' ').trim();
-        if (!msgToBroadcast) {
-          return replyText(replyToken, '❌ กรุณาระบุข้อความหลังชื่อ: @ชื่อ ข้อความ\n\n(หรือพิมพ์ /broadcast ใหม่เพื่อเริ่มต้นอีกครั้ง)');
-        }
-        await replyText(replyToken, `📤 กำลังส่งข้อความหา "${targetName}"${isMenuBroadcast ? ' (+ปุ่มเมนู)' : ''}...`);
-        res = await broadcastToTarget(client, msgToBroadcast, targetName, isMenuBroadcast);
-      } else {
-        msgToBroadcast = userText;
-        await replyText(replyToken, `📤 กำลังส่งข้อความหาทุกคน${isMenuBroadcast ? ' (+ปุ่มเมนู)' : ''}...`);
-        res = await broadcastToAll(client, msgToBroadcast, isMenuBroadcast);
-      }
-
-      return client.pushMessage({ to: userId, messages: [buildBroadcastResultFlex(res, msgToBroadcast, targetName)] });
-    }
-
-
+    // ── ตรวจสอบ Session การแก้ไข (Stateful Edit) ──
     const editSession = getEditSession(userId);
     if (editSession && event.type === 'message' && event.message.type === 'text') {
       if (userText === 'ยกเลิก') {
@@ -732,41 +690,6 @@ async function handleEvent(event) {
           clearCache();
           return replyMessage(replyToken, buildAddConfirmFlex(person, true));
         } catch (err) { return replyMessage(replyToken, buildAddConfirmFlex(person, false, err.message)); }
-      }
-
-      // ── /broadcast แบบไม่มีข้อความต่อท้าย → ถามผู้ใช้ว่าต้องการส่งแบบไหน ──
-      if (userText === '/broadcast' || userText === '/broadcast-menu') {
-        if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Master Admin เท่านั้นที่มีสิทธิ์ Broadcast');
-        return client.replyMessage({
-          replyToken,
-          messages: [{
-            type: 'text',
-            text: '📢 ต้องการส่งการแจ้งเตือนแบบไหนครับ?',
-            quickReply: {
-              items: [
-                { type: 'action', action: { type: 'message', label: '📢 ทุกคน (ข้อความ)', text: '/broadcast-choose all' } },
-                { type: 'action', action: { type: 'message', label: '📋 ทุกคน + ปุ่มเมนู', text: '/broadcast-choose all-menu' } },
-                { type: 'action', action: { type: 'message', label: '🎯 เฉพาะคน (ข้อความ)', text: '/broadcast-choose target' } },
-                { type: 'action', action: { type: 'message', label: '🎯 เฉพาะคน + ปุ่มเมนู', text: '/broadcast-choose target-menu' } },
-              ]
-            }
-          }]
-        });
-      }
-
-      // ── ผู้ใช้เลือกรูปแบบแล้ว → รอรับข้อความ/เป้าหมายในขั้นถัดไป ──
-      if (userText.startsWith('/broadcast-choose ')) {
-        if (!await isMasterAdmin(userId)) return replyText(replyToken, '🔒 เฉพาะ Master Admin เท่านั้นที่มีสิทธิ์ Broadcast');
-        const mode = userText.replace('/broadcast-choose ', '').trim();
-        if (!['all', 'all-menu', 'target', 'target-menu'].includes(mode)) {
-          return replyText(replyToken, '❌ ตัวเลือกไม่ถูกต้องครับ กรุณาพิมพ์ /broadcast ใหม่อีกครั้ง');
-        }
-        broadcastWaitingUsers.set(userId, { mode });
-        const isTargetMode = mode === 'target' || mode === 'target-menu';
-        const promptText = isTargetMode
-          ? '🎯 กรุณาพิมพ์ในรูปแบบ: @ชื่อ ข้อความ\n\n(พิมพ์ "ยกเลิก" เพื่อยกเลิก)'
-          : '📝 กรุณาพิมพ์ข้อความที่ต้องการส่งครับ\n\n(พิมพ์ "ยกเลิก" เพื่อยกเลิก)';
-        return replyText(replyToken, promptText);
       }
 
       if (userText.startsWith('/broadcast ') || userText.startsWith('/broadcast-menu ')) {
