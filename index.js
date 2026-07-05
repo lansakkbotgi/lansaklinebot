@@ -64,7 +64,7 @@ setInterval(async () => {
     const dueReminders = await getDueReminders();
     for (const item of dueReminders) {
       try {
-        // ส่งแจ้งเตือนหา adminmaster ทั้งหมด (ไม่ส่งหาผู้ใช้ที่กด QR)
+        // ส่งแจ้งเตือนหา adminmaster ทั้งหมด
         const followers = await loadFollowersFromSheet();
         const sheetMasters = followers.filter(u => u.role === 'adminmaster').map(u => u.userId);
         const envMasters = (process.env.ADMIN_LINE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -84,7 +84,18 @@ setInterval(async () => {
           }
         }
 
-        console.log(`🔔 Persistent Reminder sent to ${allMasters.length} adminmaster(s) (triggered by ${item.userId})`);
+        // ส่งแจ้งเตือนไปยังผู้ใช้ที่กดเลือก QR Code โดยตรง
+        try {
+          const userReminderText = `📢 อย่าลืมส่งรายงานจุดเสี่ยงด้วยนะครับ ขอบคุณมากครับ 🙏\n🤖 ข้อความนี้เป็นการแจ้งเตือนจากระบบบอทอัตโนมัติ`;
+          await client.pushMessage({
+            to: item.userId,
+            messages: [{ type: 'text', text: userReminderText }]
+          });
+        } catch (err) {
+          console.error(`❌ Failed to send reminder to user ${item.userId}:`, err.message);
+        }
+
+        console.log(`🔔 Persistent Reminder sent to ${allMasters.length} adminmaster(s) and user ${item.userId}`);
         // ส่งเสร็จแล้ว ลบเวลาแจ้งเตือนออก
         await setUserReminderTime(item.userId, '');
       } catch (err) {
