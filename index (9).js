@@ -689,9 +689,33 @@ async function handleEvent(event) {
         let res, msgToBroadcast, targetName = null;
 
         if (fullText.startsWith('@')) {
-          const parts = fullText.split(' ');
-          targetName = parts[0].substring(1); 
-          msgToBroadcast = parts.slice(1).join(' ').trim();
+          const afterAt = fullText.substring(1);
+          // หาชื่อที่ตรงกับ displayName จริงในชีตยาวที่สุด เพื่อไม่ให้ตัดชื่อผิดตำแหน่ง
+          // (เช่น "@ส.ต.ต นภัส จ. ข้อความ..." ต้องจับ "ส.ต.ต นภัส จ." เป็นชื่อทั้งก้อน ไม่ใช่แค่คำแรก)
+          const allFollowers = await loadFollowersFromSheet();
+          let bestMatch = null;
+          for (const f of allFollowers) {
+            const name = (f.displayName || '').trim();
+            if (!name) continue;
+            const lowerAfterAt = afterAt.toLowerCase();
+            const lowerName = name.toLowerCase();
+            const isExact = lowerAfterAt === lowerName;
+            const isPrefix = lowerAfterAt.startsWith(lowerName + ' ');
+            if ((isExact || isPrefix) && (!bestMatch || name.length > bestMatch.length)) {
+              bestMatch = name;
+            }
+          }
+
+          if (bestMatch) {
+            targetName = bestMatch;
+            msgToBroadcast = afterAt.substring(bestMatch.length).trim();
+          } else {
+            // ไม่เจอชื่อที่ตรงเป๊ะในชีต ใช้ fallback แบบเดิม (คำแรกเป็นชื่อ)
+            const parts = afterAt.split(' ');
+            targetName = parts[0];
+            msgToBroadcast = parts.slice(1).join(' ').trim();
+          }
+
           if (!msgToBroadcast) return replyText(replyToken, `❌ กรุณาระบุข้อความหลังชื่อ: ${cmd}@ชื่อ ข้อความ`);
           await replyText(replyToken, `📤 กำลังส่งข้อความหา "${targetName}"${isMenuBroadcast ? ' (+ปุ่มเมนู)' : ''}...`);
           res = await broadcastToTarget(client, msgToBroadcast, targetName, isMenuBroadcast);

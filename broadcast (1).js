@@ -107,9 +107,19 @@ function removeFollower(userId) {
  */
 async function broadcastToTarget(client, message, targetName, includeMenu = false) {
   const followers = await loadFollowersFromSheet();
-  const targetFollowers = followers.filter(f => 
-    f.displayName.toLowerCase().includes(targetName.toLowerCase())
+  const lowerTarget = targetName.trim().toLowerCase();
+
+  // จับคู่ชื่อแบบตรงเป๊ะก่อน (ป้องกันการยิงโดนหลายคนที่ชื่อมีคำซ้ำกันบางส่วน)
+  let targetFollowers = followers.filter(f =>
+    (f.displayName || '').trim().toLowerCase() === lowerTarget
   );
+
+  // ถ้าไม่เจอตรงเป๊ะ ค่อย fallback เป็นการค้นหาแบบ substring เหมือนเดิม
+  if (targetFollowers.length === 0) {
+    targetFollowers = followers.filter(f =>
+      (f.displayName || '').toLowerCase().includes(lowerTarget)
+    );
+  }
 
   if (targetFollowers.length === 0) {
     return { sent: 0, failed: 0, total: 0, notFound: true };
