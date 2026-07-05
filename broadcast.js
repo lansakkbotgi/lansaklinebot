@@ -107,8 +107,11 @@ function removeFollower(userId) {
  */
 async function broadcastToTarget(client, message, targetName, includeMenu = false) {
   const followers = await loadFollowersFromSheet();
-  const targetFollowers = followers.filter(f => 
-    f.displayName.toLowerCase().includes(targetName.toLowerCase())
+  // ตัดจุด/ช่องว่างออกก่อนเทียบ กันปัญหาพิมพ์ "ส.ต.ต" vs "ส ต ต" หรืออักขระมองไม่เห็นไม่ตรงกัน
+  const normalize = (s) => (s || '').toLowerCase().replace(/[.\s]/g, '');
+  const normalizedTarget = normalize(targetName);
+  const targetFollowers = followers.filter(f =>
+    normalize(f.displayName).includes(normalizedTarget)
   );
 
   if (targetFollowers.length === 0) {
