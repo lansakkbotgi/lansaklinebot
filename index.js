@@ -64,38 +64,28 @@ setInterval(async () => {
     const dueReminders = await getDueReminders();
     for (const item of dueReminders) {
       try {
-        // ส่งแจ้งเตือนหา adminmaster ทั้งหมด
+        // ส่งแจ้งเตือนหา adminmaster ทั้งหมด + ผู้ใช้ที่กดเลือก QR Code (ข้อความเดียว ไม่ซ้ำ)
         const followers = await loadFollowersFromSheet();
         const sheetMasters = followers.filter(u => u.role === 'adminmaster').map(u => u.userId);
         const envMasters = (process.env.ADMIN_LINE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
         const fallbackMaster = 'Ufa63dfbbf9007b97d94aced0528efb8c';
-        const allMasters = [...new Set([...envMasters, ...sheetMasters, fallbackMaster])];
+        // รวม masters + ผู้ใช้ที่ trigger การแจ้งเตือน แล้ว dedupe เพื่อไม่ให้คนเดิมได้รับซ้ำ
+        const allRecipients = [...new Set([...envMasters, ...sheetMasters, fallbackMaster, item.userId])];
 
-        const reminderText = `📢 อย่าลืมส่งรายงานตรวจจุดเสี่ยงประจำวันด้วยนะครับ ขอบคุณมากครับ 🙏\n🤖 ข้อความนี้เป็นการแจ้งเตือนจากระบบบอทอัตโนมัติ`;
+        const reminderText = `📢 อย่าลืมส่งรายงานตรวจสถานที่จุดเสี่ยงประจำวันด้วยนะครับ ขอบคุณมากครับ 🙏\n🤖 ข้อความนี้เป็นการแจ้งเตือนจากระบบบอทอัตโนมัติ`;
 
-        for (const masterId of allMasters) {
+        for (const recipientId of allRecipients) {
           try {
             await client.pushMessage({
-              to: masterId,
+              to: recipientId,
               messages: [{ type: 'text', text: reminderText }]
             });
           } catch (err) {
-            console.error(`❌ Failed to send reminder to master ${masterId}:`, err.message);
+            console.error(`❌ Failed to send reminder to ${recipientId}:`, err.message);
           }
         }
 
-        // ส่งแจ้งเตือนไปยังผู้ใช้ที่กดเลือก QR Code โดยตรง
-        try {
-          const userReminderText = `📢 อย่าลืมส่งรายงานจุดเสี่ยงด้วยนะครับ ขอบคุณมากครับ 🙏\n🤖 ข้อความนี้เป็นการแจ้งเตือนจากระบบบอทอัตโนมัติ`;
-          await client.pushMessage({
-            to: item.userId,
-            messages: [{ type: 'text', text: userReminderText }]
-          });
-        } catch (err) {
-          console.error(`❌ Failed to send reminder to user ${item.userId}:`, err.message);
-        }
-
-        console.log(`🔔 Persistent Reminder sent to ${allMasters.length} adminmaster(s) and user ${item.userId}`);
+        console.log(`🔔 Persistent Reminder sent to ${allRecipients.length} recipient(s) (triggered by ${item.userId})`);
         // ส่งเสร็จแล้ว ลบเวลาแจ้งเตือนออก
         await setUserReminderTime(item.userId, '');
       } catch (err) {
