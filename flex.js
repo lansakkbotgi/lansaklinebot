@@ -288,7 +288,7 @@ function buildWelcomeFlex(isAdminUser = false) {
 
   // ถ้าเป็น Admin ให้เพิ่มเมนู "เพิ่มรายชื่อ"
   if (isAdminUser) {
-    bubble1Contents.push(buildMenuButton('➕', 'เพิ่มบุคคลสุ่มเสี่ยง', '/เพิ่ม', '#27ae60'));
+    bubble1Contents.push(buildMenuButton('➕', 'เพิ่มบุคคลสุ่มเสี่ยง/เฝ้าระวัง', '/เพิ่ม', '#27ae60'));
   } else {
     // ถ้ายังไม่ใช่ Admin ให้แสดงปุ่มยืนยันตัวตน
     bubble1Contents.push(buildMenuButton('🔐', 'ยืนยันตัวตนเจ้าหน้าที่', '/ยืนยันตัวตน', '#7d3c98'));

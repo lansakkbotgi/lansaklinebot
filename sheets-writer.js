@@ -183,6 +183,12 @@ function getSheetsClient() {
     privateKey = `${privateKey}\n-----END PRIVATE KEY-----\n`;
   }
 
+  // 🔍 DEBUG ชั่วคราว — ลบทิ้งหลังแก้ปัญหาเสร็จ
+  console.log('🔍 DEBUG privateKey length:', privateKey.length);
+  console.log('🔍 DEBUG privateKey first 40:', JSON.stringify(privateKey.slice(0, 40)));
+  console.log('🔍 DEBUG privateKey last 40:', JSON.stringify(privateKey.slice(-40)));
+  console.log('🔍 DEBUG env var used:', process.env.GOOGLE_PRIVATE_KEY ? 'GOOGLE_PRIVATE_KEY' : (process.env.GGOOGLE_PRIVATE_KEY ? 'GGOOGLE_PRIVATE_KEY (fallback - ชื่อผิด!)' : 'ไม่มีตัวไหนถูกตั้งเลย'));
+
   const credentials = {
     type: 'service_account',
     project_id:               process.env.GOOGLE_PROJECT_ID,
