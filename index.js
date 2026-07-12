@@ -201,6 +201,13 @@ async function proxyImageUrl(srcUrl) {
   }
 }
 
+const webApi = require('./web-api');
+app.use('/staff', webApi);
+app.use(express.static('public'));
+
+
+
+
 app.use(express.static('public'));
 
 app.post('/webhook', line.middleware(lineConfig), (req, res) => {
