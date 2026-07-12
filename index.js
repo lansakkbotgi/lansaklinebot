@@ -569,7 +569,7 @@ async function handleEvent(event) {
     // ─────────────────────────────────────────────────────────
     if (isAdminCommand(userText)) {
       if (userText === '/whoami') return replyText(replyToken, `🆔 User ID: ${userId}`);
-      if (!isUserAdmin) return replyText(replyToken, '🔒 เฉพาะ Admin เท่านั้นครับ');
+      if (!isUserAdmin) return replyText(replyToken, '🔒 เฉพาะ เจ้าหน้าที่ เท่านั้นครับ หากต้องการใช้สิทธ์เข้าถึงข้อมูล กดปุ่มยืนตัวตนเจ้าหน้าที่');
 
       if (userText === '/adminhelp') return replyMessage(replyToken, buildAdminHelpFlex());
       if (userText === '/ล้างcache') { 
