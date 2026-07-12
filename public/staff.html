@@ -216,6 +216,13 @@
     margin-top:14px; padding:12px 14px; border-radius:10px; background:var(--gold-100);
     border:1px solid #eadb9e; font-size:13px; display:none;
   }
+  .bcast-user-row{
+    display:flex; align-items:center; gap:10px; padding:7px 8px; border-radius:8px; font-size:13px; cursor:pointer;
+  }
+  .bcast-user-row:hover{background:var(--paper);}
+  .bcast-user-row input[type=checkbox]{width:auto; margin:0;}
+  .bcast-user-row .bn{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bcast-user-row .brole{font-size:10px; color:var(--muted); flex-shrink:0;}
 
   /* ── Theme toggle ── */
   .theme-toggle{
@@ -352,6 +359,7 @@
   <button class="tabbtn" data-tab="emergency" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</button>
   <button class="tabbtn" data-tab="qrcode" onclick="switchTab('qrcode')">🤖 QR เพิ่มเพื่อนไลน์บอท</button>
   <button class="tabbtn" data-tab="suspects" onclick="switchTab('suspects')">🚨 ผู้ต้องหา <span class="lock">🔒</span></button>
+  <button class="tabbtn" data-tab="locations" onclick="switchTab('locations')">📍 จุดเสี่ยง/สถานที่ <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="users" onclick="switchTab('users')">👤 ผู้ใช้งาน/สิทธิ์ <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="broadcast" onclick="switchTab('broadcast')">📢 Broadcast <span class="lock">🔒</span></button>
 </nav>
@@ -374,9 +382,17 @@
       <div class="quicklink" onclick="switchTab('leaders')">🏘️ ดูผู้นำตำบล</div>
       <div class="quicklink" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</div>
       <div class="quicklink" onclick="switchTab('qrcode')">🤖 QR แอดไลน์บอท</div>
+      <div class="quicklink" onclick="switchTab('locations')">📍 จุดเสี่ยง/สถานที่บันทึก</div>
     </div>
     <div class="dash-section-title" id="dash-area-title" style="display:none">🏢 บุคลากรแยกตามฝ่าย/งาน</div>
     <div id="dash-area-bars"></div>
+    <div id="dash-admin-tools" style="display:none">
+      <div class="dash-section-title">🛠️ เครื่องมือแอดมิน</div>
+      <div class="card" style="max-width:520px">
+        <div class="row" style="margin-bottom:10px">หากเพิ่งแก้ข้อมูลใน Google Sheet โดยตรง กดล้างแคชเพื่อให้เว็บและบอท LINE ดึงข้อมูลล่าสุดทันที</div>
+        <button class="btn btn-outline" style="color:var(--navy-700); border-color:var(--line-c)" onclick="clearServerCache()" id="clear-cache-btn">🔄 ล้างแคชข้อมูล</button>
+      </div>
+    </div>
   </section>
 
   <!-- ── บุคลากร ── -->
@@ -486,6 +502,29 @@
     </div>
   </section>
 
+  <!-- ── จุดเสี่ยง / สถานที่บันทึก ── -->
+  <section class="panel" id="panel-locations">
+    <div id="lock-locations" class="lockmsg">
+      <div class="icon">🔒</div>
+      ข้อมูลส่วนนี้เป็นข้อมูลอ่อนไหว ต้องเข้าสู่ระบบเจ้าหน้าที่ก่อนจึงจะดูได้<br>
+      <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="content-locations" style="display:none">
+      <div class="panel-head">
+        <div>
+          <h2>จุดเสี่ยง / สถานที่ที่บันทึกไว้</h2>
+          <div class="count" id="cnt-locations">กำลังโหลด...</div>
+        </div>
+        <div class="toolbar">
+          <input type="text" class="search-input" placeholder="ค้นหาชื่อสถานที่/ที่อยู่/ผู้บันทึก..." oninput="renderLocations()" id="search-locations">
+          <button class="icon-btn" onclick="exportCSV(cacheLocations,['dateTime','title','address','latitude','longitude','user','report'],'จุดเสี่ยง-สถานที่')">⬇️ CSV</button>
+          <button class="icon-btn" onclick="printPanel('panel-locations','จุดเสี่ยง / สถานที่ที่บันทึกไว้')">🖨️ พิมพ์</button>
+        </div>
+      </div>
+      <div class="grid" id="grid-locations"></div>
+    </div>
+  </section>
+
   <!-- ── ผู้ใช้งาน/สิทธิ์ ── -->
   <section class="panel" id="panel-users">
     <div id="lock-users" class="lockmsg">
@@ -531,8 +570,20 @@
       </div>
       <div class="card" style="max-width:640px">
         <div class="field">
-          <label>ส่งถึง (เว้นว่าง = ส่งหาทุกคน / หรือกรอกชื่อที่แสดงใน LINE เพื่อส่งหาคนเดียว)</label>
-          <input type="text" id="bcast-target" placeholder="เช่น สมชาย ใจดี (เว้นว่างเพื่อส่งหาทุกคน)">
+          <label>ส่งถึง</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+            <button type="button" class="btn btn-outline btn-small" id="bcast-mode-all" style="color:var(--navy-700); border-color:var(--gold-500); background:var(--gold-100)" onclick="setBcastMode('all')">👥 ส่งหาทุกคน</button>
+            <button type="button" class="btn btn-outline btn-small" id="bcast-mode-select" style="color:var(--navy-700); border-color:var(--line-c)" onclick="setBcastMode('select')">✅ เลือกรายชื่อ</button>
+          </div>
+          <div id="bcast-select-box" style="display:none">
+            <input type="text" class="search-input" style="width:100%; margin-bottom:8px" placeholder="ค้นหาชื่อผู้ใช้..." id="bcast-user-search" oninput="renderBcastUserList()">
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+              <button type="button" class="mini-btn" onclick="bcastSelectAll(true)">เลือกทั้งหมดที่ค้นเจอ</button>
+              <button type="button" class="mini-btn" onclick="bcastSelectAll(false)">ล้างที่เลือกทั้งหมด</button>
+              <span style="font-size:12px; color:var(--muted); margin-left:auto;" id="bcast-selected-count">เลือกแล้ว 0 คน</span>
+            </div>
+            <div id="bcast-user-list" style="max-height:220px; overflow-y:auto; border:1px solid var(--line-c); border-radius:10px; padding:6px;"></div>
+          </div>
         </div>
         <div class="field">
           <label>ข้อความ</label>
@@ -576,7 +627,7 @@
 const API = ''; // mount ที่ /staff ดังนั้น path ภายในหน้านี้อ้างอิงแบบสัมพัทธ์อยู่แล้ว
 let TOKEN = localStorage.getItem('staff_token') || null;
 
-let cachePersonnel = [], cacheLeaders = [], cacheSuspects = [], cacheUsers = [];
+let cachePersonnel = [], cacheLeaders = [], cacheSuspects = [], cacheUsers = [], cacheLocations = [];
 
 function authHeaders(json=true){
   const h = {};
@@ -598,6 +649,7 @@ function switchTab(name){
   document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
   if (name==='suspects' && TOKEN) loadSuspects();
+  if (name==='locations' && TOKEN) loadLocations();
   if (name==='users' && TOKEN) loadUsers();
   if (name==='dashboard') renderDashboard();
 }
@@ -732,6 +784,7 @@ async function doLogin(){
     localStorage.setItem('staff_token', TOKEN);
     closeLogin();
     applyAuthState();
+    loadSuspects(); loadUsers(); loadLocations();
     toast('เข้าสู่ระบบสำเร็จ');
   } catch(e){
     document.getElementById('loginErr').textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้';
@@ -756,6 +809,8 @@ function applyAuthState(){
     document.getElementById('add-leaders-btn').style.display='inline-block';
     document.getElementById('lock-suspects').style.display='none';
     document.getElementById('content-suspects').style.display='block';
+    document.getElementById('lock-locations').style.display='none';
+    document.getElementById('content-locations').style.display='block';
     document.getElementById('lock-users').style.display='none';
     document.getElementById('content-users').style.display='block';
     document.getElementById('lock-broadcast').style.display='none';
@@ -767,6 +822,8 @@ function applyAuthState(){
     document.getElementById('add-leaders-btn').style.display='none';
     document.getElementById('lock-suspects').style.display='block';
     document.getElementById('content-suspects').style.display='none';
+    document.getElementById('lock-locations').style.display='block';
+    document.getElementById('content-locations').style.display='none';
     document.getElementById('lock-users').style.display='block';
     document.getElementById('content-users').style.display='none';
     document.getElementById('lock-broadcast').style.display='block';
@@ -784,7 +841,7 @@ async function verifyToken(){
     if (!j.authenticated){ TOKEN=null; localStorage.removeItem('staff_token'); }
   }catch(e){}
   applyAuthState();
-  if (TOKEN){ loadSuspects(); loadUsers(); }
+  if (TOKEN){ loadSuspects(); loadUsers(); loadLocations(); }
 }
 
 // ── Modal helper ──
@@ -1011,6 +1068,44 @@ function renderSuspects(){
       </div>
     </div>`).join('');
 }
+
+// ============================================================
+//  จุดเสี่ยง / สถานที่ที่บันทึกไว้
+// ============================================================
+async function loadLocations(){
+  try{
+    const r = await fetch('/staff/api/locations', { headers: authHeaders(false) });
+    const j = await r.json();
+    cacheLocations = j.data || [];
+  }catch(e){ cacheLocations = []; }
+  renderLocations(); renderDashboard();
+}
+function renderLocations(){
+  const searchBox = document.getElementById('search-locations');
+  const q = (searchBox ? searchBox.value : '').toLowerCase();
+  const list = cacheLocations.filter(p =>
+    !q || (p.title+p.address+p.user+p.report).toLowerCase().includes(q));
+  const cnt = document.getElementById('cnt-locations');
+  if (cnt) cnt.textContent = `ทั้งหมด ${cacheLocations.length} รายการ` + (q ? ` (พบ ${list.length})` : '');
+  const grid = document.getElementById('grid-locations');
+  if (!grid) return;
+  if (list.length===0){ grid.innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
+  grid.innerHTML = list.map(p => {
+    const hasCoord = p.latitude && p.longitude;
+    const mapUrl = hasCoord ? `https://www.google.com/maps?q=${encodeURIComponent(p.latitude)},${encodeURIComponent(p.longitude)}` : null;
+    return `
+    <div class="card">
+      <div class="name">📍 ${highlight(p.title||'สถานที่ไม่มีชื่อ', q)}</div>
+      <div class="row">🏠 ${highlight(p.address||'-', q)}</div>
+      ${p.report ? `<div class="row">📝 ${highlight(p.report, q)}</div>` : ''}
+      <div class="row">🕒 ${esc(p.dateTime)||'-'}</div>
+      <div class="row">✍️ ผู้บันทึก: ${highlight(p.user||'-', q)}</div>
+      <div class="mini-actions">
+        ${mapUrl ? `<a class="mini-btn" style="text-decoration:none; display:inline-block" href="${escAttr(mapUrl)}" target="_blank" rel="noopener">🗺️ เปิดใน Google Maps</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
 function openSuspectForm(p){
   p = p || {};
   const isEdit = !!p.firstName;
@@ -1110,6 +1205,7 @@ function renderUsers(){
       </div>
     </div>`;
   }).join('');
+  renderBcastUserList();
 }
 async function blockUser(userId, displayName){
   if (!confirm(`บล็อกผู้ใช้ ${displayName||userId}?`)) return;
@@ -1142,31 +1238,100 @@ async function removeAdmin(userId){
 // ============================================================
 //  Broadcast
 // ============================================================
+let bcastMode = 'all';
+let bcastSelected = new Set();
+
+function setBcastMode(mode){
+  bcastMode = mode;
+  const allBtn = document.getElementById('bcast-mode-all');
+  const selBtn = document.getElementById('bcast-mode-select');
+  allBtn.style.background = mode==='all' ? 'var(--gold-100)' : 'transparent';
+  allBtn.style.borderColor = mode==='all' ? 'var(--gold-500)' : 'var(--line-c)';
+  selBtn.style.background = mode==='select' ? 'var(--gold-100)' : 'transparent';
+  selBtn.style.borderColor = mode==='select' ? 'var(--gold-500)' : 'var(--line-c)';
+  document.getElementById('bcast-select-box').style.display = mode==='select' ? 'block' : 'none';
+  if (mode==='select'){
+    if (!cacheUsers.length) loadUsers();
+    renderBcastUserList();
+  }
+}
+function bcastFilteredUsers(){
+  const q = (document.getElementById('bcast-user-search').value||'').toLowerCase();
+  return cacheUsers.filter(u => u.role!=='blocked' && (!q || (u.displayName||'').toLowerCase().includes(q)));
+}
+function renderBcastUserList(){
+  const box = document.getElementById('bcast-user-list');
+  if (!box) return;
+  const list = bcastFilteredUsers();
+  if (!list.length){ box.innerHTML = '<div class="empty" style="padding:16px">ไม่พบผู้ใช้</div>'; }
+  else {
+    box.innerHTML = list.map(u => `
+      <label class="bcast-user-row">
+        <input type="checkbox" value="${escAttr(u.userId)}" ${bcastSelected.has(u.userId)?'checked':''} onchange="toggleBcastUser('${escAttr(u.userId)}', this.checked)">
+        <span class="bn">${esc(u.displayName)||'ไม่ระบุชื่อ'}</span>
+        <span class="brole">${roleLabel(u.role).text}</span>
+      </label>`).join('');
+  }
+  updateBcastSelectedCount();
+}
+function toggleBcastUser(userId, checked){
+  if (checked) bcastSelected.add(userId); else bcastSelected.delete(userId);
+  updateBcastSelectedCount();
+}
+function bcastSelectAll(select){
+  bcastFilteredUsers().forEach(u => select ? bcastSelected.add(u.userId) : bcastSelected.delete(u.userId));
+  renderBcastUserList();
+}
+function updateBcastSelectedCount(){
+  const el = document.getElementById('bcast-selected-count');
+  if (el) el.textContent = `เลือกแล้ว ${bcastSelected.size} คน`;
+}
+
 async function sendBroadcast(){
-  const target = val('bcast-target');
   const message = val('bcast-message');
   const includeMenu = document.getElementById('bcast-menu').checked;
   if (!message){ toast('กรุณากรอกข้อความ', true); return; }
-  if (!confirm(target ? `ส่งข้อความหา "${target}" ?` : 'ส่งข้อความหาผู้ใช้ทุกคน?')) return;
+  const box = document.getElementById('bcast-result');
   const btn = document.getElementById('bcast-btn');
-  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
-  try{
-    const r = await fetch('/staff/api/broadcast', { method:'POST', headers:authHeaders(), body: JSON.stringify({ target, message, includeMenu }) });
-    const j = await r.json();
-    const box = document.getElementById('bcast-result');
-    box.style.display = 'block';
-    if (!j.success){
-      box.textContent = '❌ ' + (j.message||'ส่งไม่สำเร็จ');
-    } else if (j.result.notFound){
-      box.textContent = `❌ ไม่พบผู้ใช้ชื่อ "${target}"`;
-    } else {
-      box.textContent = `✅ ส่งสำเร็จ ${j.result.sent} คน จากทั้งหมด ${j.result.total} คน` + (j.result.failed ? ` (ล้มเหลว ${j.result.failed})` : '');
-      document.getElementById('bcast-message').value = '';
+
+  if (bcastMode === 'select'){
+    const names = cacheUsers.filter(u => bcastSelected.has(u.userId)).map(u => u.displayName || u.userId);
+    if (names.length === 0){ toast('กรุณาเลือกผู้รับอย่างน้อย 1 คน', true); return; }
+    if (!confirm(`ส่งข้อความหา ${names.length} คนที่เลือก?`)) return;
+    btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+    let totalSent = 0, totalFailed = 0; const problems = [];
+    for (const name of names){
+      try{
+        const r = await fetch('/staff/api/broadcast', { method:'POST', headers:authHeaders(), body: JSON.stringify({ target:name, message, includeMenu }) });
+        const j = await r.json();
+        if (j.success && j.result && !j.result.notFound){ totalSent += j.result.sent; totalFailed += j.result.failed; }
+        else problems.push(name);
+      }catch(e){ problems.push(name); }
     }
-  }catch(e){
-    toast('เกิดข้อผิดพลาดในการส่ง', true);
-  } finally {
+    box.style.display = 'block';
+    box.textContent = `✅ ส่งสำเร็จ ${totalSent} คน จาก ${names.length} คนที่เลือก` +
+      (totalFailed ? ` (ล้มเหลว ${totalFailed})` : '') +
+      (problems.length ? ` — มีปัญหากับ: ${problems.join(', ')}` : '');
+    document.getElementById('bcast-message').value = '';
     btn.disabled = false; btn.textContent = '📤 ส่งข้อความ';
+  } else {
+    if (!confirm('ส่งข้อความหาผู้ใช้ทุกคน?')) return;
+    btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+    try{
+      const r = await fetch('/staff/api/broadcast', { method:'POST', headers:authHeaders(), body: JSON.stringify({ target:'', message, includeMenu }) });
+      const j = await r.json();
+      box.style.display = 'block';
+      if (!j.success){
+        box.textContent = '❌ ' + (j.message||'ส่งไม่สำเร็จ');
+      } else {
+        box.textContent = `✅ ส่งสำเร็จ ${j.result.sent} คน จากทั้งหมด ${j.result.total} คน` + (j.result.failed ? ` (ล้มเหลว ${j.result.failed})` : '');
+        document.getElementById('bcast-message').value = '';
+      }
+    }catch(e){
+      toast('เกิดข้อผิดพลาดในการส่ง', true);
+    } finally {
+      btn.disabled = false; btn.textContent = '📤 ส่งข้อความ';
+    }
   }
 }
 
@@ -1215,6 +1380,7 @@ function renderDashboard(){
     cards.push({ icon:'🚨', num:warrantCount, label:'มีหมายจับ', alert:warrantCount>0 });
     cards.push({ icon:'👁️', num:watchCount, label:'เฝ้าระวัง' });
     cards.push({ icon:'👤', num:cacheUsers.length, label:'ผู้ใช้งานระบบ LINE' });
+    cards.push({ icon:'📍', num:cacheLocations.length, label:'จุดเสี่ยง/สถานที่บันทึก' });
   }
   statsBox.innerHTML = cards.map(c => `
     <div class="stat-card ${c.alert?'alert':''}">
@@ -1225,6 +1391,7 @@ function renderDashboard(){
 
   document.getElementById('dash-warrant-alert').innerHTML = (TOKEN && warrantCount>0)
     ? `<div class="warn-banner">🚨 มีผู้ต้องหาที่ออกหมายจับแล้ว <b>${warrantCount}</b> ราย — ไปที่แท็บ "ผู้ต้องหา" เพื่อดูรายละเอียด</div>` : '';
+  document.getElementById('dash-admin-tools').style.display = TOKEN ? 'block' : 'none';
 
   // สรุปบุคลากรแยกตามฝ่าย/งาน
   const areaTitle = document.getElementById('dash-area-title');
@@ -1244,6 +1411,29 @@ function renderDashboard(){
   } else {
     areaTitle.style.display='none';
     areaBox.innerHTML = '';
+  }
+}
+
+// ============================================================
+//  ล้างแคชข้อมูล (เรียก /staff/api/clear-cache ของจริง)
+// ============================================================
+async function clearServerCache(){
+  const btn = document.getElementById('clear-cache-btn');
+  btn.disabled = true; btn.textContent = 'กำลังล้างแคช...';
+  try{
+    const r = await fetch('/staff/api/clear-cache', { method:'POST', headers:authHeaders() });
+    const j = await r.json();
+    if (j.success){
+      toast('ล้างแคชสำเร็จ กำลังโหลดข้อมูลล่าสุด...');
+      loadPersonnel(); loadLeaders();
+      if (TOKEN){ loadSuspects(); loadUsers(); loadLocations(); }
+    } else {
+      toast(j.message||'ล้างแคชไม่สำเร็จ', true);
+    }
+  }catch(e){
+    toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', true);
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 ล้างแคชข้อมูล';
   }
 }
 
