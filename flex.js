@@ -310,7 +310,7 @@ function buildWelcomeFlex(isAdminUser = false) {
       margin: 'none',
     },
     buildMenuButton('⛽',  'เบอร์ปั๊ม',                 '/เบอร์ปั๊ม',                                     '#5d4037'),
-    buildMenuButton('🛢️', 'เว็ปไซต์จัดการข้อมูลบอทไลน์',  'https://lansaklinebot-production.up.railway.app/staff.html',            '#008080', 'uri'),
+    buildMenuButton('Ⓦ', 'เว็ปไซต์จัดการข้อมูลบอทไลน์',  'https://lansaklinebot-production.up.railway.app/staff.html',            '#008080', 'uri'),
     buildMenuButton('🏍️', 'เว็ปไซต์สายตรวจลานสัก',    'https://liff.line.me/2010319438-PkvEgigE',     '#1a3a6e', 'uri'),
     buildMenuButton('📖', 'วิธีใช้งาน',                '/คำสั่ง',                                         '#cc3333'),
     buildMenuButton('📞', 'ติดต่อเจ้าหน้าที่',         'ติดต่อเจ้าหน้าที่',                              '#555555'),
