@@ -25,11 +25,21 @@
     --line-c:#e3e7ee;
     --radius:14px;
   }
+  [data-theme="dark"]{
+    --paper:#0b1420; --card:#111d2e; --ink:#e7ecf3; --muted:#8ea0b8;
+    --line-c:#233150; --gold-100:#2a2411;
+  }
+  [data-theme="dark"] .card, [data-theme="dark"] .ecard, [data-theme="dark"] .modal,
+  [data-theme="dark"] .login-card, [data-theme="dark"] .urow{
+    box-shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+  [data-theme="dark"] .qr-wrap{background:var(--card);}
   *{box-sizing:border-box;}
   body{
     margin:0; background:var(--paper); color:var(--ink);
     font-family:'Sarabun',sans-serif;
     min-height:100vh;
+    transition:background .2s, color .2s;
   }
   h1,h2,h3,.brand,.tabbtn,.btn{font-family:'Kanit',sans-serif;}
 
@@ -207,7 +217,89 @@
     border:1px solid #eadb9e; font-size:13px; display:none;
   }
 
+  /* ── Theme toggle ── */
+  .theme-toggle{
+    width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.08); color:#fff; cursor:pointer; font-size:16px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .theme-toggle:hover{background:rgba(255,255,255,.18);}
+
+  /* ── Dashboard ── */
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px;}
+  .stat-card{
+    background:var(--card); border-radius:var(--radius); border:1px solid var(--line-c);
+    padding:16px 18px; position:relative; overflow:hidden;
+  }
+  .stat-card::before{
+    content:''; position:absolute; top:0; left:0; width:4px; height:100%; background:var(--gold-500);
+  }
+  .stat-card .snum{font-family:'Kanit',sans-serif; font-size:26px; font-weight:700; color:var(--navy-800);}
+  [data-theme="dark"] .stat-card .snum{color:var(--gold-400);}
+  .stat-card .slabel{font-size:12.5px; color:var(--muted); margin-top:2px;}
+  .stat-card .sicon{position:absolute; right:14px; top:14px; font-size:22px; opacity:.35;}
+  .stat-card.alert::before{background:var(--danger);}
+  .dash-section-title{font-size:14px; font-weight:600; color:var(--navy-800); margin:22px 0 10px; font-family:'Kanit',sans-serif;}
+  [data-theme="dark"] .dash-section-title{color:var(--gold-400);}
+  .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:12.5px;}
+  .bar-row .blabel{width:110px; flex-shrink:0; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bar-track{flex:1; background:var(--paper); border-radius:99px; height:9px; overflow:hidden;}
+  [data-theme="dark"] .bar-track{background:#0b1420;}
+  .bar-fill{height:100%; background:linear-gradient(90deg,var(--navy-700),var(--gold-500)); border-radius:99px;}
+  .bar-count{width:26px; text-align:right; color:var(--ink); font-weight:600; flex-shrink:0;}
+  .quicklinks{display:flex; flex-wrap:wrap; gap:8px;}
+  .quicklink{
+    background:var(--card); border:1px solid var(--line-c); border-radius:10px; padding:10px 14px;
+    font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--ink);
+  }
+  .quicklink:hover{border-color:var(--gold-500);}
+
+  /* ── Filter/sort toolbar extras ── */
+  .toolbar select.filter-sel{min-width:120px;}
+  .icon-btn{
+    background:var(--card); border:1px solid var(--line-c); color:var(--ink);
+    border-radius:9px; padding:9px 12px; font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .icon-btn:hover{border-color:var(--gold-500);}
+
+  /* ── Card mini-actions (copy/vcard) ── */
+  .card .mini-actions{display:flex; gap:6px; margin-top:8px;}
+  .mini-btn{
+    background:var(--paper); border:1px solid var(--line-c); color:var(--muted);
+    border-radius:7px; padding:4px 9px; font-size:11px; cursor:pointer;
+  }
+  [data-theme="dark"] .mini-btn{background:#0b1420;}
+  .mini-btn:hover{color:var(--navy-700); border-color:var(--gold-500);}
+
+  mark{background:var(--gold-400); color:var(--navy-950); border-radius:3px; padding:0 2px;}
+
+  /* ── Warrant alert banner ── */
+  .warn-banner{
+    display:flex; align-items:center; gap:10px; background:#fbeae7; border:1px solid #f0c4bd;
+    color:var(--danger); padding:12px 16px; border-radius:12px; margin-bottom:14px; font-size:13.5px; font-weight:500;
+  }
+  [data-theme="dark"] .warn-banner{background:#3a1b16; border-color:#5c2b22; color:#ff8f7d;}
+
+  /* ── Skeleton loading ── */
+  .skel{background:linear-gradient(90deg,var(--line-c) 25%,var(--paper) 50%,var(--line-c) 75%); background-size:200% 100%; animation:skel 1.3s infinite;}
+  @keyframes skel{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .skel-card{height:112px; border-radius:var(--radius);}
+
+  /* ── Scroll to top ── */
+  .scrolltop{
+    position:fixed; bottom:22px; right:18px; width:44px; height:44px; border-radius:50%;
+    background:var(--navy-800); color:#fff; border:2px solid var(--gold-500); font-size:18px;
+    cursor:pointer; display:none; align-items:center; justify-content:center; z-index:80;
+    box-shadow:0 6px 18px rgba(0,0,0,.25);
+  }
+  .scrolltop.show{display:flex;}
+
   footer.foot{text-align:center; font-size:11.5px; color:var(--muted); padding:20px; }
+
+  @media print{
+    header.topbar, nav.tabs, .toolbar, .actions, .mini-actions, .scrolltop, footer.foot{display:none !important;}
+    main{padding:0; max-width:none;}
+  }
 
   /* ── Mobile (โทรศัพท์) ── */
   @media (max-width: 640px){
@@ -248,12 +340,14 @@
     </div>
   </div>
   <div class="authbox" id="authbox">
+    <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="สลับโหมดมืด/สว่าง">🌙</button>
     <button class="btn btn-gold" id="btnLogin" onclick="openLogin()">🔐 เข้าสู่ระบบเจ้าหน้าที่</button>
   </div>
 </header>
 
 <nav class="tabs">
-  <button class="tabbtn active" data-tab="personnel" onclick="switchTab('personnel')">👥 ทำเนียบบุคลากร</button>
+  <button class="tabbtn active" data-tab="dashboard" onclick="switchTab('dashboard')">📊 ภาพรวม</button>
+  <button class="tabbtn" data-tab="personnel" onclick="switchTab('personnel')">👥 ทำเนียบบุคลากร</button>
   <button class="tabbtn" data-tab="leaders" onclick="switchTab('leaders')">🏘️ ผู้นำตำบล</button>
   <button class="tabbtn" data-tab="emergency" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</button>
   <button class="tabbtn" data-tab="qrcode" onclick="switchTab('qrcode')">🤖 QR เพิ่มเพื่อนไลน์บอท</button>
@@ -264,8 +358,29 @@
 
 <main>
 
+  <!-- ── ภาพรวม (Dashboard) ── -->
+  <section class="panel active" id="panel-dashboard">
+    <div class="panel-head">
+      <div>
+        <h2>ภาพรวมระบบ</h2>
+        <div class="count">สรุปข้อมูลทั้งหมดของ สภ.ลานสัก แบบเรียลไทม์</div>
+      </div>
+    </div>
+    <div class="stat-grid" id="dash-stats"></div>
+    <div id="dash-warrant-alert"></div>
+    <div class="dash-section-title">🔗 ทางลัด</div>
+    <div class="quicklinks">
+      <div class="quicklink" onclick="switchTab('personnel')">👥 ดูทำเนียบบุคลากร</div>
+      <div class="quicklink" onclick="switchTab('leaders')">🏘️ ดูผู้นำตำบล</div>
+      <div class="quicklink" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</div>
+      <div class="quicklink" onclick="switchTab('qrcode')">🤖 QR แอดไลน์บอท</div>
+    </div>
+    <div class="dash-section-title" id="dash-area-title" style="display:none">🏢 บุคลากรแยกตามฝ่าย/งาน</div>
+    <div id="dash-area-bars"></div>
+  </section>
+
   <!-- ── บุคลากร ── -->
-  <section class="panel active" id="panel-personnel">
+  <section class="panel" id="panel-personnel">
     <div class="panel-head">
       <div>
         <h2>ทำเนียบบุคลากร สภ.ลานสัก</h2>
@@ -273,6 +388,14 @@
       </div>
       <div class="toolbar">
         <input type="text" class="search-input" placeholder="ค้นหาชื่อ/ตำแหน่ง/ฝ่าย..." oninput="renderPersonnel()" id="search-personnel">
+        <select class="filter-sel" id="filter-personnel-area" onchange="renderPersonnel()"><option value="">ทุกฝ่าย/งาน</option></select>
+        <select class="filter-sel" id="sort-personnel" onchange="renderPersonnel()">
+          <option value="default">เรียง: ตามลำดับเดิม</option>
+          <option value="name">เรียง: ชื่อ ก-ฮ</option>
+          <option value="position">เรียง: ตำแหน่ง</option>
+        </select>
+        <button class="icon-btn" onclick="exportCSV(cachePersonnel,['rank','firstName','lastName','position','area','phone','email'],'ทำเนียบบุคลากร')">⬇️ CSV</button>
+        <button class="icon-btn" onclick="printPanel('panel-personnel','ทำเนียบบุคลากร สภ.ลานสัก')">🖨️ พิมพ์</button>
         <button class="btn btn-success" id="add-personnel-btn" style="display:none" onclick="openPersonnelForm()">+ เพิ่มรายชื่อ</button>
       </div>
     </div>
@@ -288,6 +411,14 @@
       </div>
       <div class="toolbar">
         <input type="text" class="search-input" placeholder="ค้นหาชื่อ/ตำบล/หมู่..." oninput="renderLeaders()" id="search-leaders">
+        <select class="filter-sel" id="filter-leaders-area" onchange="renderLeaders()"><option value="">ทุกตำบล</option></select>
+        <select class="filter-sel" id="sort-leaders" onchange="renderLeaders()">
+          <option value="default">เรียง: ตามลำดับเดิม</option>
+          <option value="name">เรียง: ชื่อ ก-ฮ</option>
+          <option value="village">เรียง: หมู่ที่</option>
+        </select>
+        <button class="icon-btn" onclick="exportCSV(cacheLeaders,['rank','firstName','lastName','position','area','village','phone'],'ผู้นำตำบล')">⬇️ CSV</button>
+        <button class="icon-btn" onclick="printPanel('panel-leaders','ทำเนียบผู้นำตำบล')">🖨️ พิมพ์</button>
         <button class="btn btn-success" id="add-leaders-btn" style="display:none" onclick="openLeaderForm()">+ เพิ่มรายชื่อ</button>
       </div>
     </div>
@@ -300,6 +431,9 @@
       <div>
         <h2>เบอร์โทรฉุกเฉิน</h2>
         <div class="count">แตะที่การ์ดเพื่อโทรออกทันที (ใช้งานบนมือถือได้เลย)</div>
+      </div>
+      <div class="toolbar">
+        <button class="icon-btn" onclick="printPanel('panel-emergency','เบอร์โทรฉุกเฉิน สภ.ลานสัก')">🖨️ พิมพ์รายชื่อ</button>
       </div>
     </div>
     <div class="grid" id="grid-emergency"></div>
@@ -320,6 +454,7 @@
         📷 ยังไม่พบไฟล์รูป QR Code<br>
         <span>วางไฟล์รูปชื่อ <code>linebot-qr.png</code> ไว้ในโฟลเดอร์ <code>public/</code> ของโปรเจกต์ แล้ว deploy ใหม่</span>
       </div>
+      <button class="btn btn-outline" style="width:100%; margin-top:14px; color:var(--navy-700); border-color:var(--line-c)" onclick="downloadQR()">⬇️ ดาวน์โหลดรูป QR</button>
     </div>
   </section>
 
@@ -338,9 +473,15 @@
         </div>
         <div class="toolbar">
           <input type="text" class="search-input" placeholder="ค้นหาชื่อ/คดี/พื้นที่..." oninput="renderSuspects()" id="search-suspects">
+          <select class="filter-sel" id="filter-suspects-status" onchange="renderSuspects()">
+            <option value="">ทุกสถานะ</option>
+            <option value="มีหมายจับ">มีหมายจับ</option>
+            <option value="เฝ้าระวัง">เฝ้าระวัง</option>
+          </select>
           <button class="btn btn-success" onclick="openSuspectForm()">+ เพิ่มรายชื่อ</button>
         </div>
       </div>
+      <div id="suspects-warn-banner"></div>
       <div class="grid" id="grid-suspects"></div>
     </div>
   </section>
@@ -367,6 +508,7 @@
             <option value="people">ผู้ใช้ทั่วไป</option>
             <option value="blocked">ถูกบล็อก</option>
           </select>
+          <button class="icon-btn" onclick="exportCSV(cacheUsers,['displayName','userId','role'],'ผู้ใช้งานระบบ')">⬇️ CSV</button>
         </div>
       </div>
       <div id="list-users"></div>
@@ -410,6 +552,8 @@
 </main>
 
 <footer class="foot">ระบบทำเนียบบุคลากร &amp; แอดมิน — สายตรวจภูธรลานสัก</footer>
+
+<button class="scrolltop" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="กลับขึ้นด้านบน">⬆️</button>
 
 <!-- Login overlay -->
 <div class="overlay" id="loginOverlay" style="display:none">
@@ -455,7 +599,115 @@ function switchTab(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
   if (name==='suspects' && TOKEN) loadSuspects();
   if (name==='users' && TOKEN) loadUsers();
+  if (name==='dashboard') renderDashboard();
 }
+
+// ── Theme (โหมดมืด/สว่าง) ──
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = t==='dark' ? '☀️' : '🌙';
+  localStorage.setItem('staff_theme', t);
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+}
+applyTheme(localStorage.getItem('staff_theme') || 'light');
+
+// ── Scroll to top ──
+window.addEventListener('scroll', ()=>{
+  document.getElementById('scrollTopBtn').classList.toggle('show', window.scrollY > 400);
+});
+
+// ── Utils: highlight / csv / print / vcard / copy ──
+function highlight(text, q){
+  text = esc(text==null?'':String(text));
+  if (!q) return text;
+  try{
+    const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+    return text.replace(re, '<mark>$1</mark>');
+  }catch(e){ return text; }
+}
+function exportCSV(rows, fields, filename){
+  if (!rows || !rows.length){ toast('ไม่มีข้อมูลให้ส่งออก', true); return; }
+  const header = fields.join(',');
+  const lines = rows.map(r => fields.map(f => `"${String(r[f]??'').replace(/"/g,'""')}"`).join(','));
+  const csv = '\uFEFF' + [header, ...lines].join('\r\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename + '.csv';
+  a.click();
+  toast('ส่งออก CSV สำเร็จ');
+}
+function printPanel(panelId, title){
+  const node = document.getElementById(panelId);
+  const w = window.open('', '_blank');
+  w.document.write(`<html lang="th"><head><meta charset="UTF-8"><title>${title}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&family=Kanit:wght@600&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Sarabun',sans-serif; padding:24px; color:#1c2733;}
+      h1{font-family:'Kanit',sans-serif; font-size:20px; border-bottom:3px solid #c9a227; padding-bottom:10px;}
+      .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; margin-top:16px;}
+      .card{border:1px solid #ddd; border-radius:10px; padding:10px 12px; break-inside:avoid;}
+      .name{font-weight:700; font-family:'Kanit',sans-serif;}
+      .row{font-size:12.5px; color:#444; margin-top:3px;}
+      .toolbar, .actions, .mini-actions, button, select, input, .search-input{display:none !important;}
+      .tag{display:inline-block; font-size:10.5px; padding:2px 8px; border-radius:99px; background:#22508f; color:#fff; margin-top:6px;}
+    </style></head><body>
+    <h1>${title}</h1>
+    ${node.innerHTML}
+    </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.print(); }, 400);
+}
+function downloadQR(){
+  const img = document.getElementById('qrImg');
+  if (!img || img.style.display==='none'){ toast('ไม่พบรูป QR Code', true); return; }
+  const a = document.createElement('a');
+  a.href = img.src; a.download = 'linebot-qr.png'; a.click();
+}
+function makeVCard(p){
+  return `BEGIN:VCARD\r\nVERSION:3.0\r\nN:${p.lastName||''};${p.firstName||''};;${p.rank||''};\r\nFN:${(p.rank||'')} ${p.firstName||''} ${p.lastName||''}\r\nTITLE:${p.position||''}\r\nORG:${p.area||'สภ.ลานสัก'}\r\nTEL;TYPE=CELL:${p.phone||''}\r\n${p.email?'EMAIL:'+p.email+'\\r\\n':''}END:VCARD`;
+}
+function downloadVCard(p){
+  const blob = new Blob([makeVCard(p)], { type:'text/vcard;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${p.firstName||'contact'}_${p.lastName||''}.vcf`;
+  a.click();
+}
+function copyText(text, label){
+  if (!text){ toast('ไม่มีข้อมูลให้คัดลอก', true); return; }
+  const done = ()=> toast(`คัดลอก${label||''}แล้ว: ${text}`);
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, cb){
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); cb(); }catch(e){ toast('คัดลอกไม่สำเร็จ', true); }
+  ta.remove();
+}
+
+// ── Idle auto-logout (ความปลอดภัยของข้อมูลอ่อนไหว) ──
+const IDLE_LIMIT_MS = 15*60*1000;
+const IDLE_WARN_MS  = 13*60*1000;
+let idleTimer, warnTimer, lastActivity = Date.now();
+function resetIdleTimer(){
+  lastActivity = Date.now();
+  clearTimeout(idleTimer); clearTimeout(warnTimer);
+  if (!TOKEN) return;
+  warnTimer = setTimeout(()=> toast('ระบบจะออกจากระบบอัตโนมัติใน 2 นาทีเนื่องจากไม่มีการใช้งาน', true), IDLE_WARN_MS);
+  idleTimer = setTimeout(()=>{
+    if (TOKEN){ doLogout(); toast('ออกจากระบบอัตโนมัติเนื่องจากไม่มีการใช้งาน', true); }
+  }, IDLE_LIMIT_MS);
+}
+['click','keydown','mousemove','scroll','touchstart'].forEach(ev=>{
+  document.addEventListener(ev, ()=>{ if (TOKEN && Date.now()-lastActivity>2000) resetIdleTimer(); }, {passive:true});
+});
 
 // ── Login ──
 function openLogin(){
@@ -497,8 +749,9 @@ async function doLogout(){
 
 function applyAuthState(){
   const box = document.getElementById('authbox');
+  const themeBtnHtml = '<button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="สลับโหมดมืด/สว่าง">'+((localStorage.getItem('staff_theme')==='dark')?'☀️':'🌙')+'</button>';
   if (TOKEN){
-    box.innerHTML = '<span class="who">👮 เจ้าหน้าที่ (ล็อกอินแล้ว)</span> <button class="btn btn-outline" onclick="doLogout()">ออกจากระบบ</button>';
+    box.innerHTML = themeBtnHtml + '<span class="who">👮 เจ้าหน้าที่ (ล็อกอินแล้ว)</span> <button class="btn btn-outline" onclick="doLogout()">ออกจากระบบ</button>';
     document.getElementById('add-personnel-btn').style.display='inline-block';
     document.getElementById('add-leaders-btn').style.display='inline-block';
     document.getElementById('lock-suspects').style.display='none';
@@ -507,8 +760,9 @@ function applyAuthState(){
     document.getElementById('content-users').style.display='block';
     document.getElementById('lock-broadcast').style.display='none';
     document.getElementById('content-broadcast').style.display='block';
+    resetIdleTimer();
   } else {
-    box.innerHTML = '<button class="btn btn-gold" onclick="openLogin()">🔐 เข้าสู่ระบบเจ้าหน้าที่</button>';
+    box.innerHTML = themeBtnHtml + '<button class="btn btn-gold" onclick="openLogin()">🔐 เข้าสู่ระบบเจ้าหน้าที่</button>';
     document.getElementById('add-personnel-btn').style.display='none';
     document.getElementById('add-leaders-btn').style.display='none';
     document.getElementById('lock-suspects').style.display='block';
@@ -517,8 +771,9 @@ function applyAuthState(){
     document.getElementById('content-users').style.display='none';
     document.getElementById('lock-broadcast').style.display='block';
     document.getElementById('content-broadcast').style.display='none';
+    clearTimeout(idleTimer); clearTimeout(warnTimer);
   }
-  renderPersonnel(); renderLeaders();
+  renderPersonnel(); renderLeaders(); renderDashboard();
 }
 
 async function verifyToken(){
@@ -529,6 +784,7 @@ async function verifyToken(){
     if (!j.authenticated){ TOKEN=null; localStorage.removeItem('staff_token'); }
   }catch(e){}
   applyAuthState();
+  if (TOKEN){ loadSuspects(); loadUsers(); }
 }
 
 // ── Modal helper ──
@@ -547,21 +803,39 @@ async function loadPersonnel(){
     const j = await r.json();
     cachePersonnel = j.data || [];
   }catch(e){ cachePersonnel = []; }
-  renderPersonnel();
+  renderPersonnel(); renderDashboard();
+}
+function populateAreaFilter(selectId, cache, field){
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const cur = sel.value;
+  const areas = [...new Set(cache.map(p=>p[field]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));
+  sel.innerHTML = sel.options[0].outerHTML + areas.map(a=>`<option value="${escAttr(a)}">${esc(a)}</option>`).join('');
+  if (areas.includes(cur)) sel.value = cur;
 }
 function renderPersonnel(){
+  populateAreaFilter('filter-personnel-area', cachePersonnel, 'area');
   const q = (document.getElementById('search-personnel').value||'').toLowerCase();
-  const list = cachePersonnel.filter(p =>
+  const areaFilter = document.getElementById('filter-personnel-area').value;
+  const sortBy = document.getElementById('sort-personnel').value;
+  let list = cachePersonnel.filter(p =>
     !q || (p.fullName+p.position+p.area+p.phone).toLowerCase().includes(q));
-  document.getElementById('cnt-personnel').textContent = `ทั้งหมด ${cachePersonnel.length} รายการ` + (q ? ` (พบ ${list.length})` : '');
+  if (areaFilter) list = list.filter(p => p.area === areaFilter);
+  if (sortBy==='name') list = list.slice().sort((a,b)=>(a.firstName||'').localeCompare(b.firstName||'','th'));
+  if (sortBy==='position') list = list.slice().sort((a,b)=>(a.position||'').localeCompare(b.position||'','th'));
+  document.getElementById('cnt-personnel').textContent = `ทั้งหมด ${cachePersonnel.length} รายการ` + ((q||areaFilter) ? ` (พบ ${list.length})` : '');
   const grid = document.getElementById('grid-personnel');
   if (list.length===0){ grid.innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
   grid.innerHTML = list.map(p => `
     <div class="card">
-      <div class="name">${esc(p.rank)} ${esc(p.firstName)} ${esc(p.lastName)}</div>
-      <div class="row">📌 <b>${esc(p.position)||'-'}</b></div>
-      <div class="row">🏢 ${esc(p.area)||'-'}</div>
-      <div class="row">📞 ${esc(p.phone)||'-'}</div>
+      <div class="name">${highlight((p.rank||'')+' '+(p.firstName||'')+' '+(p.lastName||''), q)}</div>
+      <div class="row">📌 <b>${highlight(p.position||'-', q)}</b></div>
+      <div class="row">🏢 ${highlight(p.area||'-', q)}</div>
+      <div class="row">📞 ${highlight(p.phone||'-', q)}</div>
+      <div class="mini-actions">
+        ${p.phone ? `<button class="mini-btn" onclick="copyText('${escAttr(p.phone)}','เบอร์โทร')">📋 คัดลอกเบอร์</button>` : ''}
+        <button class="mini-btn" onclick='downloadVCard(${JSON.stringify(p).replace(/'/g,"&apos;")})'>💾 บันทึกผู้ติดต่อ</button>
+      </div>
       ${TOKEN ? `<div class="actions">
         <button class="btn btn-outline btn-small" style="color:var(--navy-700); border-color:var(--line-c)" onclick='openPersonnelForm(${JSON.stringify(p).replace(/'/g,"&apos;")})'>แก้ไข</button>
         <button class="btn btn-danger btn-small" onclick="deletePersonnelRow('${escAttr(p.firstName)}','${escAttr(p.lastName)}')">ลบ</button>
@@ -623,21 +897,31 @@ async function loadLeaders(){
     const j = await r.json();
     cacheLeaders = j.data || [];
   }catch(e){ cacheLeaders = []; }
-  renderLeaders();
+  renderLeaders(); renderDashboard();
 }
 function renderLeaders(){
+  populateAreaFilter('filter-leaders-area', cacheLeaders, 'area');
   const q = (document.getElementById('search-leaders').value||'').toLowerCase();
-  const list = cacheLeaders.filter(p =>
+  const areaFilter = document.getElementById('filter-leaders-area').value;
+  const sortBy = document.getElementById('sort-leaders').value;
+  let list = cacheLeaders.filter(p =>
     !q || (p.fullName+p.position+p.area+p.village+p.phone).toLowerCase().includes(q));
-  document.getElementById('cnt-leaders').textContent = `ทั้งหมด ${cacheLeaders.length} รายการ` + (q ? ` (พบ ${list.length})` : '');
+  if (areaFilter) list = list.filter(p => p.area === areaFilter);
+  if (sortBy==='name') list = list.slice().sort((a,b)=>(a.firstName||'').localeCompare(b.firstName||'','th'));
+  if (sortBy==='village') list = list.slice().sort((a,b)=>(a.village||'').localeCompare(b.village||'','th',{numeric:true}));
+  document.getElementById('cnt-leaders').textContent = `ทั้งหมด ${cacheLeaders.length} รายการ` + ((q||areaFilter) ? ` (พบ ${list.length})` : '');
   const grid = document.getElementById('grid-leaders');
   if (list.length===0){ grid.innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
   grid.innerHTML = list.map(p => `
     <div class="card">
-      <div class="name">${esc(p.rank)} ${esc(p.firstName)} ${esc(p.lastName)}</div>
-      <div class="row">📌 <b>${esc(p.position)||'-'}</b></div>
-      <div class="row">🏘️ ตำบล${esc(p.area)||'-'} หมู่ ${esc(p.village)||'-'}</div>
-      <div class="row">📞 ${esc(p.phone)||'-'}</div>
+      <div class="name">${highlight((p.rank||'')+' '+(p.firstName||'')+' '+(p.lastName||''), q)}</div>
+      <div class="row">📌 <b>${highlight(p.position||'-', q)}</b></div>
+      <div class="row">🏘️ ตำบล${highlight(p.area||'-', q)} หมู่ ${highlight(p.village||'-', q)}</div>
+      <div class="row">📞 ${highlight(p.phone||'-', q)}</div>
+      <div class="mini-actions">
+        ${p.phone ? `<button class="mini-btn" onclick="copyText('${escAttr(p.phone)}','เบอร์โทร')">📋 คัดลอกเบอร์</button>` : ''}
+        <button class="mini-btn" onclick='downloadVCard(${JSON.stringify(p).replace(/'/g,"&apos;")})'>💾 บันทึกผู้ติดต่อ</button>
+      </div>
       ${TOKEN ? `<div class="actions">
         <button class="btn btn-outline btn-small" style="color:var(--navy-700); border-color:var(--line-c)" onclick='openLeaderForm(${JSON.stringify(p).replace(/'/g,"&apos;")})'>แก้ไข</button>
         <button class="btn btn-danger btn-small" onclick="deleteLeaderRow('${escAttr(p.firstName)}','${escAttr(p.lastName)}')">ลบ</button>
@@ -699,22 +983,28 @@ async function loadSuspects(){
     const j = await r.json();
     cacheSuspects = j.data || [];
   }catch(e){ cacheSuspects = []; }
-  renderSuspects();
+  renderSuspects(); renderDashboard();
 }
 function renderSuspects(){
   const q = (document.getElementById('search-suspects').value||'').toLowerCase();
-  const list = cacheSuspects.filter(p =>
+  const statusFilter = document.getElementById('filter-suspects-status').value;
+  let list = cacheSuspects.filter(p =>
     !q || (p.fullName+p.crime+p.area+p.caseNo).toLowerCase().includes(q));
-  document.getElementById('cnt-suspects').textContent = `ทั้งหมด ${cacheSuspects.length} รายการ` + (q ? ` (พบ ${list.length})` : '');
+  if (statusFilter) list = list.filter(p => p.status === statusFilter);
+  list = list.slice().sort((a,b)=> (b.status==='มีหมายจับ')-(a.status==='มีหมายจับ'));
+  document.getElementById('cnt-suspects').textContent = `ทั้งหมด ${cacheSuspects.length} รายการ` + ((q||statusFilter) ? ` (พบ ${list.length})` : '');
+  const warrantCount = cacheSuspects.filter(p=>p.status==='มีหมายจับ').length;
+  document.getElementById('suspects-warn-banner').innerHTML = warrantCount>0
+    ? `<div class="warn-banner">🚨 มีผู้ต้องหาที่ออกหมายจับแล้ว <b>${warrantCount}</b> ราย — โปรดเฝ้าระวังเป็นพิเศษ</div>` : '';
   const grid = document.getElementById('grid-suspects');
   if (list.length===0){ grid.innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
   grid.innerHTML = list.map(p => `
     <div class="card">
-      <div class="name">${esc(p.rank)} ${esc(p.firstName)} ${esc(p.lastName)}</div>
+      <div class="name">${highlight((p.rank||'')+' '+(p.firstName||'')+' '+(p.lastName||''), q)}</div>
       <span class="tag ${p.status==='มีหมายจับ'?'danger':'warn'}">${esc(p.status)||'เฝ้าระวัง'}</span>
-      <div class="row" style="margin-top:8px">📋 คดี: <b>${esc(p.crime)||'-'}</b></div>
-      <div class="row">📍 พื้นที่: ${esc(p.area)||'-'}</div>
-      <div class="row">🔢 เลขคดี: ${esc(p.caseNo)||'-'}</div>
+      <div class="row" style="margin-top:8px">📋 คดี: <b>${highlight(p.crime||'-', q)}</b></div>
+      <div class="row">📍 พื้นที่: ${highlight(p.area||'-', q)}</div>
+      <div class="row">🔢 เลขคดี: ${highlight(p.caseNo||'-', q)}</div>
       <div class="actions">
         <button class="btn btn-outline btn-small" style="color:var(--navy-700); border-color:var(--line-c)" onclick='openSuspectForm(${JSON.stringify(p).replace(/'/g,"&apos;")})'>แก้ไข</button>
         <button class="btn btn-danger btn-small" onclick="deleteSuspectRow('${escAttr(p.firstName)}','${escAttr(p.lastName)}')">ลบ</button>
@@ -781,7 +1071,7 @@ async function loadUsers(){
     const j = await r.json();
     cacheUsers = j.data || [];
   }catch(e){ cacheUsers = []; }
-  renderUsers();
+  renderUsers(); renderDashboard();
 }
 function roleLabel(role){
   if (role==='adminmaster') return { text:'👑 Master Admin', cls:'role-adminmaster' };
@@ -908,6 +1198,55 @@ function renderEmergency(){
     </a>`).join('');
 }
 
+// ============================================================
+//  ภาพรวม (Dashboard)
+// ============================================================
+function renderDashboard(){
+  const statsBox = document.getElementById('dash-stats');
+  if (!statsBox) return;
+  const warrantCount = cacheSuspects.filter(p=>p.status==='มีหมายจับ').length;
+  const watchCount = cacheSuspects.filter(p=>p.status!=='มีหมายจับ').length;
+  let cards = [
+    { icon:'👥', num:cachePersonnel.length, label:'บุคลากรทั้งหมด' },
+    { icon:'🏘️', num:cacheLeaders.length, label:'ผู้นำตำบล' },
+    { icon:'📞', num:EMERGENCY_CONTACTS.length, label:'เบอร์ฉุกเฉินในระบบ' },
+  ];
+  if (TOKEN){
+    cards.push({ icon:'🚨', num:warrantCount, label:'มีหมายจับ', alert:warrantCount>0 });
+    cards.push({ icon:'👁️', num:watchCount, label:'เฝ้าระวัง' });
+    cards.push({ icon:'👤', num:cacheUsers.length, label:'ผู้ใช้งานระบบ LINE' });
+  }
+  statsBox.innerHTML = cards.map(c => `
+    <div class="stat-card ${c.alert?'alert':''}">
+      <div class="sicon">${c.icon}</div>
+      <div class="snum">${c.num}</div>
+      <div class="slabel">${c.label}</div>
+    </div>`).join('');
+
+  document.getElementById('dash-warrant-alert').innerHTML = (TOKEN && warrantCount>0)
+    ? `<div class="warn-banner">🚨 มีผู้ต้องหาที่ออกหมายจับแล้ว <b>${warrantCount}</b> ราย — ไปที่แท็บ "ผู้ต้องหา" เพื่อดูรายละเอียด</div>` : '';
+
+  // สรุปบุคลากรแยกตามฝ่าย/งาน
+  const areaTitle = document.getElementById('dash-area-title');
+  const areaBox = document.getElementById('dash-area-bars');
+  const counts = {};
+  cachePersonnel.forEach(p=>{ const a = p.area || 'ไม่ระบุ'; counts[a] = (counts[a]||0)+1; });
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if (entries.length){
+    areaTitle.style.display='block';
+    const max = Math.max(...entries.map(e=>e[1]));
+    areaBox.innerHTML = entries.map(([area,n]) => `
+      <div class="bar-row">
+        <div class="blabel" title="${escAttr(area)}">${esc(area)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(n/max*100)}%"></div></div>
+        <div class="bar-count">${n}</div>
+      </div>`).join('');
+  } else {
+    areaTitle.style.display='none';
+    areaBox.innerHTML = '';
+  }
+}
+
 // ── Utils ──
 function val(id){ return (document.getElementById(id).value||'').trim(); }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -918,6 +1257,7 @@ verifyToken();
 loadPersonnel();
 loadLeaders();
 renderEmergency();
+renderDashboard();
 </script>
 </body>
 </html>
