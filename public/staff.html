@@ -115,6 +115,32 @@
   .card .tag.warn{background:#b7791f;}
   .card .actions{display:flex; gap:6px; margin-top:10px;}
 
+  .ecard{
+    background:var(--card); border-radius:var(--radius); border:1px solid var(--line-c);
+    padding:16px; display:flex; align-items:center; gap:14px; text-decoration:none; color:var(--ink);
+    transition:.15s;
+  }
+  .ecard:hover{border-color:var(--gold-500); box-shadow:0 2px 10px rgba(201,162,39,.15);}
+  .ecard .eicon{
+    width:46px; height:46px; border-radius:50%; background:var(--navy-700); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+  }
+  .ecard .ename{font-weight:600; font-size:15px; font-family:'Kanit',sans-serif;}
+  .ecard .enum{font-size:18px; font-weight:700; color:var(--navy-700); font-family:'Kanit',sans-serif; margin-top:2px;}
+  .ecard .edesc{font-size:11.5px; color:var(--muted); margin-top:2px;}
+
+  .qr-wrap{
+    max-width:360px; margin:20px auto 0; background:var(--card); border-radius:var(--radius);
+    border:1px solid var(--line-c); padding:24px; text-align:center;
+  }
+  .qr-wrap img{width:100%; max-width:300px; border-radius:10px; display:block; margin:0 auto;}
+  .qr-missing{
+    padding:40px 16px; color:var(--muted); font-size:13.5px; line-height:1.8;
+  }
+  .qr-missing code{
+    background:var(--paper); padding:2px 6px; border-radius:5px; font-size:12px; color:var(--navy-800);
+  }
+
   .empty{padding:40px 10px; text-align:center; color:var(--muted); font-size:13.5px;}
 
   /* login overlay */
@@ -229,6 +255,8 @@
 <nav class="tabs">
   <button class="tabbtn active" data-tab="personnel" onclick="switchTab('personnel')">👥 ทำเนียบบุคลากร</button>
   <button class="tabbtn" data-tab="leaders" onclick="switchTab('leaders')">🏘️ ผู้นำตำบล</button>
+  <button class="tabbtn" data-tab="emergency" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</button>
+  <button class="tabbtn" data-tab="qrcode" onclick="switchTab('qrcode')">🤖 QR เพิ่มเพื่อนไลน์บอท</button>
   <button class="tabbtn" data-tab="suspects" onclick="switchTab('suspects')">🚨 ผู้ต้องหา <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="users" onclick="switchTab('users')">👤 ผู้ใช้งาน/สิทธิ์ <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="broadcast" onclick="switchTab('broadcast')">📢 Broadcast <span class="lock">🔒</span></button>
@@ -264,6 +292,35 @@
       </div>
     </div>
     <div class="grid" id="grid-leaders"></div>
+  </section>
+
+  <!-- ── เบอร์โทรฉุกเฉิน ── -->
+  <section class="panel" id="panel-emergency">
+    <div class="panel-head">
+      <div>
+        <h2>เบอร์โทรฉุกเฉิน</h2>
+        <div class="count">แตะที่การ์ดเพื่อโทรออกทันที (ใช้งานบนมือถือได้เลย)</div>
+      </div>
+    </div>
+    <div class="grid" id="grid-emergency"></div>
+  </section>
+
+  <!-- ── QR Code ไลน์บอท ── -->
+  <section class="panel" id="panel-qrcode">
+    <div class="panel-head">
+      <div>
+        <h2>สแกน QR Code เพิ่มเพื่อนไลน์บอท</h2>
+        <div class="count">แสกนด้วยกล้องมือถือหรือแอป LINE เพื่อแอดบอทสายตรวจลานสัก</div>
+      </div>
+    </div>
+    <div class="qr-wrap">
+      <img src="/linebot-qr.png" alt="QR Code เพิ่มเพื่อนไลน์บอทสายตรวจลานสัก" id="qrImg"
+           onerror="this.style.display='none'; document.getElementById('qrMissing').style.display='block';">
+      <div id="qrMissing" class="qr-missing" style="display:none">
+        📷 ยังไม่พบไฟล์รูป QR Code<br>
+        <span>วางไฟล์รูปชื่อ <code>linebot-qr.png</code> ไว้ในโฟลเดอร์ <code>public/</code> ของโปรเจกต์ แล้ว deploy ใหม่</span>
+      </div>
+    </div>
   </section>
 
   <!-- ── ผู้ต้องหา ── -->
@@ -823,6 +880,34 @@ async function sendBroadcast(){
   }
 }
 
+// ============================================================
+//  เบอร์โทรฉุกเฉิน
+//  ── แก้ไข/เพิ่ม/ลบเบอร์ได้ตรงนี้เลย ไม่ต้องรู้โค้ดก็แก้ได้ ──
+// ============================================================
+const EMERGENCY_CONTACTS = [
+  { icon:'🚓', name:'สภ.ลานสัก (สายด่วน)', phone:'056537095', desc:'สถานีตำรวจภูธรลานสัก' },
+  { icon:'🚨', name:'โรงพยาบาลลานสัก', phone:'056537086', desc:'โรงพยาบาลลานสัก' },
+  { icon:'🚑', name:'การแพทย์ฉุกเฉิน (EMS)', phone:'1669', desc:'เจ็บป่วยฉุกเฉิน/อุบัติเหตุ' },
+  { icon:'🚒', name:'ดับเพลิง/ไฟไหม้', phone:'0897037534', desc:'แจ้งเหตุเพลิงไหม้' },
+  { icon:'🛣️', name:'รถยก', phone:'0612833556', desc:'รถยก/รถเสีย' },
+  { icon:'👮', name:'ที่อยู่โรงพักลานสัก', phone:'311/2', desc:'311 หมู่ 2 ต.ลานสัก อ.ลานสัก จ.อุทัยธานี 61160' },
+  { icon:'⚡', name:'การไฟฟ้าส่วนภูมิภาค', phone:'1129', desc:'ไฟฟ้าขัดข้อง/อุบัติเหตุไฟฟ้า' },
+  { icon:'💧', name:'การประปาส่วนภูมิภาค', phone:'1662', desc:'น้ำประปาขัดข้อง' },
+];
+
+function renderEmergency(){
+  const grid = document.getElementById('grid-emergency');
+  grid.innerHTML = EMERGENCY_CONTACTS.map(c => `
+    <a class="ecard" href="tel:${c.phone.replace(/[^0-9]/g,'')}">
+      <div class="eicon">${c.icon}</div>
+      <div>
+        <div class="ename">${esc(c.name)}</div>
+        <div class="enum">${esc(c.phone)}</div>
+        <div class="edesc">${esc(c.desc)}</div>
+      </div>
+    </a>`).join('');
+}
+
 // ── Utils ──
 function val(id){ return (document.getElementById(id).value||'').trim(); }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -832,6 +917,7 @@ function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
 verifyToken();
 loadPersonnel();
 loadLeaders();
+renderEmergency();
 </script>
 </body>
 </html>
