@@ -345,6 +345,207 @@
     .btn-small{font-size:13px;}
   }
 </style>
+<!-- ============================================================
+     ⬇️ ฟีเจอร์เสริมใหม่ทั้งหมด (Frontend เท่านั้น) — CSS ⬇️
+     ไม่แก้ไข/ลบ CSS เดิมด้านบนแม้แต่บรรทัดเดียว
+============================================================ -->
+<style id="x-extra-style">
+  /* ── 1) นาฬิกาเรียลไทม์ + 2) สถานะเครือข่าย + 3) Session timer ── */
+  .x-headerbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .x-clock{font-size:11.5px; color:var(--gold-100); text-align:right; line-height:1.35; opacity:.9;}
+  .x-clock b{display:block; font-size:13px; color:#fff; font-family:'Kanit',sans-serif; letter-spacing:.5px;}
+  .x-net-badge{
+    font-size:10.5px; padding:3px 9px; border-radius:99px; font-weight:600;
+    display:flex; align-items:center; gap:5px; white-space:nowrap;
+    border:1px solid rgba(255,255,255,.3); color:#fff;
+  }
+  .x-net-dot{width:7px; height:7px; border-radius:50%; background:#5fd68a; box-shadow:0 0 0 2px rgba(95,214,138,.25);}
+  .x-net-badge.x-offline .x-net-dot{background:#ff6b5e; box-shadow:0 0 0 2px rgba(255,107,94,.25);}
+  .x-net-badge.x-offline{border-color:rgba(255,107,94,.5);}
+  .x-session-timer{
+    font-size:10.5px; padding:3px 9px; border-radius:99px; font-weight:600; white-space:nowrap;
+    border:1px solid rgba(255,255,255,.3); color:var(--gold-100);
+  }
+  .x-session-timer.x-warn{color:#ffb4a8; border-color:rgba(255,107,94,.5); animation:x-pulse 1.2s infinite;}
+  @keyframes x-pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+
+  /* ── 4) Tab badge ── */
+  .x-tab-badge{
+    display:inline-block; min-width:16px; text-align:center; margin-left:5px;
+    background:var(--gold-500); color:var(--navy-950); border-radius:99px;
+    font-size:10px; padding:1px 6px; font-weight:700; font-family:'Sarabun',sans-serif; vertical-align:2px;
+  }
+
+  /* ── 5) Animated counter (ใช้ class เดิม .snum เพียงเปลี่ยนค่า textContent ผ่าน JS) ── */
+
+  /* ── 6) Last refresh + refresh button ── */
+  .x-refresh-btn{
+    background:var(--card); border:1px solid var(--line-c); color:var(--navy-700);
+    border-radius:9px; padding:6px 12px; font-size:12px; cursor:pointer; margin-left:8px;
+  }
+  .x-refresh-btn:hover{border-color:var(--gold-500);}
+  .x-refresh-btn:disabled{opacity:.5; cursor:not-allowed;}
+  .x-refresh-btn.x-spin{animation:x-spin .7s linear infinite;}
+  @keyframes x-spin{from{transform:rotate(0);}to{transform:rotate(360deg);}}
+
+  /* ── 7) Mini donut chart (CSS-only, conic-gradient) ── */
+  .x-donut-row{display:flex; gap:22px; flex-wrap:wrap; align-items:center; margin:4px 0 22px;}
+  .x-donut{
+    width:132px; height:132px; border-radius:50%; flex-shrink:0; position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .x-donut::after{
+    content:''; position:absolute; inset:16px; border-radius:50%; background:var(--paper);
+  }
+  [data-theme="dark"] .x-donut::after{background:var(--paper);}
+  .x-donut .x-donut-center{position:relative; z-index:1; text-align:center; font-family:'Kanit',sans-serif;}
+  .x-donut .x-donut-center b{display:block; font-size:20px; color:var(--navy-800);}
+  [data-theme="dark"] .x-donut .x-donut-center b{color:var(--gold-400);}
+  .x-donut .x-donut-center span{font-size:9.5px; color:var(--muted);}
+  .x-donut-legend{display:flex; flex-direction:column; gap:6px; font-size:12px;}
+  .x-legend-item{display:flex; align-items:center; gap:7px;}
+  .x-legend-swatch{width:10px; height:10px; border-radius:3px; flex-shrink:0;}
+  .x-legend-label{color:var(--ink);}
+  .x-legend-count{color:var(--muted); margin-left:2px;}
+
+  /* ── 8) Grid/List toggle ── */
+  .x-view-toggle{display:flex; border:1px solid var(--line-c); border-radius:9px; overflow:hidden;}
+  .x-view-toggle button{
+    background:var(--card); border:none; color:var(--muted); padding:8px 11px; font-size:13px; cursor:pointer;
+  }
+  .x-view-toggle button.active{background:var(--navy-700); color:#fff;}
+  .grid.x-list-view{grid-template-columns:1fr;}
+  .grid.x-list-view .card{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:10px 16px;
+  }
+  .grid.x-list-view .card .name{min-width:170px;}
+  .grid.x-list-view .card .row{margin-top:0;}
+  .grid.x-list-view .card .mini-actions, .grid.x-list-view .card .actions{margin-top:0; margin-left:auto;}
+
+  /* ── 9) Card detail modal helper + cursor ── */
+  .grid .card{cursor:pointer; position:relative;}
+  .grid .card button, .grid .card a.x-quickdial, .grid .card .x-star-btn{cursor:pointer;}
+  .x-detail-row{display:flex; gap:8px; padding:7px 0; border-bottom:1px dashed var(--line-c); font-size:13px;}
+  .x-detail-row:last-child{border-bottom:none;}
+  .x-detail-row .k{width:92px; flex-shrink:0; color:var(--muted);}
+  .x-detail-row .v{color:var(--ink); font-weight:500;}
+
+  /* ── 10) Bookmark / pin ── */
+  .x-star-btn{
+    position:absolute; top:10px; right:12px; background:none; border:none; font-size:17px;
+    cursor:pointer; opacity:.35; line-height:1; padding:2px; transition:.15s;
+  }
+  .x-star-btn:hover{opacity:.8; transform:scale(1.15);}
+  .x-star-btn.on{opacity:1;}
+  .card.x-pinned{border-color:var(--gold-500); box-shadow:0 0 0 1px var(--gold-500) inset;}
+
+  /* ── 11) Quick dial ── */
+  a.x-quickdial{
+    background:var(--paper); border:1px solid var(--line-c); color:var(--muted); text-decoration:none;
+    border-radius:7px; padding:4px 9px; font-size:11px; display:inline-flex; align-items:center; gap:4px;
+  }
+  [data-theme="dark"] a.x-quickdial{background:#0b1420;}
+  a.x-quickdial:hover{color:var(--navy-700); border-color:var(--gold-500);}
+
+  /* ── 12) Global search (Ctrl+K) ── */
+  .x-gs-overlay{
+    position:fixed; inset:0; background:rgba(6,14,26,.6); backdrop-filter:blur(2px);
+    display:none; align-items:flex-start; justify-content:center; z-index:150; padding:12vh 16px;
+  }
+  .x-gs-overlay.show{display:flex;}
+  .x-gs-box{
+    background:var(--card); width:560px; max-width:100%; border-radius:16px; overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.4); border-top:4px solid var(--gold-500);
+  }
+  .x-gs-input-wrap{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line-c);}
+  .x-gs-input-wrap input{border:none; flex:1; font-size:15px; padding:4px; background:transparent; color:var(--ink);}
+  .x-gs-input-wrap input:focus{outline:none;}
+  .x-gs-esc{font-size:10.5px; color:var(--muted); border:1px solid var(--line-c); border-radius:5px; padding:2px 6px;}
+  .x-gs-results{max-height:52vh; overflow-y:auto; padding:8px;}
+  .x-gs-item{
+    display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; cursor:pointer; font-size:13.5px;
+  }
+  .x-gs-item:hover, .x-gs-item.sel{background:var(--paper);}
+  .x-gs-item .x-gs-icon{width:32px; height:32px; border-radius:50%; background:var(--navy-700); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;}
+  .x-gs-item .x-gs-main{flex:1; min-width:0;}
+  .x-gs-item .x-gs-title{font-weight:600; color:var(--ink);}
+  .x-gs-item .x-gs-sub{font-size:11.5px; color:var(--muted);}
+  .x-gs-item .x-gs-cat{font-size:10px; color:var(--muted); border:1px solid var(--line-c); border-radius:99px; padding:2px 8px; flex-shrink:0;}
+  .x-gs-empty{padding:30px; text-align:center; color:var(--muted); font-size:13px;}
+  .x-gs-hint{padding:8px 16px 12px; font-size:11px; color:var(--muted);}
+  .x-gs-history-tag{
+    display:inline-flex; align-items:center; gap:4px; background:var(--paper); border-radius:99px; padding:3px 10px;
+    font-size:11.5px; margin:2px 4px 2px 0; cursor:pointer; color:var(--muted);
+  }
+  .x-gs-history-tag:hover{color:var(--navy-700);}
+  .x-gs-trigger{
+    display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.3);
+    color:var(--gold-100); border-radius:9px; padding:7px 12px; font-size:12.5px; cursor:pointer; white-space:nowrap;
+  }
+  .x-gs-trigger:hover{background:rgba(255,255,255,.18);}
+  .x-gs-trigger kbd{background:rgba(255,255,255,.15); border-radius:4px; padding:1px 5px; font-size:10px;}
+
+  /* ── 14) Quick notes ── */
+  .x-notes-fab{
+    position:fixed; bottom:22px; right:74px; width:44px; height:44px; border-radius:50%;
+    background:var(--gold-500); color:var(--navy-950); border:2px solid var(--navy-800); font-size:18px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:81;
+    box-shadow:0 6px 18px rgba(0,0,0,.25);
+  }
+  .x-notes-panel{
+    position:fixed; top:0; right:-360px; width:340px; max-width:88vw; height:100vh; background:var(--card);
+    box-shadow:-6px 0 24px rgba(0,0,0,.18); z-index:130; transition:right .22s ease; display:flex; flex-direction:column;
+    border-left:1px solid var(--line-c);
+  }
+  .x-notes-panel.show{right:0;}
+  .x-notes-head{padding:16px; border-bottom:1px solid var(--line-c); display:flex; align-items:center; justify-content:space-between;}
+  .x-notes-head h4{margin:0; font-family:'Kanit',sans-serif; color:var(--navy-800); font-size:15px;}
+  [data-theme="dark"] .x-notes-head h4{color:var(--gold-400);}
+  .x-notes-close{background:none; border:none; font-size:18px; cursor:pointer; color:var(--muted);}
+  .x-notes-body{flex:1; overflow-y:auto; padding:12px 16px;}
+  .x-notes-add{padding:12px 16px; border-top:1px solid var(--line-c);}
+  .x-notes-add textarea{width:100%; min-height:64px; resize:vertical; margin-bottom:8px;}
+  .x-note-item{
+    background:var(--paper); border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:12.5px;
+    position:relative; white-space:pre-wrap; line-height:1.5;
+  }
+  [data-theme="dark"] .x-note-item{background:#0b1420;}
+  .x-note-item .x-note-time{font-size:10px; color:var(--muted); margin-top:6px; display:block;}
+  .x-note-del{position:absolute; top:6px; right:8px; background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px;}
+  .x-note-del:hover{color:var(--danger);}
+  .x-notes-empty{text-align:center; color:var(--muted); font-size:12.5px; padding:30px 10px;}
+
+  /* ── 15) Fullscreen ── */
+  .x-fs-btn{
+    width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.08); color:#fff; cursor:pointer; font-size:15px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .x-fs-btn:hover{background:rgba(255,255,255,.18);}
+
+  /* ── 16) Share ── */
+  .x-share-btn{}
+
+  /* ── 17) Card entrance animation ── */
+  @keyframes x-card-in{from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:none;}}
+  .x-card-anim{animation:x-card-in .38s ease both;}
+
+  /* ── 18) Confetti ── */
+  .x-confetti-piece{
+    position:fixed; top:-14px; width:8px; height:8px; z-index:200; pointer-events:none;
+    animation-name:x-confetti-fall; animation-timing-function:ease-in; animation-fill-mode:forwards;
+  }
+  @keyframes x-confetti-fall{
+    0%{transform:translateY(0) rotate(0deg); opacity:1;}
+    100%{transform:translateY(100vh) rotate(540deg); opacity:0;}
+  }
+
+  @media (max-width:640px){
+    .x-clock{display:none;}
+    .x-gs-trigger span.x-gs-label{display:none;}
+    .x-notes-fab{right:20px; bottom:76px;}
+  }
+</style>
 </head>
 <body>
 
@@ -489,7 +690,7 @@
   <section class="panel" id="panel-suspects">
     <div id="lock-suspects" class="lockmsg">
       <div class="icon">🔒</div>
-      ข้อมูลส่วนนี้เป็นข้อมูลอ่อนไหว ต้องเข้าสู่ระบบเจ้าหน้าที่ก่อนจึงจะดูได้<br>
+     เพื่อความปลอดภัยของข้อมูล กรุณาเข้าสู่ระบบด้วยบัญชีเจ้าหน้าที่ก่อนเข้าถึงข้อมูลส่วนนี้ <br>
       <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
     </div>
     <div id="content-suspects" style="display:none">
@@ -517,7 +718,7 @@
   <section class="panel" id="panel-locations">
     <div id="lock-locations" class="lockmsg">
       <div class="icon">🔒</div>
-      ข้อมูลส่วนนี้เป็นข้อมูลอ่อนไหว ต้องเข้าสู่ระบบเจ้าหน้าที่ก่อนจึงจะดูได้<br>
+      เพื่อความปลอดภัยของข้อมูล กรุณาเข้าสู่ระบบด้วยบัญชีเจ้าหน้าที่ก่อนเข้าถึงข้อมูลส่วนนี้ <br>
       <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
     </div>
     <div id="content-locations" style="display:none">
@@ -1521,6 +1722,608 @@ renderDashboard();
     const savedTab = localStorage.getItem('staff_last_tab');
     if (savedTab && document.getElementById('panel-'+savedTab)) switchTab(savedTab);
   }catch(e){}
+})();
+</script>
+
+<!-- ============================================================
+     ⬇️ ฟีเจอร์เสริมใหม่ทั้งหมด 18 อย่าง (Frontend เท่านั้น) — JS ⬇️
+     ไม่แก้ไข/ลบฟังก์ชันเดิมด้านบนแม้แต่บรรทัดเดียว
+     ใช้วิธี "ห่อ" (wrap) ฟังก์ชันเดิม + เพิ่ม DOM ใหม่ผ่าน JS เท่านั้น
+     ทุกฟีเจอร์มี try/catch และเช็ค feature support (graceful fallback)
+============================================================ -->
+<script>
+(function(){
+'use strict';
+
+// ---------- Helpers ----------
+function xSafe(fn){ try{ return fn(); }catch(e){ console.warn('[ฟีเจอร์เสริม]', e); } }
+function xLS_get(key, fallback){
+  try{ const v = localStorage.getItem(key); return v==null ? fallback : JSON.parse(v); }catch(e){ return fallback; }
+}
+function xLS_set(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+function xWrap(name, after){
+  // ห่อฟังก์ชัน global เดิม ให้ทำงานตามปกติก่อน แล้วค่อยรันโค้ดเสริมทีหลัง
+  const orig = window[name];
+  if (typeof orig !== 'function') return;
+  window[name] = function(){
+    const ret = orig.apply(this, arguments);
+    xSafe(()=> after.apply(this, arguments));
+    return ret;
+  };
+}
+
+// ============================================================
+// 1) นาฬิกาเรียลไทม์  +  2) สถานะเครือข่าย  +  3) Session Timer
+//    +  15) Fullscreen  — วางไว้ใน header (authbox)
+// ============================================================
+function initHeaderExtras(){
+  const authbox = document.getElementById('authbox');
+  if (!authbox) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'x-headerbar';
+  wrap.innerHTML = `
+    <div class="x-clock" id="xClock"></div>
+    <div class="x-net-badge" id="xNetBadge"><span class="x-net-dot"></span><span id="xNetText">ออนไลน์</span></div>
+    <div class="x-session-timer" id="xSessionTimer" style="display:none"></div>
+    <button class="x-fs-btn" id="xFsBtn" title="โหมดเต็มจอ">⛶</button>
+  `;
+  authbox.insertBefore(wrap, authbox.firstChild);
+
+  // นาฬิกา
+  function tickClock(){
+    const el = document.getElementById('xClock');
+    if (!el) return;
+    const now = new Date();
+    const d = now.toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' });
+    const t = now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    el.innerHTML = `<b>${t}</b>${d}`;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // สถานะเครือข่าย
+  function updateNet(){
+    const badge = document.getElementById('xNetBadge');
+    const text = document.getElementById('xNetText');
+    if (!badge) return;
+    const online = navigator.onLine;
+    badge.classList.toggle('x-offline', !online);
+    text.textContent = online ? 'ออนไลน์' : 'ออฟไลน์';
+  }
+  updateNet();
+  window.addEventListener('online', ()=>{ updateNet(); xSafe(()=>toast('🌐 กลับมาเชื่อมต่ออินเทอร์เน็ตแล้ว')); });
+  window.addEventListener('offline', ()=>{ updateNet(); xSafe(()=>toast('⚠️ การเชื่อมต่ออินเทอร์เน็ตหลุด', true)); });
+
+  // Fullscreen
+  const fsBtn = document.getElementById('xFsBtn');
+  if (fsBtn){
+    if (!document.documentElement.requestFullscreen){ fsBtn.style.display = 'none'; }
+    fsBtn.addEventListener('click', ()=>{
+      xSafe(()=>{
+        if (!document.fullscreenElement){ document.documentElement.requestFullscreen(); fsBtn.textContent = '⛶'; }
+        else { document.exitFullscreen(); }
+      });
+    });
+    document.addEventListener('fullscreenchange', ()=>{
+      fsBtn.textContent = document.fullscreenElement ? '🗗' : '⛶';
+      fsBtn.title = document.fullscreenElement ? 'ออกจากโหมดเต็มจอ' : 'โหมดเต็มจอ';
+    });
+  }
+
+  // Session timer — อ้างอิงตัวแปร TOKEN / lastActivity / IDLE_LIMIT_MS ของสคริปต์เดิม
+  function tickSession(){
+    const el = document.getElementById('xSessionTimer');
+    if (!el) return;
+    if (typeof TOKEN === 'undefined' || !TOKEN || typeof lastActivity === 'undefined' || typeof IDLE_LIMIT_MS === 'undefined'){
+      el.style.display = 'none'; return;
+    }
+    const remain = IDLE_LIMIT_MS - (Date.now() - lastActivity);
+    if (remain <= 0){ el.style.display = 'none'; return; }
+    el.style.display = 'inline-block';
+    const mm = Math.floor(remain/60000);
+    const ss = Math.floor((remain%60000)/1000);
+    el.textContent = `⏱️ ออกอัตโนมัติใน ${mm}:${String(ss).padStart(2,'0')}`;
+    el.classList.toggle('x-warn', remain < 2*60000);
+  }
+  setInterval(tickSession, 1000);
+  tickSession();
+}
+
+// ============================================================
+// 4) Tab Badge — จำนวนรายการต่อแท็บ
+// ============================================================
+const X_TAB_BADGE_MAP = { personnel:()=>cachePersonnel.length, leaders:()=>cacheLeaders.length,
+  suspects:()=> (typeof TOKEN!=='undefined'&&TOKEN) ? cacheSuspects.length : null,
+  locations:()=> (typeof TOKEN!=='undefined'&&TOKEN) ? cacheLocations.length : null,
+  users:()=> (typeof TOKEN!=='undefined'&&TOKEN) ? cacheUsers.length : null };
+function initTabBadges(){
+  Object.keys(X_TAB_BADGE_MAP).forEach(tab=>{
+    const btn = document.querySelector(`.tabbtn[data-tab="${tab}"]`);
+    if (!btn || btn.querySelector('.x-tab-badge')) return;
+    const span = document.createElement('span');
+    span.className = 'x-tab-badge';
+    span.id = 'xBadge-' + tab;
+    span.textContent = '0';
+    btn.appendChild(span);
+  });
+}
+function updateTabBadges(){
+  Object.entries(X_TAB_BADGE_MAP).forEach(([tab, fn])=>{
+    const span = document.getElementById('xBadge-'+tab);
+    if (!span) return;
+    const n = fn();
+    if (n===null || n===undefined){ span.style.display = 'none'; return; }
+    span.style.display = 'inline-block';
+    span.textContent = n;
+  });
+}
+
+// ============================================================
+// 5) Animated Counter — ทำให้ .snum ใน dashboard นับขึ้นจาก 0
+// ============================================================
+function animateStatCounters(){
+  document.querySelectorAll('#dash-stats .snum').forEach(el=>{
+    const target = parseInt(el.textContent, 10);
+    if (isNaN(target)){ return; }
+    if (el.dataset.xAnimated === String(target)) return; // กันรันซ้ำค่าเดิม
+    el.dataset.xAnimated = String(target);
+    const dur = 600, start = performance.now();
+    function step(now){
+      const p = Math.min(1, (now-start)/dur);
+      const eased = 1 - Math.pow(1-p, 3);
+      el.textContent = Math.round(target*eased);
+      if (p < 1) requestAnimationFrame(step); else el.textContent = target;
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+// ============================================================
+// 6) Last Refresh + ปุ่ม Refresh บน Dashboard
+// ============================================================
+function initDashRefreshButton(){
+  const updatedEl = document.getElementById('dash-updated');
+  if (!updatedEl || document.getElementById('xDashRefreshBtn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'x-refresh-btn'; btn.id = 'xDashRefreshBtn';
+  btn.textContent = '🔄 รีเฟรชข้อมูล';
+  btn.addEventListener('click', async ()=>{
+    btn.disabled = true; btn.classList.add('x-spin'); const oldTxt = btn.textContent; btn.textContent = '🔄';
+    await Promise.all([xSafe(()=>loadPersonnel()), xSafe(()=>loadLeaders()),
+      (typeof TOKEN!=='undefined'&&TOKEN) ? Promise.all([xSafe(()=>loadSuspects()), xSafe(()=>loadUsers()), xSafe(()=>loadLocations())]) : Promise.resolve()]);
+    btn.disabled = false; btn.classList.remove('x-spin'); btn.textContent = oldTxt;
+    xSafe(()=>toast('รีเฟรชข้อมูลสำเร็จ'));
+  });
+  updatedEl.parentNode.insertBefore(btn, updatedEl.nextSibling);
+}
+
+// ============================================================
+// 7) Mini Donut Chart — สัดส่วนบุคลากรแยกตามฝ่าย (CSS conic-gradient)
+// ============================================================
+const X_DONUT_COLORS = ['#22508f','#c9a227','#1e8449','#b7791f','#7d3c98','#c0392b','#16a085','#2c3e50','#8e44ad','#d35400'];
+function renderDonutChart(){
+  const areaBox = document.getElementById('dash-area-bars');
+  if (!areaBox) return;
+  let mount = document.getElementById('xDonutRow');
+  if (!mount){
+    mount = document.createElement('div');
+    mount.className = 'x-donut-row'; mount.id = 'xDonutRow';
+    areaBox.parentNode.insertBefore(mount, areaBox);
+  }
+  const counts = {};
+  (typeof cachePersonnel!=='undefined'?cachePersonnel:[]).forEach(p=>{ const a = p.area || 'ไม่ระบุ'; counts[a] = (counts[a]||0)+1; });
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length){ mount.innerHTML = ''; return; }
+  const total = entries.reduce((s,[,n])=>s+n,0);
+  let acc = 0;
+  const stops = entries.map(([label,n],i)=>{
+    const start = acc/total*360; acc += n; const end = acc/total*360;
+    return `${X_DONUT_COLORS[i%X_DONUT_COLORS.length]} ${start}deg ${end}deg`;
+  }).join(', ');
+  mount.innerHTML = `
+    <div class="x-donut" style="background:conic-gradient(${stops})">
+      <div class="x-donut-center"><b>${total}</b><span>คนทั้งหมด</span></div>
+    </div>
+    <div class="x-donut-legend">
+      ${entries.slice(0,8).map(([label,n],i)=>`
+        <div class="x-legend-item">
+          <span class="x-legend-swatch" style="background:${X_DONUT_COLORS[i%X_DONUT_COLORS.length]}"></span>
+          <span class="x-legend-label">${esc(label)}</span><span class="x-legend-count">(${n})</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ============================================================
+// 8) Grid/List Toggle
+// ============================================================
+function initViewToggle(panelKey, gridId, toolbarSelector){
+  const toolbar = document.querySelector(toolbarSelector);
+  const grid = document.getElementById(gridId);
+  if (!toolbar || !grid || document.getElementById('xView-'+panelKey)) return;
+  const saved = xLS_get('x_view_'+panelKey, 'grid');
+  grid.classList.toggle('x-list-view', saved==='list');
+  const box = document.createElement('div');
+  box.className = 'x-view-toggle'; box.id = 'xView-'+panelKey;
+  box.innerHTML = `<button data-v="grid" class="${saved==='grid'?'active':''}" title="มุมมองการ์ด">▦</button>
+                    <button data-v="list" class="${saved==='list'?'active':''}" title="มุมมองรายการ">☰</button>`;
+  toolbar.insertBefore(box, toolbar.firstChild);
+  box.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      box.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      grid.classList.toggle('x-list-view', b.dataset.v==='list');
+      xLS_set('x_view_'+panelKey, b.dataset.v);
+    });
+  });
+}
+
+// ============================================================
+// 9) Card Detail Modal — คลิกที่การ์ด (ยกเว้นปุ่ม/ลิงก์) เพื่อดูรายละเอียดเต็ม
+// ============================================================
+function extractCardInfo(card){
+  const name = (card.querySelector('.name')?.textContent || '').trim();
+  const rows = Array.from(card.querySelectorAll('.row')).map(r=>r.textContent.trim());
+  return { name, rows };
+}
+function openCardDetailModal(card){
+  const info = extractCardInfo(card);
+  if (!info.name) return;
+  const rowsHtml = info.rows.map(r=>{
+    const parts = r.split(/\s+/);
+    const icon = parts.shift();
+    return `<div class="x-detail-row"><div class="k">${esc(icon||'')}</div><div class="v">${esc(parts.join(' ')||'-')}</div></div>`;
+  }).join('');
+  openModal(`
+    <h3>📇 รายละเอียด</h3>
+    <div class="x-detail-row"><div class="k">ชื่อ</div><div class="v" style="font-weight:700">${esc(info.name)}</div></div>
+    ${rowsHtml}
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="color:var(--navy-700); border-color:var(--line-c)" onclick="closeModal()">ปิด</button>
+    </div>
+  `);
+}
+function initCardDetailDelegation(gridId){
+  const grid = document.getElementById(gridId);
+  if (!grid || grid.dataset.xDelegated) return;
+  grid.dataset.xDelegated = '1';
+  grid.addEventListener('click', (e)=>{
+    if (e.target.closest('button, a, input, select, textarea')) return; // ไม่แย่ง event ปุ่มเดิม
+    const card = e.target.closest('.card');
+    if (card) openCardDetailModal(card);
+  });
+}
+
+// ============================================================
+// 10) Bookmark / Pin — ปักหมุดบุคลากรสำคัญ (เก็บใน localStorage)
+// ============================================================
+function xBookmarkKey(name){ return 'x_bm_' + name; }
+function getBookmarks(){ return xLS_get('x_bookmarks', []); }
+function toggleBookmark(name){
+  let list = getBookmarks();
+  if (list.includes(name)) list = list.filter(n=>n!==name); else list.push(name);
+  xLS_set('x_bookmarks', list);
+  return list.includes(name);
+}
+function decorateBookmarks(gridId){
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const bookmarks = getBookmarks();
+  grid.querySelectorAll(':scope > .card').forEach(card=>{
+    if (card.querySelector('.x-star-btn')) return;
+    const nameEl = card.querySelector('.name');
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    const on = bookmarks.includes(name);
+    const btn = document.createElement('button');
+    btn.className = 'x-star-btn' + (on?' on':'');
+    btn.type = 'button';
+    btn.title = 'ปักหมุด/เลิกปักหมุด';
+    btn.textContent = on ? '⭐' : '☆';
+    card.classList.toggle('x-pinned', on);
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const nowOn = toggleBookmark(name);
+      btn.classList.toggle('on', nowOn);
+      btn.textContent = nowOn ? '⭐' : '☆';
+      card.classList.toggle('x-pinned', nowOn);
+      xSafe(()=>toast(nowOn ? `ปักหมุด "${name}" แล้ว` : `เลิกปักหมุด "${name}" แล้ว`));
+    });
+    card.style.position = 'relative';
+    card.appendChild(btn);
+  });
+}
+
+// ============================================================
+// 11) Quick Dial — ปุ่มโทรด่วนบนการ์ด
+// ============================================================
+function decorateQuickDial(gridId){
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.querySelectorAll(':scope > .card').forEach(card=>{
+    const miniActions = card.querySelector('.mini-actions');
+    if (!miniActions || miniActions.querySelector('.x-quickdial')) return;
+    const phoneRow = Array.from(card.querySelectorAll('.row')).find(r=>r.textContent.includes('📞'));
+    if (!phoneRow) return;
+    const phone = phoneRow.textContent.replace('📞','').trim();
+    const digits = phone.replace(/[^0-9]/g,'');
+    if (!digits || digits==='-') return;
+    const a = document.createElement('a');
+    a.className = 'x-quickdial'; a.href = 'tel:' + digits;
+    a.innerHTML = '📞 โทรด่วน';
+    a.addEventListener('click', (e)=> e.stopPropagation());
+    miniActions.appendChild(a);
+  });
+}
+
+// ============================================================
+// 16) Share via Web API — แชร์ข้อมูลบุคลากรผ่านแอปอื่นบนมือถือ
+// ============================================================
+function decorateShareButton(gridId){
+  const grid = document.getElementById(gridId);
+  if (!grid || !navigator.share) return; // graceful fallback: ไม่รองรับก็ไม่แสดงปุ่ม
+  grid.querySelectorAll(':scope > .card').forEach(card=>{
+    const miniActions = card.querySelector('.mini-actions');
+    if (!miniActions || miniActions.querySelector('.x-share-btn')) return;
+    const info = extractCardInfo(card);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'mini-btn x-share-btn';
+    btn.textContent = '📤 แชร์';
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      navigator.share({ title: info.name, text: `${info.name}\n${info.rows.join('\n')}` }).catch(()=>{});
+    });
+    miniActions.appendChild(btn);
+  });
+}
+
+// ============================================================
+// 17) Card Entrance Animation — stagger fade-in
+// ============================================================
+function applyCardEntranceAnimation(gridId){
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  Array.from(grid.children).forEach((card, i)=>{
+    if (!card.classList || !card.classList.contains('card')) return;
+    card.classList.remove('x-card-anim');
+    void card.offsetWidth; // reflow เพื่อรีสตาร์ท animation
+    card.style.animationDelay = Math.min(i*35, 480) + 'ms';
+    card.classList.add('x-card-anim');
+  });
+}
+
+// ============================================================
+// 18) Success Confetti
+// ============================================================
+const X_CONFETTI_COLORS = ['#c9a227','#e0bd4a','#22508f','#1e8449','#c0392b','#ffffff'];
+function fireConfetti(){
+  const n = 26;
+  for (let i=0;i<n;i++){
+    const el = document.createElement('div');
+    el.className = 'x-confetti-piece';
+    el.style.left = (Math.random()*100) + 'vw';
+    el.style.background = X_CONFETTI_COLORS[Math.floor(Math.random()*X_CONFETTI_COLORS.length)];
+    el.style.animationDuration = (900 + Math.random()*700) + 'ms';
+    el.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    setTimeout(()=> el.remove(), 1700);
+  }
+}
+
+// ============================================================
+// 12) Global Search (Ctrl+K)  +  13) Search History
+// ============================================================
+function initGlobalSearch(){
+  if (document.getElementById('xGsOverlay')) return;
+
+  // ปุ่มเปิดค้นหา วางไว้ใน header
+  const authbox = document.getElementById('authbox');
+  if (authbox){
+    const trigger = document.createElement('button');
+    trigger.type = 'button'; trigger.className = 'x-gs-trigger'; trigger.id = 'xGsTrigger';
+    trigger.innerHTML = '🔍 <span class="x-gs-label">ค้นหาทั้งหมด</span> <kbd>Ctrl+K</kbd>';
+    authbox.insertBefore(trigger, document.getElementById('btnLogin') || authbox.firstChild);
+    trigger.addEventListener('click', openGlobalSearch);
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'x-gs-overlay'; overlay.id = 'xGsOverlay';
+  overlay.innerHTML = `
+    <div class="x-gs-box" onclick="event.stopPropagation()">
+      <div class="x-gs-input-wrap">
+        🔍 <input type="text" id="xGsInput" placeholder="ค้นหาบุคลากร ผู้นำตำบล เบอร์ฉุกเฉิน...">
+        <span class="x-gs-esc">Esc</span>
+      </div>
+      <div class="x-gs-results" id="xGsResults"></div>
+    </div>`;
+  overlay.addEventListener('click', closeGlobalSearch);
+  document.body.appendChild(overlay);
+
+  const input = document.getElementById('xGsInput');
+  input.addEventListener('input', ()=> renderGlobalSearchResults(input.value.trim()));
+
+  document.addEventListener('keydown', (e)=>{
+    if ((e.ctrlKey || e.metaKey) && (e.key==='k' || e.key==='K')){
+      e.preventDefault(); openGlobalSearch();
+    } else if (e.key==='Escape' && overlay.classList.contains('show')){
+      closeGlobalSearch();
+    }
+  });
+}
+function openGlobalSearch(){
+  const overlay = document.getElementById('xGsOverlay');
+  overlay.classList.add('show');
+  const input = document.getElementById('xGsInput');
+  input.value = '';
+  renderGlobalSearchResults('');
+  setTimeout(()=> input.focus(), 30);
+}
+function closeGlobalSearch(){ document.getElementById('xGsOverlay').classList.remove('show'); }
+
+function getSearchHistory(){ return xLS_get('x_search_history', []); }
+function pushSearchHistory(q){
+  if (!q) return;
+  let list = getSearchHistory().filter(x=>x!==q);
+  list.unshift(q);
+  list = list.slice(0,6);
+  xLS_set('x_search_history', list);
+}
+
+function collectSearchables(){
+  const items = [];
+  (typeof cachePersonnel!=='undefined'?cachePersonnel:[]).forEach(p=>{
+    items.push({ cat:'บุคลากร', icon:'👥', title:`${p.rank||''} ${p.firstName||''} ${p.lastName||''}`.trim(),
+      sub:[p.position,p.area,p.phone].filter(Boolean).join(' • '), tab:'personnel',
+      hay:[p.firstName,p.lastName,p.position,p.area,p.phone].join(' ').toLowerCase() });
+  });
+  (typeof cacheLeaders!=='undefined'?cacheLeaders:[]).forEach(p=>{
+    items.push({ cat:'ผู้นำตำบล', icon:'🏘️', title:`${p.rank||''} ${p.firstName||''} ${p.lastName||''}`.trim(),
+      sub:[p.position,p.area,p.village?('หมู่ '+p.village):'',p.phone].filter(Boolean).join(' • '), tab:'leaders',
+      hay:[p.firstName,p.lastName,p.position,p.area,p.village,p.phone].join(' ').toLowerCase() });
+  });
+  if (typeof EMERGENCY_CONTACTS !== 'undefined'){
+    EMERGENCY_CONTACTS.forEach(c=>{
+      items.push({ cat:'เบอร์ฉุกเฉิน', icon:c.icon||'📞', title:c.name, sub:c.phone+' • '+(c.desc||''), tab:'emergency',
+        hay:[c.name,c.phone,c.desc].join(' ').toLowerCase() });
+    });
+  }
+  return items;
+}
+function renderGlobalSearchResults(q){
+  const box = document.getElementById('xGsResults');
+  if (!box) return;
+  if (!q){
+    const hist = getSearchHistory();
+    box.innerHTML = hist.length ? `
+      <div class="x-gs-hint">🕘 ค้นหาล่าสุด</div>
+      <div style="padding:0 12px 10px">${hist.map(h=>`<span class="x-gs-history-tag" data-q="${escAttr(h)}">${esc(h)} ✕</span>`).join('')}</div>
+    ` : `<div class="x-gs-empty">พิมพ์เพื่อค้นหาข้ามทุกแท็บ (บุคลากร / ผู้นำตำบล / เบอร์ฉุกเฉิน)</div>`;
+    box.querySelectorAll('.x-gs-history-tag').forEach(tag=>{
+      tag.addEventListener('click', ()=>{
+        document.getElementById('xGsInput').value = tag.dataset.q;
+        renderGlobalSearchResults(tag.dataset.q);
+      });
+    });
+    return;
+  }
+  const ql = q.toLowerCase();
+  const results = collectSearchables().filter(it=>it.hay.includes(ql)).slice(0,30);
+  if (!results.length){ box.innerHTML = `<div class="x-gs-empty">ไม่พบผลลัพธ์สำหรับ "${esc(q)}"</div>`; return; }
+  box.innerHTML = results.map(it=>`
+    <div class="x-gs-item" data-tab="${it.tab}">
+      <div class="x-gs-icon">${it.icon}</div>
+      <div class="x-gs-main"><div class="x-gs-title">${esc(it.title)}</div><div class="x-gs-sub">${esc(it.sub)}</div></div>
+      <div class="x-gs-cat">${esc(it.cat)}</div>
+    </div>`).join('');
+  box.querySelectorAll('.x-gs-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      pushSearchHistory(q);
+      xSafe(()=>switchTab(item.dataset.tab));
+      closeGlobalSearch();
+    });
+  });
+}
+
+// ============================================================
+// 14) Quick Notes — สมุดจดบันทึกสำหรับแอดมิน (localStorage)
+// ============================================================
+function initQuickNotes(){
+  if (document.getElementById('xNotesFab')) return;
+  const fab = document.createElement('button');
+  fab.className = 'x-notes-fab'; fab.id = 'xNotesFab'; fab.title = 'สมุดจดบันทึก'; fab.textContent = '📝';
+  document.body.appendChild(fab);
+
+  const panel = document.createElement('div');
+  panel.className = 'x-notes-panel'; panel.id = 'xNotesPanel';
+  panel.innerHTML = `
+    <div class="x-notes-head"><h4>📝 สมุดจดบันทึกแอดมิน</h4><button class="x-notes-close" id="xNotesCloseBtn">✕</button></div>
+    <div class="x-notes-body" id="xNotesBody"></div>
+    <div class="x-notes-add">
+      <textarea id="xNoteInput" placeholder="จดบันทึกช่วยจำ... (เก็บไว้ในเครื่องนี้เท่านั้น)"></textarea>
+      <button class="btn btn-gold" style="width:100%" id="xNoteAddBtn">+ เพิ่มบันทึก</button>
+    </div>`;
+  document.body.appendChild(panel);
+
+  fab.addEventListener('click', ()=>{ panel.classList.add('show'); renderNotes(); });
+  document.getElementById('xNotesCloseBtn').addEventListener('click', ()=> panel.classList.remove('show'));
+  document.getElementById('xNoteAddBtn').addEventListener('click', ()=>{
+    const ta = document.getElementById('xNoteInput');
+    const text = (ta.value||'').trim();
+    if (!text) return;
+    const notes = xLS_get('x_notes', []);
+    notes.unshift({ text, time: new Date().toLocaleString('th-TH') });
+    xLS_set('x_notes', notes);
+    ta.value = '';
+    renderNotes();
+    xSafe(()=>toast('บันทึกโน้ตแล้ว'));
+  });
+
+  function renderNotes(){
+    const body = document.getElementById('xNotesBody');
+    const notes = xLS_get('x_notes', []);
+    if (!notes.length){ body.innerHTML = '<div class="x-notes-empty">ยังไม่มีบันทึก — เพิ่มโน้ตแรกของคุณด้านล่าง</div>'; return; }
+    body.innerHTML = notes.map((n,i)=>`
+      <div class="x-note-item">
+        <button class="x-note-del" data-i="${i}">🗑️</button>
+        ${esc(n.text)}
+        <span class="x-note-time">${esc(n.time)}</span>
+      </div>`).join('');
+    body.querySelectorAll('.x-note-del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = parseInt(btn.dataset.i,10);
+        const list = xLS_get('x_notes', []);
+        list.splice(idx,1);
+        xLS_set('x_notes', list);
+        renderNotes();
+      });
+    });
+  }
+}
+
+// ============================================================
+// ผูกฟีเจอร์เข้ากับฟังก์ชันเดิมทั้งหมด (wrap) + จุดเริ่มต้น
+// ============================================================
+function decorateAllCardGrids(){
+  ['grid-personnel','grid-leaders'].forEach(id=>{
+    decorateBookmarks(id);
+    decorateQuickDial(id);
+    decorateShareButton(id);
+  });
+}
+
+function initExtraFeatures(){
+  xSafe(initHeaderExtras);
+  xSafe(initTabBadges);
+  xSafe(initGlobalSearch);
+  xSafe(initQuickNotes);
+  xSafe(()=>initViewToggle('personnel','grid-personnel','#panel-personnel .toolbar'));
+  xSafe(()=>initViewToggle('leaders','grid-leaders','#panel-leaders .toolbar'));
+  xSafe(()=>initCardDetailDelegation('grid-personnel'));
+  xSafe(()=>initCardDetailDelegation('grid-leaders'));
+  xSafe(initDashRefreshButton);
+
+  // ── ห่อฟังก์ชันเดิม ──
+  xWrap('renderPersonnel', ()=>{ decorateAllCardGrids(); applyCardEntranceAnimation('grid-personnel'); updateTabBadges(); });
+  xWrap('renderLeaders', ()=>{ decorateAllCardGrids(); applyCardEntranceAnimation('grid-leaders'); updateTabBadges(); });
+  xWrap('renderDashboard', ()=>{ animateStatCounters(); renderDonutChart(); });
+  xWrap('renderEmergency', ()=>{ applyCardEntranceAnimation('grid-emergency'); });
+  xWrap('loadSuspects', updateTabBadges);
+  xWrap('loadUsers', updateTabBadges);
+  xWrap('loadLocations', updateTabBadges);
+  xWrap('applyAuthState', updateTabBadges);
+  xWrap('toast', function(msg, isErr){
+    if (!isErr && typeof msg === 'string' && /(สำเร็จ)/.test(msg)) fireConfetti();
+  });
+
+  updateTabBadges();
+}
+
+// หมายเหตุ: สคริปต์นี้อยู่ท้ายสุดของ <body> ดังนั้น element ทั้งหมดที่ต้องใช้
+// (header, nav, grid, modal) ถูกสร้างไว้แล้วในเอกสารก่อนหน้านี้ — เรียกทำงานทันที
+// (ไม่รอ DOMContentLoaded) เพื่อให้การ "ห่อ" ฟังก์ชัน render ทันเวลาก่อนที่
+// loadPersonnel()/loadLeaders() ของสคริปต์เดิม (ที่รันไปก่อนหน้าแล้ว) จะโหลดข้อมูลเสร็จ
+xSafe(initExtraFeatures);
+
 })();
 </script>
 </body>
