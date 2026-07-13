@@ -224,6 +224,16 @@
   .bcast-user-row .bn{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .bcast-user-row .brole{font-size:10px; color:var(--muted); flex-shrink:0;}
 
+  .status-badge{
+    font-size:11px; padding:3px 10px; border-radius:99px; margin-left:8px; vertical-align:middle;
+    background:var(--card); border:1px solid var(--line-c); color:var(--muted); display:inline-block;
+  }
+  .status-badge.online{color:#1d8a4a; border-color:#bfe6cf; background:#eafbf1;}
+  [data-theme="dark"] .status-badge.online{background:#0f2a1c; border-color:#1d5c3a;}
+  .status-badge.offline{color:var(--danger); border-color:#f0c4bd; background:#fbeae7;}
+  [data-theme="dark"] .status-badge.offline{background:#3a1b16; border-color:#5c2b22;}
+  .dash-updated{font-size:11.5px; color:var(--muted); margin-top:4px;}
+
   /* ── Theme toggle ── */
   .theme-toggle{
     width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
@@ -370,8 +380,9 @@
   <section class="panel active" id="panel-dashboard">
     <div class="panel-head">
       <div>
-        <h2>ภาพรวมระบบ</h2>
+        <h2>ภาพรวมระบบ <span class="status-badge" id="server-status-badge">🔄 กำลังตรวจสอบ...</span></h2>
         <div class="count">สรุปข้อมูลทั้งหมดของ สภ.ลานสัก แบบเรียลไทม์</div>
+        <div class="dash-updated" id="dash-updated"></div>
       </div>
     </div>
     <div class="stat-grid" id="dash-stats"></div>
@@ -587,7 +598,8 @@
         </div>
         <div class="field">
           <label>ข้อความ</label>
-          <textarea class="bcast" id="bcast-message" placeholder="พิมพ์ข้อความที่ต้องการส่ง..."></textarea>
+          <textarea class="bcast" id="bcast-message" placeholder="พิมพ์ข้อความที่ต้องการส่ง..." oninput="updateBcastCharCount()"></textarea>
+          <div style="text-align:right; font-size:11.5px; color:var(--muted); margin-top:3px;" id="bcast-char-count">0 ตัวอักษร</div>
         </div>
         <div class="field">
           <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink);">
@@ -648,6 +660,7 @@ function toast(msg, isErr=false){
 function switchTab(name){
   document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
+  rememberTab(name);
   if (name==='suspects' && TOKEN) loadSuspects();
   if (name==='locations' && TOKEN) loadLocations();
   if (name==='users' && TOKEN) loadUsers();
@@ -670,6 +683,49 @@ applyTheme(localStorage.getItem('staff_theme') || 'light');
 // ── Scroll to top ──
 window.addEventListener('scroll', ()=>{
   document.getElementById('scrollTopBtn').classList.toggle('show', window.scrollY > 400);
+});
+
+// ── สถานะเซิร์ฟเวอร์ (health check ผ่าน GET /) ──
+async function checkServerHealth(){
+  const badge = document.getElementById('server-status-badge');
+  if (!badge) return;
+  try{
+    const r = await fetch('/', { method:'GET', cache:'no-store' });
+    if (r.ok){ badge.textContent = '🟢 เซิร์ฟเวอร์ออนไลน์'; badge.className = 'status-badge online'; }
+    else { badge.textContent = '🔴 เซิร์ฟเวอร์มีปัญหา'; badge.className = 'status-badge offline'; }
+  }catch(e){
+    badge.textContent = '🔴 เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'; badge.className = 'status-badge offline';
+  }
+}
+checkServerHealth();
+setInterval(checkServerHealth, 60000);
+
+// ── จำแท็บล่าสุดที่เปิดไว้ ──
+function rememberTab(name){
+  try{ localStorage.setItem('staff_last_tab', name); }catch(e){}
+}
+
+// ── คีย์ลัด: '/' โฟกัสช่องค้นหา, Esc ปิด modal ──
+const TAB_SEARCH_INPUT = {
+  personnel:'search-personnel', leaders:'search-leaders', suspects:'search-suspects',
+  locations:'search-locations', users:'search-users',
+};
+document.addEventListener('keydown', (e)=>{
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  const typing = tag === 'INPUT' || tag === 'TEXTAREA';
+  if (e.key === '/' && !typing){
+    const activeTab = document.querySelector('.tabbtn.active');
+    const name = activeTab ? activeTab.dataset.tab : null;
+    const inputId = name && TAB_SEARCH_INPUT[name];
+    const input = inputId && document.getElementById(inputId);
+    if (input){ e.preventDefault(); input.focus(); }
+  }
+  if (e.key === 'Escape'){
+    const modalBack = document.getElementById('modalBack');
+    if (modalBack && modalBack.classList.contains('show')) closeModal();
+    const loginOverlay = document.getElementById('loginOverlay');
+    if (loginOverlay && loginOverlay.style.display !== 'none') closeLogin();
+  }
 });
 
 // ── Utils: highlight / csv / print / vcard / copy ──
@@ -1235,6 +1291,13 @@ async function removeAdmin(userId){
   toast('ถอดสิทธิ์แล้ว'); loadUsers();
 }
 
+function updateBcastCharCount(){
+  const el = document.getElementById('bcast-char-count');
+  const len = val('bcast-message').length;
+  el.textContent = `${len.toLocaleString('th-TH')} ตัวอักษร` + (len > 4500 ? ' — ใกล้ขีดจำกัดของ LINE (5,000 ตัวอักษร)' : '');
+  el.style.color = len > 4500 ? 'var(--danger)' : 'var(--muted)';
+}
+
 // ============================================================
 //  Broadcast
 // ============================================================
@@ -1312,7 +1375,7 @@ async function sendBroadcast(){
     box.textContent = `✅ ส่งสำเร็จ ${totalSent} คน จาก ${names.length} คนที่เลือก` +
       (totalFailed ? ` (ล้มเหลว ${totalFailed})` : '') +
       (problems.length ? ` — มีปัญหากับ: ${problems.join(', ')}` : '');
-    document.getElementById('bcast-message').value = '';
+    document.getElementById('bcast-message').value = ''; updateBcastCharCount();
     btn.disabled = false; btn.textContent = '📤 ส่งข้อความ';
   } else {
     if (!confirm('ส่งข้อความหาผู้ใช้ทุกคน?')) return;
@@ -1325,7 +1388,7 @@ async function sendBroadcast(){
         box.textContent = '❌ ' + (j.message||'ส่งไม่สำเร็จ');
       } else {
         box.textContent = `✅ ส่งสำเร็จ ${j.result.sent} คน จากทั้งหมด ${j.result.total} คน` + (j.result.failed ? ` (ล้มเหลว ${j.result.failed})` : '');
-        document.getElementById('bcast-message').value = '';
+        document.getElementById('bcast-message').value = ''; updateBcastCharCount();
       }
     }catch(e){
       toast('เกิดข้อผิดพลาดในการส่ง', true);
@@ -1369,6 +1432,11 @@ function renderEmergency(){
 function renderDashboard(){
   const statsBox = document.getElementById('dash-stats');
   if (!statsBox) return;
+  const updatedEl = document.getElementById('dash-updated');
+  if (updatedEl){
+    const now = new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    updatedEl.textContent = `⏱️ ข้อมูลปรับปรุงล่าสุดเมื่อ ${now} (ระบบแคชข้อมูลจาก Sheet ไว้สูงสุด 5 นาที)`;
+  }
   const warrantCount = cacheSuspects.filter(p=>p.status==='มีหมายจับ').length;
   const watchCount = cacheSuspects.filter(p=>p.status!=='มีหมายจับ').length;
   let cards = [
@@ -1448,6 +1516,12 @@ loadPersonnel();
 loadLeaders();
 renderEmergency();
 renderDashboard();
+(function restoreLastTab(){
+  try{
+    const savedTab = localStorage.getItem('staff_last_tab');
+    if (savedTab && document.getElementById('panel-'+savedTab)) switchTab(savedTab);
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
