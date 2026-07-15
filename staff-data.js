@@ -236,9 +236,198 @@ async function removeAdminInSheet(userId, updateUserRoleFn) {
   return { success: true };
 }
 
+// ============================================================
+//  SHEET NAMES — ระบบหลังบ้านใหม่
+// ============================================================
+const SHEET_AUDIT    = 'บันทึกการทำงาน';
+const SHEET_VERIFY   = 'รหัสยืนยันตัวตน';
+const SHEET_SETTINGS = 'ตั้งค่าระบบ';
+
+// ── helper ดึง sheetId ──
+async function getSheetId(sheets, sheetName) {
+  const ss = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sh = ss.data.sheets.find(s => s.properties.title === sheetName);
+  return sh ? sh.properties.sheetId : null;
+}
+
+// ── สร้าง Sheet ใหม่ถ้ายังไม่มี ──
+async function ensureSheet(sheets, sheetName, headers) {
+  const ss = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const exists = ss.data.sheets.some(s => s.properties.title === sheetName);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] },
+    });
+    if (headers) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [headers] },
+      });
+    }
+  }
+}
+
+// ============================================================
+//  📜 Audit Logs — บันทึกประวัติการทำงานของแอดมิน
+// ============================================================
+async function appendAuditLog(userId, userName, action, details) {
+  try {
+    const sheets = getSheetsClient();
+    await ensureSheet(sheets, SHEET_AUDIT, ['วันเวลา', 'User ID', 'ชื่อผู้ทำรายการ', 'การกระทำ', 'รายละเอียด']);
+    const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_AUDIT}!A:E`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [[now, userId || '-', userName || '-', action || '-', details || '-']] },
+    });
+  } catch (e) {
+    console.error('[AuditLog] error:', e.message);
+  }
+}
+
+async function getAuditLogs(limit = 100) {
+  const sheets = getSheetsClient();
+  await ensureSheet(sheets, SHEET_AUDIT, ['วันเวลา', 'User ID', 'ชื่อผู้ทำรายการ', 'การกระทำ', 'รายละเอียด']);
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_AUDIT}!A:E`,
+  });
+  const rows = (res.data.values || []).slice(1); // skip header
+  return rows.slice(-limit).reverse().map(r => ({
+    timestamp: r[0] || '',
+    userId: r[1] || '',
+    userName: r[2] || '',
+    action: r[3] || '',
+    details: r[4] || '',
+  }));
+}
+
+// ============================================================
+//  🔑 Auth Codes — จัดการรหัสยืนยันตัวตนแบบไดนามิก
+// ============================================================
+async function getAuthCodes() {
+  const sheets = getSheetsClient();
+  await ensureSheet(sheets, SHEET_VERIFY, ['รหัส/นามเรียกขาน', 'สถานะ', 'ใช้โดย', 'วันที่ใช้']);
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_VERIFY}!A:D`,
+  });
+  const rows = (res.data.values || []).slice(1);
+  return rows.map(r => ({
+    code:    r[0] || '',
+    status:  r[1] || 'active',    // active | used
+    usedBy:  r[2] || '',
+    usedAt:  r[3] || '',
+  })).filter(r => r.code);
+}
+
+async function addAuthCode(code) {
+  const sheets = getSheetsClient();
+  await ensureSheet(sheets, SHEET_VERIFY, ['รหัส/นามเรียกขาน', 'สถานะ', 'ใช้โดย', 'วันที่ใช้']);
+  // ตรวจซ้ำก่อนเพิ่ม
+  const existing = await getAuthCodes();
+  if (existing.some(r => r.code === code.trim())) {
+    return { success: false, message: `รหัส "${code}" มีอยู่แล้วในระบบ` };
+  }
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_VERIFY}!A:D`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [[code.trim(), 'active', '', '']] },
+  });
+  return { success: true };
+}
+
+async function deleteAuthCode(code) {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_VERIFY}!A:A`,
+  });
+  const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(r => r[0] === code.trim());
+  if (rowIndex === -1) return { success: false, message: 'ไม่พบรหัสนี้ในระบบ' };
+
+  const sheetId = await getSheetId(sheets, SHEET_VERIFY);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: rowIndex, endIndex: rowIndex + 1 },
+        },
+      }],
+    },
+  });
+  return { success: true };
+}
+
+// ============================================================
+//  ⚙️ System Settings — ตั้งค่าระบบ
+// ============================================================
+const DEFAULT_SETTINGS = {
+  ai_enabled: 'true',
+  welcome_message: '',
+};
+
+async function getSystemSettings() {
+  const sheets = getSheetsClient();
+  await ensureSheet(sheets, SHEET_SETTINGS, ['key', 'value', 'คำอธิบาย']);
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_SETTINGS}!A:C`,
+  });
+  const rows = (res.data.values || []).slice(1);
+  const settings = { ...DEFAULT_SETTINGS };
+  rows.forEach(r => {
+    if (r[0]) settings[r[0]] = r[1] || '';
+  });
+  return settings;
+}
+
+async function updateSystemSetting(key, value) {
+  const sheets = getSheetsClient();
+  await ensureSheet(sheets, SHEET_SETTINGS, ['key', 'value', 'คำอธิบาย']);
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_SETTINGS}!A:A`,
+  });
+  const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(r => r[0] === key);
+  if (rowIndex === -1) {
+    // เพิ่ม row ใหม่
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_SETTINGS}!A:C`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [[key, value, '']] },
+    });
+  } else {
+    // แก้ไขค่าเดิม
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_SETTINGS}!B${rowIndex + 1}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[value]] },
+    });
+  }
+  return { success: true };
+}
+
 module.exports = {
   appendPersonnel, updatePersonnel, deletePersonnel,
   appendLeader, updateLeader, deleteLeader,
   updateSuspectFull,
   unblockUserInSheet, removeAdminInSheet,
+  // ── ใหม่ ──
+  appendAuditLog, getAuditLogs,
+  getAuthCodes, addAuthCode, deleteAuthCode,
+  getSystemSettings, updateSystemSetting,
 };

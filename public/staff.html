@@ -573,6 +573,9 @@
   <button class="tabbtn" data-tab="locations" onclick="switchTab('locations')">📍 จุดเสี่ยง/สถานที่ <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="users" onclick="switchTab('users')">👤 ผู้ใช้งาน/สิทธิ์ <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="broadcast" onclick="switchTab('broadcast')">📢 Broadcast <span class="lock">🔒</span></button>
+  <button class="tabbtn" data-tab="auth-codes" onclick="switchTab('auth-codes')">🔑 รหัสยืนยันตัวตน <span class="lock">🔒</span></button>
+  <button class="tabbtn" data-tab="settings" onclick="switchTab('settings')">⚙️ ตั้งค่าระบบ <span class="lock">🔒</span></button>
+  <button class="tabbtn" data-tab="audit-logs" onclick="switchTab('audit-logs')">📜 ประวัติการทำงาน <span class="lock">🔒</span></button>
 </nav>
 
 <main>
@@ -809,6 +812,76 @@
         </div>
         <button class="btn btn-gold" onclick="sendBroadcast()" id="bcast-btn">📤 ส่งข้อความ</button>
         <div class="bcast-result" id="bcast-result"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       🔑 Auth Codes — รหัสยืนยันตัวตน
+  ══════════════════════════════════════════ -->
+  <section class="panel" id="panel-auth-codes">
+    <div id="lock-auth-codes" class="lockmsg">
+      <div class="icon">🔒</div>เข้าสู่ระบบก่อนใช้งาน<br>
+      <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="content-auth-codes" style="display:none">
+      <div class="panel-head">
+        <div><h2>🔑 จัดการรหัสยืนยันตัวตน</h2>
+          <div class="count">รหัส/นามเรียกขานที่ใช้ยืนยันตัวตนเจ้าหน้าที่ใน LINE</div></div>
+        <button class="btn btn-gold" onclick="loadAuthCodes()">🔄 รีเฟรช</button>
+      </div>
+      <!-- เพิ่มรหัสใหม่ -->
+      <div class="card" style="margin-bottom:16px">
+        <h3 style="margin:0 0 12px;font-size:15px">➕ เพิ่มรหัส/นามเรียกขานใหม่</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input id="newAuthCode" class="finput" placeholder="เช่น ลานสัก 99" style="flex:1;min-width:180px">
+          <button class="btn btn-success" onclick="addAuthCodeUI()">เพิ่มรหัส</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">⚠️ รหัสแต่ละอันใช้ได้เพียง 1 ครั้ง เมื่อเจ้าหน้าที่ยืนยันตัวตนแล้ว สถานะจะเปลี่ยนเป็น "ใช้แล้ว"</div>
+      </div>
+      <!-- ตารางรหัส -->
+      <div id="auth-codes-list">
+        <div class="loading">⏳ กำลังโหลด...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       ⚙️ Settings — ตั้งค่าระบบ
+  ══════════════════════════════════════════ -->
+  <section class="panel" id="panel-settings">
+    <div id="lock-settings" class="lockmsg">
+      <div class="icon">🔒</div>เข้าสู่ระบบก่อนใช้งาน<br>
+      <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="content-settings" style="display:none">
+      <div class="panel-head">
+        <div><h2>⚙️ ตั้งค่าระบบ</h2>
+          <div class="count">ควบคุมการทำงานของบอทผ่านหน้าเว็บ</div></div>
+        <button class="btn btn-gold" onclick="loadSettings()">🔄 รีเฟรช</button>
+      </div>
+      <div id="settings-form">
+        <div class="loading">⏳ กำลังโหลด...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       📜 Audit Logs — ประวัติการทำงาน
+  ══════════════════════════════════════════ -->
+  <section class="panel" id="panel-audit-logs">
+    <div id="lock-audit-logs" class="lockmsg">
+      <div class="icon">🔒</div>เข้าสู่ระบบก่อนใช้งาน<br>
+      <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="content-audit-logs" style="display:none">
+      <div class="panel-head">
+        <div><h2>📜 ประวัติการทำงานของแอดมิน</h2>
+          <div class="count">บันทึกทุกการกระทำโดยอัตโนมัติ</div></div>
+        <button class="btn btn-gold" onclick="loadAuditLogs()">🔄 รีเฟรช</button>
+      </div>
+      <div id="audit-logs-list">
+        <div class="loading">⏳ กำลังโหลด...</div>
       </div>
     </div>
   </section>
@@ -2325,6 +2398,163 @@ function initExtraFeatures(){
 xSafe(initExtraFeatures);
 
 })();
+</script>
+
+<!-- ══════════════════════════════════════════
+     🔑 Auth Codes + ⚙️ Settings + 📜 Audit Logs
+══════════════════════════════════════════ -->
+<style>
+.ac-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.ac-table th{background:var(--navy-900);color:#e7ecf3;padding:9px 12px;text-align:left;font-weight:600}
+.ac-table td{padding:9px 12px;border-bottom:1px solid var(--line-c);vertical-align:middle}
+.ac-table tr:hover td{background:rgba(0,0,0,.03)}
+.badge-active{display:inline-block;background:#d4edda;color:#1e5631;border-radius:100px;padding:2px 10px;font-size:11.5px;font-weight:700}
+.badge-used{display:inline-block;background:#f8d7da;color:#721c24;border-radius:100px;padding:2px 10px;font-size:11.5px;font-weight:700}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line-c)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:14.5px;font-weight:600;color:var(--ink)}
+.setting-desc{font-size:12px;color:var(--muted);margin-top:3px}
+.toggle-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.toggle{position:relative;width:46px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:26px;cursor:pointer;transition:.25s}
+.toggle-slider:before{content:'';position:absolute;height:18px;width:18px;left:4px;bottom:4px;background:#fff;border-radius:50%;transition:.25s}
+.toggle input:checked+.toggle-slider{background:var(--success)}
+.toggle input:checked+.toggle-slider:before{transform:translateX(20px)}
+.log-row{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 14px;border-bottom:1px solid var(--line-c);font-size:13px}
+.log-row:hover{background:rgba(0,0,0,.02)}
+.log-time{color:var(--muted);font-size:12px;width:100%;margin-bottom:2px}
+.log-action{font-weight:700;color:var(--navy-700)}
+.log-who{color:var(--muted)}
+.log-detail{color:var(--ink);word-break:break-all}
+</style>
+
+<script>
+// ── Auth Codes ──
+async function loadAuthCodes() {
+  const el = document.getElementById('auth-codes-list');
+  el.innerHTML = '<div class="loading">⏳ กำลังโหลด...</div>';
+  try {
+    const r = await fetch('/staff/api/auth-codes', { headers: authHeaders() });
+    const d = await r.json();
+    if (!d.success) { el.innerHTML = `<div class="empty">❌ ${d.message}</div>`; return; }
+    const rows = d.data;
+    if (!rows.length) { el.innerHTML = '<div class="empty">ยังไม่มีรหัสในระบบ</div>'; return; }
+    el.innerHTML = `<table class="ac-table">
+      <thead><tr><th>รหัส/นามเรียกขาน</th><th>สถานะ</th><th>ใช้โดย</th><th>วันที่ใช้</th><th></th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td><b>${r.code}</b></td>
+        <td>${r.status==='used'?'<span class="badge-used">ใช้แล้ว ✅</span>':'<span class="badge-active">พร้อมใช้งาน</span>'}</td>
+        <td>${r.usedBy||'-'}</td>
+        <td>${r.usedAt||'-'}</td>
+        <td>${r.status!=='used'?`<button class="btn btn-danger btn-small" onclick="deleteAuthCodeUI('${r.code}')">ลบ</button>`:''}</td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  } catch(e) { el.innerHTML = `<div class="empty">❌ ${e.message}</div>`; }
+}
+
+async function addAuthCodeUI() {
+  const code = document.getElementById('newAuthCode').value.trim();
+  if (!code) { alert('กรุณาระบุรหัส/นามเรียกขาน'); return; }
+  try {
+    const r = await fetch('/staff/api/auth-codes', { method:'POST', headers:authHeaders(), body:JSON.stringify({ code }) });
+    const d = await r.json();
+    if (d.success) { document.getElementById('newAuthCode').value=''; loadAuthCodes(); showToast('✅ เพิ่มรหัสสำเร็จ'); }
+    else alert(d.message);
+  } catch(e) { alert(e.message); }
+}
+
+async function deleteAuthCodeUI(code) {
+  if (!confirm(`ลบรหัส "${code}" ออกจากระบบ?`)) return;
+  try {
+    const r = await fetch('/staff/api/auth-codes', { method:'DELETE', headers:authHeaders(), body:JSON.stringify({ code }) });
+    const d = await r.json();
+    if (d.success) { loadAuthCodes(); showToast('🗑️ ลบรหัสแล้ว'); }
+    else alert(d.message);
+  } catch(e) { alert(e.message); }
+}
+
+// ── Settings ──
+async function loadSettings() {
+  const el = document.getElementById('settings-form');
+  el.innerHTML = '<div class="loading">⏳ กำลังโหลด...</div>';
+  try {
+    const r = await fetch('/staff/api/settings', { headers: authHeaders() });
+    const d = await r.json();
+    if (!d.success) { el.innerHTML = `<div class="empty">❌ ${d.message}</div>`; return; }
+    const s = d.data;
+    const aiOn = (s.ai_enabled||'true').toLowerCase() !== 'false';
+    el.innerHTML = `<div class="card">
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">🤖 ระบบ AI (Gemini) ตอบอัตโนมัติ</div>
+          <div class="setting-desc">เมื่อบอทไม่พบข้อมูลจะส่งต่อคำถามไปยัง AI — ปิดเพื่อหยุดชั่วคราว</div>
+        </div>
+        <div class="toggle-wrap">
+          <span style="font-size:12px;color:var(--muted)" id="ai-status-label">${aiOn?'เปิด':'ปิด'}</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-ai" ${aiOn?'checked':''} onchange="saveSetting('ai_enabled', this.checked?'true':'false', 'ai-status-label', ['เปิด','ปิด'])">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div style="flex:1">
+          <div class="setting-label">👋 ข้อความต้อนรับ (welcome_message)</div>
+          <div class="setting-desc">แสดงเมื่อมีผู้ใช้ใหม่ add บอท — ใช้ {name} แทนชื่อผู้ใช้ (ถ้าว่างจะใช้ข้อความ default)</div>
+          <textarea id="welcome-msg" rows="4" class="finput" style="margin-top:8px;width:100%;resize:vertical;font-size:13px">${s.welcome_message||''}</textarea>
+          <button class="btn btn-success btn-small" style="margin-top:8px" onclick="saveWelcomeMsg()">💾 บันทึกข้อความ</button>
+        </div>
+      </div>
+    </div>`;
+  } catch(e) { el.innerHTML = `<div class="empty">❌ ${e.message}</div>`; }
+}
+
+async function saveSetting(key, value, labelId, labels) {
+  try {
+    const r = await fetch('/staff/api/settings', { method:'PUT', headers:authHeaders(), body:JSON.stringify({ key, value }) });
+    const d = await r.json();
+    if (d.success) {
+      if (labelId) document.getElementById(labelId).textContent = value==='true'?labels[0]:labels[1];
+      showToast(`✅ บันทึก ${key} = ${value} แล้ว`);
+    } else alert(d.message);
+  } catch(e) { alert(e.message); }
+}
+
+async function saveWelcomeMsg() {
+  const value = document.getElementById('welcome-msg').value;
+  await saveSetting('welcome_message', value, null, []);
+}
+
+// ── Audit Logs ──
+async function loadAuditLogs() {
+  const el = document.getElementById('audit-logs-list');
+  el.innerHTML = '<div class="loading">⏳ กำลังโหลด...</div>';
+  try {
+    const r = await fetch('/staff/api/audit-logs?limit=150', { headers: authHeaders() });
+    const d = await r.json();
+    if (!d.success) { el.innerHTML = `<div class="empty">❌ ${d.message}</div>`; return; }
+    const logs = d.data;
+    if (!logs.length) { el.innerHTML = '<div class="empty">ยังไม่มีประวัติการทำงาน</div>'; return; }
+    el.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+      ${logs.map(l=>`<div class="log-row">
+        <div class="log-time">🕐 ${l.timestamp}</div>
+        <span class="log-action">${l.action}</span>
+        <span class="log-who">— ${l.userName}</span>
+        <span class="log-detail">${l.details}</span>
+      </div>`).join('')}
+    </div>`;
+  } catch(e) { el.innerHTML = `<div class="empty">❌ ${e.message}</div>`; }
+}
+
+// ── เชื่อมกับ switchTab เดิม: โหลดข้อมูลเมื่อสลับแท็บ ──
+const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
+function switchTab(name) {
+  if (_origSwitchTab) _origSwitchTab(name);
+  if (name === 'auth-codes') loadAuthCodes();
+  if (name === 'settings')   loadSettings();
+  if (name === 'audit-logs') loadAuditLogs();
+}
 </script>
 </body>
 </html>

@@ -35,7 +35,18 @@ const {
   appendLeader, updateLeader, deleteLeader,
   updateSuspectFull,
   unblockUserInSheet, removeAdminInSheet,
+  appendAuditLog, getAuditLogs,
+  getAuthCodes, addAuthCode, deleteAuthCode,
+  getSystemSettings, updateSystemSetting,
 } = require('./staff-data');
+
+// ── helper: ดึงชื่อ admin จาก token (เก็บง่ายๆ ใน memory เดียวกับ tokens) ──
+const tokenNames = new Map(); // token -> displayName
+function getTokenName(req) {
+  const header = req.get('Authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  return token ? (tokenNames.get(token) || 'Admin เว็บ') : 'Admin เว็บ';
+}
 
 const { broadcastToAll, broadcastToTarget } = require('./broadcast');
 
@@ -79,7 +90,7 @@ router.use(express.json());
 // ============================================================
 //  Auth
 // ============================================================
-router.post('/api/login', (req, res) => {
+router.post('/api/login', async (req, res) => {
   const { password } = req.body || {};
   const staffPassword = process.env.STAFF_PASSWORD;
   if (!staffPassword) {
@@ -88,7 +99,11 @@ router.post('/api/login', (req, res) => {
   if (!password || password !== staffPassword) {
     return res.status(401).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง' });
   }
-  res.json({ success: true, token: issueToken() });
+  const token = issueToken();
+  const { displayName } = req.body || {};
+  if (displayName) tokenNames.set(token, displayName);
+  await appendAuditLog('-', displayName || 'Admin เว็บ', 'เข้าสู่ระบบ', 'Login สำเร็จ').catch(()=>{});
+  res.json({ success: true, token });
 });
 
 router.post('/api/logout', requireAuth, (req, res) => {
@@ -118,8 +133,10 @@ router.get('/api/personnel', async (req, res) => {
 
 router.post('/api/personnel', requireAuth, async (req, res) => {
   try {
-    const result = await appendPersonnel(req.body || {});
+    const body = req.body || {};
+    const result = await appendPersonnel(body);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'เพิ่มบุคลากร', `${body.rank||''} ${body.firstName||''} ${body.lastName||''}`.trim()).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -131,6 +148,7 @@ router.put('/api/personnel', requireAuth, async (req, res) => {
     const { originalFirstName, originalLastName, ...person } = req.body || {};
     const result = await updatePersonnel(originalFirstName, originalLastName, person);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'แก้ไขบุคลากร', `${originalFirstName} ${originalLastName} → ${person.firstName} ${person.lastName}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -142,6 +160,7 @@ router.delete('/api/personnel', requireAuth, async (req, res) => {
     const { firstName, lastName } = req.body || {};
     const result = await deletePersonnel(firstName, lastName);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'ลบบุคลากร', `${firstName} ${lastName}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -162,8 +181,10 @@ router.get('/api/leaders', async (req, res) => {
 
 router.post('/api/leaders', requireAuth, async (req, res) => {
   try {
-    const result = await appendLeader(req.body || {});
+    const body = req.body || {};
+    const result = await appendLeader(body);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'เพิ่มผู้นำตำบล', `${body.rank||''} ${body.firstName||''} ${body.lastName||''}`.trim()).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -175,6 +196,7 @@ router.put('/api/leaders', requireAuth, async (req, res) => {
     const { originalFirstName, originalLastName, ...leader } = req.body || {};
     const result = await updateLeader(originalFirstName, originalLastName, leader);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'แก้ไขผู้นำตำบล', `${originalFirstName} ${originalLastName} → ${leader.firstName} ${leader.lastName}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -186,6 +208,7 @@ router.delete('/api/leaders', requireAuth, async (req, res) => {
     const { firstName, lastName } = req.body || {};
     const result = await deleteLeader(firstName, lastName);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'ลบผู้นำตำบล', `${firstName} ${lastName}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -209,6 +232,7 @@ router.post('/api/suspects', requireAuth, async (req, res) => {
     const body = req.body || {};
     const result = await appendWatchlistPerson({ ...body, addedBy: 'Admin เว็บ' });
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'เพิ่มผู้ต้องหา', `${body.rank||''} ${body.firstName||''} ${body.lastName||''} คดี:${body.crime||'-'}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -220,6 +244,7 @@ router.put('/api/suspects', requireAuth, async (req, res) => {
     const { originalFirstName, originalLastName, ...suspect } = req.body || {};
     const result = await updateSuspectFull(originalFirstName, originalLastName, suspect);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'แก้ไขผู้ต้องหา', `${originalFirstName} ${originalLastName}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -231,6 +256,7 @@ router.delete('/api/suspects', requireAuth, async (req, res) => {
     const { firstName, lastName } = req.body || {};
     const result = await deletePerson(firstName, lastName);
     clearCache();
+    await appendAuditLog('-', getTokenName(req), 'ลบผู้ต้องหา', `${firstName} ${lastName}`).catch(()=>{});
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -333,6 +359,7 @@ router.post('/api/broadcast', requireAuth, async (req, res) => {
     } else {
       result = await broadcastToAll(lineClient, message, !!includeMenu);
     }
+    await appendAuditLog('-', getTokenName(req), 'Broadcast', `${target ? 'ถึง: '+target : 'ทุกคน'} — "${message.slice(0,40)}${message.length>40?'…':''}"`).catch(()=>{});
     res.json({ success: true, result });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -342,9 +369,87 @@ router.post('/api/broadcast', requireAuth, async (req, res) => {
 // ============================================================
 //  ล้าง Cache ข้อมูล (บังคับให้บอทดึงข้อมูลใหม่ทันที)
 // ============================================================
-router.post('/api/clear-cache', requireAuth, (req, res) => {
+router.post('/api/clear-cache', requireAuth, async (req, res) => {
   clearCache();
+  await appendAuditLog('-', getTokenName(req), 'ล้าง Cache', 'บังคับดึงข้อมูลใหม่จาก Sheets').catch(()=>{});
   res.json({ success: true });
+});
+
+// ============================================================
+//  📜 Audit Logs
+// ============================================================
+router.get('/api/audit-logs', requireAuth, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const data = await getAuditLogs(limit);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+//  🔑 Auth Codes
+// ============================================================
+router.get('/api/auth-codes', requireAuth, async (req, res) => {
+  try {
+    const data = await getAuthCodes();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/api/auth-codes', requireAuth, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code || !code.trim()) return res.status(400).json({ success: false, message: 'กรุณาระบุรหัส/นามเรียกขาน' });
+    const result = await addAuthCode(code.trim());
+    if (result.success) {
+      await appendAuditLog('-', getTokenName(req), 'เพิ่มรหัสยืนยันตัวตน', code.trim()).catch(()=>{});
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.delete('/api/auth-codes', requireAuth, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) return res.status(400).json({ success: false, message: 'กรุณาระบุรหัสที่ต้องการลบ' });
+    const result = await deleteAuthCode(code);
+    if (result.success) {
+      await appendAuditLog('-', getTokenName(req), 'ลบรหัสยืนยันตัวตน', code).catch(()=>{});
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+//  ⚙️ System Settings
+// ============================================================
+router.get('/api/settings', requireAuth, async (req, res) => {
+  try {
+    const data = await getSystemSettings();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put('/api/settings', requireAuth, async (req, res) => {
+  try {
+    const { key, value } = req.body || {};
+    if (!key) return res.status(400).json({ success: false, message: 'กรุณาระบุ key' });
+    const result = await updateSystemSetting(key, value ?? '');
+    await appendAuditLog('-', getTokenName(req), 'แก้ไขตั้งค่าระบบ', `${key} = ${value}`).catch(()=>{});
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;
