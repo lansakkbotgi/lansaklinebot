@@ -163,9 +163,39 @@ async function broadcastToTarget(client, message, targetName, includeMenu = fals
   return { sent, failed, total: targetFollowers.length };
 }
 
+/**
+ * ส่งข้อความไปยังกลุ่มรายชื่อผู้ใช้ที่ระบุ (รองรับอาร์เรย์ข้อความ)
+ */
+async function broadcastToGroup(client, messages, userIds) {
+  if (!userIds || userIds.length === 0) {
+    return { sent: 0, failed: 0, total: 0 };
+  }
+  
+  // แปลง messages เป็นอาร์เรย์เสมอ
+  const msgList = Array.isArray(messages) ? messages : [messages];
+  let sent = 0, failed = 0;
+
+  for (const userId of userIds) {
+    try {
+      await client.pushMessage({
+        to: userId,
+        messages: msgList,
+      });
+      sent++;
+      await new Promise(resolve => setTimeout(resolve, 100)); // Rate limit protection
+    } catch (err) {
+      console.error(`❌ ส่งหา ${userId} ไม่สำเร็จ:`, err.message);
+      failed++;
+    }
+  }
+
+  return { sent, failed, total: userIds.length };
+}
+
 module.exports = {
   broadcastToAll,
   broadcastToTarget,
+  broadcastToGroup,
   removeFollower,
   getStats,
   buildBroadcastResultFlex,

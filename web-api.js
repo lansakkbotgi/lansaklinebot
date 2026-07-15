@@ -51,7 +51,7 @@ function getTokenName(req) {
   return token ? (tokenNames.get(token) || 'Admin เว็บ') : 'Admin เว็บ';
 }
 
-const { broadcastToAll, broadcastToTarget } = require('./broadcast');
+const { broadcastToAll, broadcastToTarget, broadcastToGroup } = require('./broadcast');
 
 // LINE client แยกต่างหาก สำหรับใช้ broadcast จากหน้าเว็บ
 const lineClient = new line.messagingApi.MessagingApiClient({
@@ -348,21 +348,124 @@ router.post('/api/users/set-role', requireAuth, async (req, res) => {
 });
 
 // ============================================================
+//  🖼️ อัปโหลดรูปภาพสำหรับ Broadcast (รับแบบ Base64)
+// ============================================================
+router.post('/api/upload-image', requireAuth, (req, res) => {
+  try {
+    const { imageBase64, filename } = req.body || {};
+    if (!imageBase64) {
+      return res.status(400).json({ success: false, message: 'ไม่พบข้อมูลรูปภาพ' });
+    }
+
+    // ถอดรหัส Base64
+    const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ success: false, message: 'รูปแบบรูปภาพไม่ถูกต้อง' });
+    }
+
+    const imageBuffer = Buffer.from(matches[2], 'base64');
+    
+    // ตรวจสอบโฟลเดอร์ uploads
+    const uploadDir = path.join(__dirname, 'public', 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // สร้างชื่อไฟล์
+    const ext = filename ? path.extname(filename) : '.png';
+    const uniqueFilename = `bcast_${Date.now()}${ext}`;
+    const filePath = path.join(uploadDir, uniqueFilename);
+
+    // บันทึกไฟล์ลงดิสก์
+    fs.writeFileSync(filePath, imageBuffer);
+
+    // คำนวณ URL สำหรับเข้าถึงรูปภาพ
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const imageUrl = `${protocol}://${host}/uploads/${uniqueFilename}`;
+
+    res.json({ success: true, imageUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
 //  Broadcast
 // ============================================================
 router.post('/api/broadcast', requireAuth, async (req, res) => {
   try {
-    const { message, target, includeMenu } = req.body || {};
-    if (!message || !message.trim()) {
-      return res.status(400).json({ success: false, message: 'กรุณาระบุข้อความ' });
+    const { message, target, includeMenu, targetUserIds, imageUrl } = req.body || {};
+    
+    if ((!message || !message.trim()) && (!imageUrl || !imageUrl.trim())) {
+      return res.status(400).json({ success: false, message: 'กรุณากรอกข้อความหรือแนบรูปภาพอย่างใดอย่างหนึ่ง' });
     }
+
+    // เตรียมรายการข้อความ LINE (ส่งคู่กันได้สูงสุด 5 ข้อความ)
+    const messages = [];
+
+    // 1. ข้อความรูปภาพ (แสดงก่อน)
+    if (imageUrl && imageUrl.trim()) {
+      messages.push({
+        type: 'image',
+        originalContentUrl: imageUrl.trim(),
+        previewImageUrl: imageUrl.trim()
+      });
+    }
+
+    // 2. ข้อความตัวอักษร
+    if (message && message.trim()) {
+      const textMsg = { type: 'text', text: message.trim() };
+      if (includeMenu) {
+        textMsg.quickReply = {
+          items: [
+            {
+              type: 'action',
+              action: {
+                type: 'message',
+                label: '📋 เปิดเมนู',
+                text: '/เมนู'
+              }
+            }
+          ]
+        };
+      }
+      messages.push(textMsg);
+    }
+
     let result;
-    if (target && target.trim()) {
-      result = await broadcastToTarget(lineClient, message, target.trim(), !!includeMenu);
+
+    if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
+      // ส่งหากลุ่มเป้าหมายที่เจาะจงที่เลือกจากระบบหน้าบ้าน
+      result = await broadcastToGroup(lineClient, messages, targetUserIds);
+    } else if (target && target.trim()) {
+      // ส่งหาตามชื่อเหมือนเดิม
+      const { loadFollowersFromSheet } = require('./sheets-writer');
+      const followers = await loadFollowersFromSheet().catch(() => []);
+      const lowerTarget = target.trim().toLowerCase();
+      let targetFollowers = followers.filter(f =>
+        (f.displayName || '').trim().toLowerCase() === lowerTarget
+      );
+      if (targetFollowers.length === 0) {
+        targetFollowers = followers.filter(f =>
+          (f.displayName || '').toLowerCase().includes(lowerTarget)
+        );
+      }
+      if (targetFollowers.length === 0) {
+        return res.status(400).json({ success: false, message: `ไม่พบผู้รับชื่อ "${target}"` });
+      }
+      const userIds = targetFollowers.map(f => f.userId);
+      result = await broadcastToGroup(lineClient, messages, userIds);
     } else {
-      result = await broadcastToAll(lineClient, message, !!includeMenu);
+      // ส่งหาทุกคน
+      const { loadFollowersFromSheet } = require('./sheets-writer');
+      const followers = await loadFollowersFromSheet().catch(() => []);
+      const userIds = followers.map(f => f.userId);
+      result = await broadcastToGroup(lineClient, messages, userIds);
     }
-    await appendAuditLog('-', getTokenName(req), 'Broadcast', `${target ? 'ถึง: '+target : 'ทุกคน'} — "${message.slice(0,40)}${message.length>40?'…':''}"`).catch(()=>{});
+
+    const logDetail = `${targetUserIds ? 'กลุ่มเป้าหมาย ('+targetUserIds.length+' คน)' : (target ? 'ถึง: '+target : 'ทุกคน')} — ${imageUrl ? '[แนบรูป] ' : ''}${message ? '"'+message.slice(0, 30)+'…"' : ''}`;
+    await appendAuditLog('-', getTokenName(req), 'Broadcast', logDetail).catch(()=>{});
     res.json({ success: true, result });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

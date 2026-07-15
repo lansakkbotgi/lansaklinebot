@@ -1164,18 +1164,24 @@
       <div class="card" style="max-width:640px">
         <div class="field">
           <label>ส่งถึง</label>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-            <button type="button" class="btn btn-outline btn-small" id="bcast-mode-all" style="color:var(--navy-700); border-color:var(--gold-500); background:var(--gold-100)" onclick="setBcastMode('all')">👥 ส่งหาทุกคน</button>
-            <button type="button" class="btn btn-outline btn-small" id="bcast-mode-select" style="color:var(--navy-700); border-color:var(--line-c)" onclick="setBcastMode('select')">✅ เลือกรายชื่อ</button>
-          </div>
-          <div id="bcast-select-box" style="display:none">
-            <input type="text" class="search-input" style="width:100%; margin-bottom:8px" placeholder="ค้นหาชื่อผู้ใช้..." id="bcast-user-search" oninput="renderBcastUserList()">
-            <div style="display:flex; gap:8px; margin-bottom:8px;">
-              <button type="button" class="mini-btn" onclick="bcastSelectAll(true)">เลือกทั้งหมดที่ค้นเจอ</button>
-              <button type="button" class="mini-btn" onclick="bcastSelectAll(false)">ล้างที่เลือกทั้งหมด</button>
-              <span style="font-size:12px; color:var(--muted); margin-left:auto;" id="bcast-selected-count">เลือกแล้ว 0 คน</span>
-            </div>
-            <div id="bcast-user-list" style="max-height:220px; overflow-y:auto; border:1px solid var(--line-c); border-radius:10px; padding:6px;"></div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px; background:#f9fafb; padding:12px; border-radius:8px; border:1px solid var(--line-c);">
+            <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+              <input type="checkbox" id="bcast-target-all" checked onchange="toggleBcastTargets(this)" style="width:18px;height:18px;">
+              <span>☑ ส่งหาทุกคน</span>
+            </label>
+            <div style="height:1px; background:var(--line-c); margin:4px 0;"></div>
+            <label style="display:flex; align-items:center; gap:8px; color:var(--navy-700); cursor:pointer;">
+              <input type="checkbox" class="bcast-target-role" value="Staff" disabled style="width:16px;height:16px;">
+              <span>☐ เจ้าหน้าที่ (Staff)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; color:var(--navy-700); cursor:pointer;">
+              <input type="checkbox" class="bcast-target-role" value="Admin" disabled style="width:16px;height:16px;">
+              <span>☐ ผู้ดูแลระบบ (Admin)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; color:var(--navy-700); cursor:pointer;">
+              <input type="checkbox" class="bcast-target-role" value="User" disabled style="width:16px;height:16px;">
+              <span>☐ ผู้ใช้ทั่วไป (User)</span>
+            </label>
           </div>
         </div>
         <div class="field">
@@ -1184,11 +1190,21 @@
           <div style="text-align:right; font-size:11.5px; color:var(--muted); margin-top:3px;" id="bcast-char-count">0 ตัวอักษร</div>
         </div>
         <div class="field">
+          <label>แนบรูป</label>
+          <input type="file" id="bcast-image-upload" accept="image/png, image/jpeg" style="display:block; width:100%; border:1px dashed var(--line-c); padding:10px; border-radius:8px; background:#fafafa; cursor:pointer;" onchange="handleBcastImageUpload(event)">
+          <div id="bcast-image-preview" style="margin-top:10px; display:none; text-align:center;">
+             <img id="bcast-image-img" src="" style="max-width:100%; max-height:200px; border-radius:8px; border:1px solid var(--line-c); object-fit:contain;">
+             <br>
+             <button type="button" class="mini-btn" onclick="removeBcastImage()" style="margin-top:8px; color:var(--danger); border-color:var(--danger);">❌ นำรูปออก</button>
+          </div>
+        </div>
+        <div class="field">
           <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink);">
             <input type="checkbox" id="bcast-menu" style="width:auto;"> แนบปุ่ม "เปิดเมนู" ไปกับข้อความด้วย
           </label>
         </div>
-        <button class="btn btn-gold" onclick="sendBroadcast()" id="bcast-btn">📤 ส่งข้อความ</button>
+        <hr style="border:none; border-top:1px solid var(--line-c); margin:16px 0;">
+        <button class="btn btn-gold" onclick="sendBroadcast()" id="bcast-btn" style="width:100%; padding:12px; font-size:16px; font-weight:bold;">📤 ส่งข้อความ</button>
         <div class="bcast-result" id="bcast-result"></div>
       </div>
     </div>
@@ -2022,51 +2038,111 @@ function updateBcastSelectedCount(){
   if (el) el.textContent = `เลือกแล้ว ${bcastSelected.size} คน`;
 }
 
+function toggleBcastTargets(allCheckbox) {
+  const roleCheckboxes = document.querySelectorAll('.bcast-target-role');
+  roleCheckboxes.forEach(cb => {
+    cb.disabled = allCheckbox.checked;
+    if (allCheckbox.checked) cb.checked = false;
+  });
+}
+
+let bcastImageBase64 = null;
+let bcastImageFilename = null;
+function handleBcastImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  bcastImageFilename = file.name;
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    bcastImageBase64 = event.target.result;
+    document.getElementById('bcast-image-img').src = bcastImageBase64;
+    document.getElementById('bcast-image-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeBcastImage() {
+  bcastImageBase64 = null;
+  bcastImageFilename = null;
+  document.getElementById('bcast-image-upload').value = '';
+  document.getElementById('bcast-image-preview').style.display = 'none';
+}
+
 async function sendBroadcast(){
   const message = val('bcast-message');
   const includeMenu = document.getElementById('bcast-menu').checked;
-  if (!message){ toast('กรุณากรอกข้อความ', true); return; }
+  const isAll = document.getElementById('bcast-target-all').checked;
+  
+  if (!message && !bcastImageBase64){ toast('กรุณากรอกข้อความ หรือแนบรูปภาพอย่างน้อย 1 อย่าง', true); return; }
+  
+  const selectedRoles = Array.from(document.querySelectorAll('.bcast-target-role:checked')).map(cb => cb.value);
+  
+  if (!isAll && selectedRoles.length === 0){ toast('กรุณาเลือกผู้รับอย่างน้อย 1 กลุ่ม', true); return; }
+  
+  let targetUserIds = null;
+  if (!isAll) {
+    // กรอง User ตาม Role
+    targetUserIds = cacheUsers.filter(u => selectedRoles.includes(u.role)).map(u => u.userId);
+    if (targetUserIds.length === 0) {
+      toast('ไม่พบผู้ใช้ในกลุ่มที่เลือก', true);
+      return;
+    }
+  }
+
+  const confirmMsg = isAll ? 'ส่งข้อความหาผู้ใช้ทุกคน?' : `ส่งข้อความหากลุ่มเป้าหมาย (${targetUserIds.length} คน)?`;
+  if (!confirm(confirmMsg)) return;
+
   const box = document.getElementById('bcast-result');
   const btn = document.getElementById('bcast-btn');
-
-  if (bcastMode === 'select'){
-    const names = cacheUsers.filter(u => bcastSelected.has(u.userId)).map(u => u.displayName || u.userId);
-    if (names.length === 0){ toast('กรุณาเลือกผู้รับอย่างน้อย 1 คน', true); return; }
-    if (!confirm(`ส่งข้อความหา ${names.length} คนที่เลือก?`)) return;
-    btn.disabled = true; btn.textContent = 'กำลังส่ง...';
-    let totalSent = 0, totalFailed = 0; const problems = [];
-    for (const name of names){
-      try{
-        const r = await fetch('/staff/api/broadcast', { method:'POST', headers:authHeaders(), body: JSON.stringify({ target:name, message, includeMenu }) });
-        const j = await r.json();
-        if (j.success && j.result && !j.result.notFound){ totalSent += j.result.sent; totalFailed += j.result.failed; }
-        else problems.push(name);
-      }catch(e){ problems.push(name); }
-    }
-    box.style.display = 'block';
-    box.textContent = `✅ ส่งสำเร็จ ${totalSent} คน จาก ${names.length} คนที่เลือก` +
-      (totalFailed ? ` (ล้มเหลว ${totalFailed})` : '') +
-      (problems.length ? ` — มีปัญหากับ: ${problems.join(', ')}` : '');
-    document.getElementById('bcast-message').value = ''; updateBcastCharCount();
-    btn.disabled = false; btn.textContent = '📤 ส่งข้อความ';
-  } else {
-    if (!confirm('ส่งข้อความหาผู้ใช้ทุกคน?')) return;
-    btn.disabled = true; btn.textContent = 'กำลังส่ง...';
-    try{
-      const r = await fetch('/staff/api/broadcast', { method:'POST', headers:authHeaders(), body: JSON.stringify({ target:'', message, includeMenu }) });
-      const j = await r.json();
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  
+  try {
+    let imageUrl = null;
+    
+    // 1. อัปโหลดรูปภาพก่อน (ถ้ามี)
+    if (bcastImageBase64) {
       box.style.display = 'block';
-      if (!j.success){
-        box.textContent = '❌ ' + (j.message||'ส่งไม่สำเร็จ');
-      } else {
-        box.textContent = `✅ ส่งสำเร็จ ${j.result.sent} คน จากทั้งหมด ${j.result.total} คน` + (j.result.failed ? ` (ล้มเหลว ${j.result.failed})` : '');
-        document.getElementById('bcast-message').value = ''; updateBcastCharCount();
-      }
-    }catch(e){
-      toast('เกิดข้อผิดพลาดในการส่ง', true);
-    } finally {
-      btn.disabled = false; btn.textContent = '📤 ส่งข้อความ';
+      box.textContent = '⏳ กำลังอัปโหลดรูปภาพ...';
+      const uploadRes = await fetch('/staff/api/upload-image', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ imageBase64: bcastImageBase64, filename: bcastImageFilename })
+      });
+      const uploadJson = await uploadRes.json();
+      if (!uploadJson.success) throw new Error(uploadJson.message || 'อัปโหลดรูปภาพไม่สำเร็จ');
+      imageUrl = uploadJson.imageUrl;
     }
+
+    // 2. ส่งข้อความ Broadcast
+    box.textContent = '⏳ กำลังส่งข้อความ...';
+    const r = await fetch('/staff/api/broadcast', { 
+      method:'POST', 
+      headers:authHeaders(), 
+      body: JSON.stringify({ 
+        message, 
+        includeMenu,
+        targetUserIds,
+        imageUrl
+      }) 
+    });
+    
+    const j = await r.json();
+    box.style.display = 'block';
+    
+    if (!j.success){
+      box.textContent = '❌ ' + (j.message||'ส่งไม่สำเร็จ');
+    } else {
+      box.textContent = `✅ ส่งสำเร็จ ${j.result.sent} คน` + (j.result.failed ? ` (ล้มเหลว ${j.result.failed})` : '');
+      document.getElementById('bcast-message').value = ''; 
+      updateBcastCharCount();
+      removeBcastImage();
+    }
+  } catch(e) {
+    box.style.display = 'block';
+    box.textContent = '❌ เกิดข้อผิดพลาด: ' + e.message;
+    toast('เกิดข้อผิดพลาดในการส่ง', true);
+  } finally {
+    btn.disabled = false; btn.textContent = '📤 ส่งข้อความ';
   }
 }
 
