@@ -9,8 +9,8 @@ async function askAI(userQuestion, sheetContext) {
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   
-  // ปรับชื่อโมเดลให้ตรงตามที่ Google กำหนด (ใช้ตระกูล 1.5 ซึ่งเป็นรุ่นปัจจุบัน)
-  const modelNames = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+  // ปรับชื่อโมเดลให้ตรงตามที่ Google กำหนด (ใช้รุ่น Gemini 3.5 และ 2.5 ซึ่งเป็นรุ่นปัจจุบันที่เปิดให้บริการ)
+  const modelNames = ['gemini-3.5-flash', 'gemini-2.5-flash'];
   const errors = [];
 
   for (const modelName of modelNames) {
