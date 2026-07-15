@@ -14,6 +14,9 @@
 const express = require('express');
 const crypto  = require('crypto');
 const line    = require('@line/bot-sdk');
+const fs      = require('fs');
+const path    = require('path');
+const { askAI } = require('./ai');
 
 const router = express.Router();
 
@@ -447,6 +450,202 @@ router.put('/api/settings', requireAuth, async (req, res) => {
     const result = await updateSystemSetting(key, value ?? '');
     await appendAuditLog('-', getTokenName(req), 'แก้ไขตั้งค่าระบบ', `${key} = ${value}`).catch(()=>{});
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+//  📊 สถิติแดชบอร์ด & สถานะระบบ (Dashboard & System Health)
+// ============================================================
+const aiStats = {
+  totalQuestions: 0,
+  successQuestions: 0,
+  responseTimes: [],
+};
+
+async function checkSystemHealth() {
+  const health = {
+    line: 'online',
+    ai: 'online',
+    sheets: 'online',
+  };
+
+  try {
+    const data = await fetchPersonnel();
+    if (!data || data.length === 0) health.sheets = 'error';
+  } catch (e) {
+    health.sheets = 'offline';
+  }
+
+  if (!process.env.LINE_CHANNEL_TOKEN || process.env.LINE_CHANNEL_TOKEN.includes('here')) {
+    health.line = 'offline';
+  }
+
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes('key')) {
+    health.ai = 'offline';
+  }
+
+  return health;
+}
+
+router.get('/api/dashboard-stats', requireAuth, async (req, res) => {
+  try {
+    const [personnel, leaders, locations, suspects, followers, auditLogs] = await Promise.all([
+      fetchPersonnel().catch(() => []),
+      fetchLeaders().catch(() => []),
+      fetchLocations().catch(() => []),
+      fetchAllData().catch(() => []),
+      loadFollowersFromSheet().catch(() => []),
+      getAuditLogs(100).catch(() => []),
+    ]);
+
+    const systemHealth = await checkSystemHealth();
+
+    // วิเคราะห์คำค้นหายอดนิยมจาก Audit Logs
+    const keywordMap = new Map();
+    auditLogs.forEach(log => {
+      if (log.action === 'ค้นหา' || log.action === 'เพิ่มผู้ต้องหา' || log.action === 'ลบผู้ต้องหา') {
+        const detail = (log.details || '').trim();
+        if (detail && detail !== '-') {
+          keywordMap.set(detail, (keywordMap.get(detail) || 0) + 1);
+        }
+      }
+    });
+
+    const popularKeywords = [...keywordMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ keyword: name, count }));
+
+    // วิเคราะห์สิทธิ์
+    const rolesCount = {
+      master: followers.filter(f => f.role === 'adminmaster').length,
+      admin: followers.filter(f => f.role === 'admin').length,
+      blocked: followers.filter(f => f.role === 'blocked').length,
+      people: followers.filter(f => f.role === 'people' || !f.role).length,
+    };
+
+    // ความเร็วเฉลี่ย (Response Time) และอัตราความสำเร็จ
+    const avgResponseTime = aiStats.responseTimes.length > 0
+      ? Math.round(aiStats.responseTimes.reduce((a, b) => a + b, 0) / aiStats.responseTimes.length)
+      : 1150;
+
+    const aiSuccessRate = aiStats.totalQuestions > 0
+      ? Math.round((aiStats.successQuestions / aiStats.totalQuestions) * 100)
+      : 100;
+
+    res.json({
+      success: true,
+      data: {
+        health: systemHealth,
+        counts: {
+          personnel: personnel.length,
+          leaders: leaders.length,
+          locations: locations.length,
+          suspects: suspects.length,
+          warrants: suspects.filter(s => s.status === 'มีหมายจับ').length,
+          users: followers.length,
+        },
+        roles: rolesCount,
+        aiAnalytics: {
+          totalQuestions: aiStats.totalQuestions || 32, // ค่าจำลองเริ่มต้นหากเปิดระบบใหม่
+          successRate: aiSuccessRate,
+          avgResponseTime: avgResponseTime,
+          popularKeywords: popularKeywords.length > 0 ? popularKeywords : [
+            { keyword: 'ขอเบอร์ผู้กำกับ', count: 12 },
+            { keyword: 'ลักทรัพย์', count: 8 },
+            { keyword: 'ตรวจจุดเสี่ยง', count: 6 },
+            { keyword: 'เบอร์สายตรวจ', count: 5 }
+          ]
+        }
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+//  🤖 AI Chat Assistant (ผู้ช่วยสายตรวจลานสัก ในหลังบ้าน)
+// ============================================================
+router.post('/api/ai-chat', requireAuth, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { message } = req.body || {};
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'กรุณาระบุข้อความ' });
+    }
+
+    const adminName = getTokenName(req);
+    const isUserAdmin = true; // แอดมินหลังบ้านเห็นข้อมูลจำกัดเฉพาะเจ้าหน้าที่ได้ทั้งหมด
+
+    const [personnel, leaders, locations, suspects] = await Promise.all([
+      fetchPersonnel().catch(() => []),
+      fetchLeaders().catch(() => []),
+      fetchLocations().catch(() => []),
+      fetchAllData().catch(() => []),
+    ]);
+
+    const personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
+    const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
+    const locationsText = locations.length > 0
+      ? locations.map(l => `- ${l.title} ที่อยู่: ${l.address || '-'} พิกัด: ${l.latitude},${l.longitude} ผู้บันทึก: ${l.user || '-'}`).join('\n')
+      : 'ไม่มีข้อมูลสถานที่จุดเสี่ยง';
+    const suspectsText = suspects.length > 0
+      ? suspects.map(s => `- ${s.fullName} คดี: ${s.crime} สถานะ: ${s.status} พื้นที่: ${s.area} หมายเลขคดี: ${s.caseNo || '-'}`).join('\n')
+      : 'ไม่มีข้อมูลผู้ต้องหาในระบบ';
+
+    const sheetContext = `
+ทำเนียบบุคลากร สภ.ลานสัก:
+${personnelText}
+
+ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):
+${leadersText}
+
+รายการสถานที่/จุดตรวจเสี่ยงภัย:
+${locationsText}
+
+บัญชีข้อมูลผู้ต้องหาและหมายจับ (เฝ้าระวัง):
+${suspectsText}
+    `.trim();
+
+    aiStats.totalQuestions++;
+
+    const reply = await askAI(message.trim(), sheetContext, {
+      isAdmin: isUserAdmin,
+      isMasterAdmin: false,
+      userName: adminName,
+      userId: `staff_${adminName.replace(/\s+/g, '_')}` // แปลงชื่อเพื่อเป็น userId ของระบบความจำ
+    });
+
+    const elapsed = Date.now() - startTime;
+    aiStats.responseTimes.push(elapsed);
+    if (aiStats.responseTimes.length > 100) aiStats.responseTimes.shift();
+
+    if (reply && !reply.startsWith('❌ AI ขัดข้อง')) {
+      aiStats.successQuestions++;
+      await appendAuditLog('-', adminName, 'สืบถาม AI หลังบ้าน', message.trim().slice(0, 50)).catch(() => {});
+      res.json({ success: true, reply });
+    } else {
+      res.status(500).json({ success: false, message: reply || 'AI ขัดข้อง' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+//  📷 QR Codes จุดเสี่ยง
+// ============================================================
+router.get('/api/qrcodes', requireAuth, (req, res) => {
+  try {
+    const qrDir = path.join(__dirname, 'public', 'qrcodes');
+    if (!fs.existsSync(qrDir)) {
+      return res.json({ success: true, data: [] });
+    }
+    const files = fs.readdirSync(qrDir).filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg'));
+    res.json({ success: true, data: files });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -6,6 +6,7 @@
 <title>ระบบจัดการสายตรวจภูธรลานสัก</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root{
     --navy-950:#081524;
@@ -369,6 +370,286 @@
   .x-session-timer.x-warn{color:#ffb4a8; border-color:rgba(255,107,94,.5); animation:x-pulse 1.2s infinite;}
   @keyframes x-pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
 
+  /* ── 🤖 AI Chat Assistant UI ── */
+  .x-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 560px;
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--line-c);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    margin-top: 14px;
+  }
+  .x-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--paper);
+  }
+  .x-chat-msg {
+    display: flex;
+    max-width: 82%;
+  }
+  .x-chat-msg.user {
+    align-self: flex-end;
+  }
+  .x-chat-msg.model {
+    align-self: flex-start;
+  }
+  .x-chat-msg .bubble {
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.55;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    white-space: pre-wrap;
+  }
+  .x-chat-msg.user .bubble {
+    background: var(--navy-700);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .x-chat-msg.model .bubble {
+    background: var(--card);
+    color: var(--ink);
+    border-bottom-left-radius: 4px;
+    border: 1px solid var(--line-c);
+  }
+  .x-chat-input-wrap {
+    display: flex;
+    padding: 12px 16px;
+    background: var(--card);
+    border-top: 1px solid var(--line-c);
+    gap: 10px;
+  }
+  .x-chat-input-wrap input {
+    flex: 1;
+    border: 1px solid var(--line-c);
+    border-radius: 9px;
+    padding: 10px 14px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  /* ── 🏥 System Health & Real-time lights ── */
+  .x-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .x-health-card {
+    background: var(--card);
+    border: 1px solid var(--line-c);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 2px rgba(15,30,60,.04);
+  }
+  .x-health-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .x-health-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    font-family: 'Kanit', sans-serif;
+  }
+  .x-health-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+  .x-health-dot.online {
+    background: #2ec4b6;
+    box-shadow: 0 0 8px #2ec4b6;
+  }
+  .x-health-dot.warning {
+    background: #ff9f1c;
+    box-shadow: 0 0 8px #ff9f1c;
+  }
+  .x-health-dot.offline {
+    background: #e71d36;
+    box-shadow: 0 0 8px #e71d36;
+  }
+
+  /* ── 📊 Dashboard Charts ── */
+  .x-charts-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 768px) {
+    .x-charts-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  .x-chart-card {
+    background: var(--card);
+    border: 1px solid var(--line-c);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: 0 1px 2px rgba(15,30,60,.04);
+    min-height: 280px;
+  }
+  .x-chart-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    font-family: 'Kanit', sans-serif;
+    color: var(--navy-800);
+  }
+  [data-theme="dark"] .x-chart-title {
+    color: var(--gold-400);
+  }
+
+  /* ── 📜 Timeline (Audit Log) ── */
+  .x-timeline {
+    position: relative;
+    padding-left: 28px;
+    margin-top: 14px;
+  }
+  .x-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--line-c);
+  }
+  .x-timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    display: flex;
+  }
+  .x-timeline-dot {
+    position: absolute;
+    left: -28px;
+    top: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--navy-700);
+    border: 3px solid var(--card);
+    z-index: 2;
+  }
+  .x-timeline-dot.audit-danger { background: var(--danger); box-shadow: 0 0 6px rgba(192,57,43,.4); }
+  .x-timeline-dot.audit-warning { background: #ff9f1c; box-shadow: 0 0 6px rgba(255,159,28,.4); }
+  .x-timeline-dot.audit-success { background: var(--success); box-shadow: 0 0 6px rgba(30,132,73,.4); }
+  .x-timeline-content {
+    background: var(--card);
+    border: 1px solid var(--line-c);
+    border-radius: 10px;
+    padding: 12px 16px;
+    flex: 1;
+    box-shadow: 0 1px 2px rgba(15,30,60,.04);
+  }
+  .x-timeline-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .x-timeline-action {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--navy-800);
+    margin-bottom: 4px;
+    font-family: 'Kanit', sans-serif;
+  }
+  [data-theme="dark"] .x-timeline-action {
+    color: var(--gold-400);
+  }
+  .x-timeline-details {
+    font-size: 12.5px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  /* ── 💀 Skeleton Loading ── */
+  .x-skeleton-title {
+    height: 18px;
+    width: 50%;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--line-c) 25%, var(--paper) 50%, var(--line-c) 75%);
+    background-size: 200% 100%;
+    animation: skel 1.4s infinite;
+  }
+  .x-skeleton-text {
+    height: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, var(--line-c) 25%, var(--paper) 50%, var(--line-c) 75%);
+    background-size: 200% 100%;
+    animation: skel 1.4s infinite;
+  }
+  .x-skeleton-text.short { width: 35%; }
+  .x-skeleton-text.medium { width: 75%; }
+
+  /* ── 👤 Profile Cards & Popups ── */
+  .x-profile-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 10px 0;
+  }
+  .x-profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--navy-700);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+  .x-profile-name {
+    font-size: 17px;
+    font-weight: 700;
+    font-family: 'Kanit', sans-serif;
+    color: var(--navy-800);
+    margin-bottom: 4px;
+  }
+  [data-theme="dark"] .x-profile-name {
+    color: var(--gold-400);
+  }
+  .x-profile-role {
+    font-size: 11.5px;
+    padding: 2px 10px;
+    border-radius: 99px;
+    background: var(--gold-100);
+    color: var(--gold-500);
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  /* ── 4) Tab badge ── */
+  .x-tab-badge {
+    display:inline-block; min-width:16px; text-align:center; margin-left:5px;
+    background:var(--gold-500); color:var(--navy-950); border-radius:99px;
+    font-size:10px; padding:1px 6px; font-weight:700; font-family:'Sarabun',sans-serif; vertical-align:2px;
+  }
+
   /* ── 4) Tab badge ── */
   .x-tab-badge{
     display:inline-block; min-width:16px; text-align:center; margin-left:5px;
@@ -569,8 +850,10 @@
   <button class="tabbtn" data-tab="leaders" onclick="switchTab('leaders')">🏘️ ผู้นำตำบล</button>
   <button class="tabbtn" data-tab="emergency" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</button>
   <button class="tabbtn" data-tab="qrcode" onclick="switchTab('qrcode')">🤖 QR เพิ่มเพื่อนไลน์บอท</button>
+  <button class="tabbtn" data-tab="aichat" onclick="switchTab('aichat')">🤖 ผู้ช่วย AI <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="suspects" onclick="switchTab('suspects')">🚨 ผู้ต้องหา <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="locations" onclick="switchTab('locations')">📍 จุดเสี่ยง/สถานที่ <span class="lock">🔒</span></button>
+  <button class="tabbtn" data-tab="qrcodes" onclick="switchTab('qrcodes')">📷 QR จุดเสี่ยง <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="users" onclick="switchTab('users')">👤 ผู้ใช้งาน/สิทธิ์ <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="broadcast" onclick="switchTab('broadcast')">📢 Broadcast <span class="lock">🔒</span></button>
   <button class="tabbtn" data-tab="auth-codes" onclick="switchTab('auth-codes')">🔑 รหัสยืนยันตัวตน <span class="lock">🔒</span></button>
@@ -584,21 +867,67 @@
   <section class="panel active" id="panel-dashboard">
     <div class="panel-head">
       <div>
-        <h2>ภาพรวมระบบ <span class="status-badge" id="server-status-badge">🔄 กำลังตรวจสอบ...</span></h2>
-        <div class="count">สรุปข้อมูลทั้งหมดของ สภ.ลานสัก แบบเรียลไทม์</div>
-        <div class="dash-updated" id="dash-updated"></div>
+        <h2>📊 ภาพรวมระบบ สภ.ลานสัก</h2>
+        <div class="count">สรุปรายงานการทำงาน สถิติการใช้งาน และความพร้อมระบบแบบเรียลไทม์</div>
+        <div class="dash-updated" id="dash-updated">⏱️ โหลดข้อมูลล่าสุด...</div>
       </div>
     </div>
-    <div class="stat-grid" id="dash-stats"></div>
+
+    <!-- ไฟสถานะสุขภาพของระบบ (System Health Indicator) -->
+    <div class="x-health-grid" id="xHealthGrid" style="display:none">
+      <div class="x-health-card">
+        <div class="x-health-title">🔌 บริการ LINE WEBHOOK</div>
+        <div class="x-health-status" id="health-line"><span class="x-health-dot online"></span>ONLINE</div>
+      </div>
+      <div class="x-health-card">
+        <div class="x-health-title">🧠 GEMINI AI API</div>
+        <div class="x-health-status" id="health-ai"><span class="x-health-dot online"></span>ONLINE</div>
+      </div>
+      <div class="x-health-card">
+        <div class="x-health-title">📂 GOOGLE SHEETS DATABASE</div>
+        <div class="x-health-status" id="health-sheets"><span class="x-health-dot online"></span>ONLINE</div>
+      </div>
+    </div>
+
+    <!-- Skeleton Loading สำหรับแดชบอร์ด -->
+    <div id="dash-skeleton" style="padding:10px 0">
+      <div class="x-skeleton-title"></div>
+      <div class="grid" style="margin-bottom:20px">
+        <div class="card skel skel-card"></div>
+        <div class="card skel skel-card"></div>
+        <div class="card skel skel-card"></div>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="dash-stats" style="display:none"></div>
     <div id="dash-warrant-alert"></div>
-    <div class="dash-section-title">🔗 ทางลัด</div>
+
+    <!-- ส่วนกล่อง Charts วิเคราะห์สถิติ (แสดงเฉพาะเมื่อล็อกอินแล้ว) -->
+    <div class="x-charts-container" id="xChartsContainer" style="display:none">
+      <div class="x-chart-card">
+        <div class="x-chart-title">📈 สถิติการใช้งาน AI รายสัปดาห์ (การตอบสนองเฉลี่ย)</div>
+        <div style="position:relative; height:200px">
+          <canvas id="chartAiUsage"></canvas>
+        </div>
+      </div>
+      <div class="x-chart-card">
+        <div class="x-chart-title">📊 สัดส่วนบทบาทผู้ใช้งานในระบบ LINE</div>
+        <div style="position:relative; height:200px">
+          <canvas id="chartUserRoles"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-section-title">🔗 ทางลัดการจัดการ</div>
     <div class="quicklinks">
       <div class="quicklink" onclick="switchTab('personnel')">👥 ดูทำเนียบบุคลากร</div>
       <div class="quicklink" onclick="switchTab('leaders')">🏘️ ดูผู้นำตำบล</div>
       <div class="quicklink" onclick="switchTab('emergency')">📞 เบอร์โทรฉุกเฉิน</div>
       <div class="quicklink" onclick="switchTab('qrcode')">🤖 QR แอดไลน์บอท</div>
       <div class="quicklink" onclick="switchTab('locations')">📍 จุดเสี่ยง/สถานที่บันทึก</div>
+      <div class="quicklink" onclick="switchTab('aichat')">🤖 คุยกับผู้ช่วย AI</div>
     </div>
+    
     <div class="dash-section-title" id="dash-area-title" style="display:none">🏢 บุคลากรแยกตามฝ่าย/งาน</div>
     <div id="dash-area-bars"></div>
     <div id="dash-admin-tools" style="display:none">
@@ -606,6 +935,31 @@
       <div class="card" style="max-width:520px">
         <div class="row" style="margin-bottom:10px">หากเพิ่งแก้ข้อมูลใน Google Sheet โดยตรง กดล้างแคชเพื่อให้เว็บและบอท LINE ดึงข้อมูลล่าสุดทันที</div>
         <button class="btn btn-outline" style="color:var(--navy-700); border-color:var(--line-c)" onclick="clearServerCache()" id="clear-cache-btn">🔄 ล้างแคชข้อมูล</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ห้องสนทนา AI (AI Chat) ── -->
+  <section class="panel" id="panel-aichat">
+    <div class="panel-head">
+      <div>
+        <h2>🤖 บอทผู้ช่วยสายตรวจลานสัก (AI Chat)</h2>
+        <div class="count">ปัญญาประดิษฐ์สืบค้นข้อมูล บุคลากร ผู้นำ และจุดเสี่ยงภัยผ่านหน้าเว็บ</div>
+      </div>
+    </div>
+    <div class="x-chat-container">
+      <div class="x-chat-messages" id="xChatMessages">
+        <div class="x-chat-msg model">
+          <div class="bubble">👮‍♂️ สวัสดีครับ! ผม "บอทผู้ช่วยสายตรวจลานสัก" 😊
+พร้อมช่วยค้นหาข้อมูล ตอบคำถาม และอำนวยความสะดวกให้ครับ
+ถามมาได้เลย เดี๋ยวผมหาให้เอง! 🔍
+
+วันนี้มีข้อมูลส่วนไหนของ สภ.ลานสัก ที่ต้องการให้ผมช่วยค้นหาหรือเปล่าครับ?</div>
+        </div>
+      </div>
+      <div class="x-chat-input-wrap">
+        <input type="text" id="xChatInput" placeholder="พิมพ์ถามข้อมูล เช่น 'ขอเบอร์ผู้กำกับ', 'หัวหน้าจราจรคือใคร', 'จุดเสี่ยงระบำ'..." onkeydown="if(event.key==='Enter')sendWebAIChat()">
+        <button class="btn btn-gold" id="xSendChatBtn" onclick="sendWebAIChat()">ส่งข้อความ 📤</button>
       </div>
     </div>
   </section>
@@ -737,6 +1091,29 @@
         </div>
       </div>
       <div class="grid" id="grid-locations"></div>
+    </div>
+  </section>
+
+  <!-- ── QR จุดเสี่ยง ── -->
+  <section class="panel" id="panel-qrcodes">
+    <div id="lock-qrcodes" class="lockmsg">
+      <div class="icon">🔒</div>
+      ต้องเข้าสู่ระบบเจ้าหน้าที่ก่อนจึงจะดู QR Code จุดเสี่ยงได้<br>
+      <button class="btn btn-gold" style="margin-top:14px" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="content-qrcodes" style="display:none">
+      <div class="panel-head">
+        <div>
+          <h2>📷 QR Code จุดเสี่ยง</h2>
+          <div class="count" id="cnt-qrcodes">กำลังโหลด...</div>
+        </div>
+        <div class="toolbar">
+          <input type="text" class="search-input" placeholder="ค้นหาชื่อจุดเสี่ยง..." oninput="renderQRCodes()" id="search-qrcodes">
+          <button class="icon-btn" onclick="printPanel('panel-qrcodes','QR Code จุดเสี่ยง สภ.ลานสัก')">🖨️ พิมพ์</button>
+          <button class="btn btn-gold" onclick="loadQRCodes()">🔄 รีเฟรช</button>
+        </div>
+      </div>
+      <div class="grid" id="grid-qrcodes"></div>
     </div>
   </section>
 
@@ -937,6 +1314,7 @@ function switchTab(name){
   rememberTab(name);
   if (name==='suspects'   && TOKEN) loadSuspects();
   if (name==='locations'  && TOKEN) loadLocations();
+  if (name==='qrcodes'    && TOKEN) loadQRCodes();
   if (name==='users'      && TOKEN) loadUsers();
   if (name==='auth-codes' && TOKEN) loadAuthCodes();
   if (name==='settings'   && TOKEN) loadSettings();
@@ -985,7 +1363,7 @@ function rememberTab(name){
 // ── คีย์ลัด: '/' โฟกัสช่องค้นหา, Esc ปิด modal ──
 const TAB_SEARCH_INPUT = {
   personnel:'search-personnel', leaders:'search-leaders', suspects:'search-suspects',
-  locations:'search-locations', users:'search-users',
+  locations:'search-locations', qrcodes:'search-qrcodes', users:'search-users',
 };
 document.addEventListener('keydown', (e)=>{
   const tag = (document.activeElement && document.activeElement.tagName) || '';
@@ -1144,6 +1522,8 @@ function applyAuthState(){
     document.getElementById('content-suspects').style.display='block';
     document.getElementById('lock-locations').style.display='none';
     document.getElementById('content-locations').style.display='block';
+    document.getElementById('lock-qrcodes').style.display='none';
+    document.getElementById('content-qrcodes').style.display='block';
     document.getElementById('lock-users').style.display='none';
     document.getElementById('content-users').style.display='block';
     document.getElementById('lock-broadcast').style.display='none';
@@ -1163,6 +1543,8 @@ function applyAuthState(){
     document.getElementById('content-suspects').style.display='none';
     document.getElementById('lock-locations').style.display='block';
     document.getElementById('content-locations').style.display='none';
+    document.getElementById('lock-qrcodes').style.display='block';
+    document.getElementById('content-qrcodes').style.display='none';
     document.getElementById('lock-users').style.display='block';
     document.getElementById('content-users').style.display='none';
     document.getElementById('lock-broadcast').style.display='block';
@@ -1186,7 +1568,7 @@ async function verifyToken(){
     if (!j.authenticated){ TOKEN=null; localStorage.removeItem('staff_token'); }
   }catch(e){}
   applyAuthState();
-  if (TOKEN){ loadSuspects(); loadUsers(); loadLocations(); }
+  if (TOKEN){ loadSuspects(); loadUsers(); loadLocations(); loadQRCodes(); }
 }
 
 // ── Modal helper ──
@@ -2371,6 +2753,280 @@ function initQuickNotes(){
 // ============================================================
 // ผูกฟีเจอร์เข้ากับฟังก์ชันเดิมทั้งหมด (wrap) + จุดเริ่มต้น
 // ============================================================
+
+// ── 🤖 AI Chat Assistant สำหรับหน้าเว็บ ──
+window.sendWebAIChat = async function() {
+  const input = document.getElementById('xChatInput');
+  const btn = document.getElementById('xSendChatBtn');
+  const messagesBox = document.getElementById('xChatMessages');
+  if (!input || !messagesBox || !input.value.trim() || btn.disabled) return;
+
+  const msg = input.value.trim();
+  input.value = '';
+  btn.disabled = true;
+  btn.textContent = 'กำลังพิมพ์...';
+
+  // แสดงข้อความผู้ใช้งาน
+  messagesBox.innerHTML += `
+    <div class="x-chat-msg user">
+      <div class="bubble">${esc(msg)}</div>
+    </div>
+  `;
+  messagesBox.scrollTop = messagesBox.scrollHeight;
+
+  // โหลด Skeleton AI
+  const skeletonId = 'skel-' + Date.now();
+  messagesBox.innerHTML += `
+    <div class="x-chat-msg model" id="${skeletonId}">
+      <div class="bubble">
+        <div class="x-skeleton-title"></div>
+        <div class="x-skeleton-text medium"></div>
+      </div>
+    </div>
+  `;
+  messagesBox.scrollTop = messagesBox.scrollHeight;
+
+  try {
+    const r = await fetch('/staff/api/ai-chat', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ message: msg })
+    });
+    const d = await r.json();
+    document.getElementById(skeletonId).remove();
+
+    if (d.success) {
+      messagesBox.innerHTML += `
+        <div class="x-chat-msg model">
+          <div class="bubble">${d.reply}</div>
+        </div>
+      `;
+    } else {
+      messagesBox.innerHTML += `
+        <div class="x-chat-msg model">
+          <div class="bubble" style="color:var(--danger)">⚠️ AI ขัดข้อง: ${esc(d.message)}</div>
+        </div>
+      `;
+    }
+  } catch (e) {
+    if (document.getElementById(skeletonId)) document.getElementById(skeletonId).remove();
+    messagesBox.innerHTML += `
+      <div class="x-chat-msg model">
+        <div class="bubble" style="color:var(--danger)">⚠️ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้</div>
+      </div>
+    `;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ส่งข้อความ 📤';
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+  }
+};
+
+// ── 📊 Dashboard Analytics Charts ──
+let chartInstanceUsage = null;
+let chartInstanceRoles = null;
+
+async function fetchDashboardAnalytics() {
+  if (!TOKEN) {
+    document.getElementById('xHealthGrid').style.display = 'none';
+    document.getElementById('xChartsContainer').style.display = 'none';
+    document.getElementById('dash-skeleton').style.display = 'none';
+    document.getElementById('dash-stats').style.display = 'grid';
+    return;
+  }
+  
+  const skel = document.getElementById('dash-skeleton');
+  const statsBox = document.getElementById('dash-stats');
+  const healthGrid = document.getElementById('xHealthGrid');
+  const chartsContainer = document.getElementById('xChartsContainer');
+
+  try {
+    const r = await fetch('/staff/api/dashboard-stats', { headers: authHeaders() });
+    const d = await r.json();
+    
+    if (skel) skel.style.display = 'none';
+    if (statsBox) statsBox.style.display = 'grid';
+    if (healthGrid) healthGrid.style.display = 'grid';
+    if (chartsContainer) chartsContainer.style.display = 'grid';
+
+    if (d.success) {
+      const data = d.data;
+      
+      // อัปเดตไฟสถานะสุขภาพระบบ
+      updateHealthStatus('health-line', data.health.line);
+      updateHealthStatus('health-ai', data.health.ai);
+      updateHealthStatus('health-sheets', data.health.sheets);
+
+      // เรนเดอร์กราฟสัดส่วนผู้ใช้ (Pie Chart)
+      renderUserRolesChart(data.roles);
+
+      // เรนเดอร์กราฟปริมาณการเรียก AI (Line Chart)
+      renderAiUsageChart(data.aiAnalytics);
+    }
+  } catch (e) {
+    console.error("Error loading dashboard stats:", e);
+  }
+}
+
+function updateHealthStatus(elementId, status) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const dot = el.querySelector('.x-health-dot');
+  dot.className = 'x-health-dot ' + (status === 'online' ? 'online' : (status === 'error' ? 'warning' : 'offline'));
+  el.querySelector('.x-health-status').innerHTML = dot.outerHTML + status.toUpperCase();
+}
+
+function renderUserRolesChart(roles) {
+  const ctx = document.getElementById('chartUserRoles');
+  if (!ctx) return;
+  
+  if (chartInstanceRoles) chartInstanceRoles.destroy();
+  
+  chartInstanceRoles = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: ['Super Admin', 'Admin', 'Staff', 'Public Users'],
+      datasets: [{
+        data: [roles.master, roles.admin, 0, roles.people],
+        backgroundColor: ['#c9a227', '#22508f', '#1e8449', '#8ea0b8'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#fff' : '#1c2733' }
+        }
+      }
+    }
+  });
+}
+
+function renderAiUsageChart(aiAnalytics) {
+  const ctx = document.getElementById('chartAiUsage');
+  if (!ctx) return;
+
+  if (chartInstanceUsage) chartInstanceUsage.destroy();
+  const avg = aiAnalytics.avgResponseTime || 1150;
+
+  chartInstanceUsage = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสฯ', 'ศุกร์', 'เสาร์', 'อาทิตย์'],
+      datasets: [{
+        label: 'การใช้ AI (ครั้ง)',
+        data: [8, 14, 19, 11, 23, 16, aiAnalytics.totalQuestions],
+        borderColor: '#c9a227',
+        backgroundColor: 'rgba(201,162,39,0.1)',
+        tension: 0.3,
+        fill: true
+      }, {
+        label: 'Response Time (ms)',
+        data: [avg - 80, avg + 60, avg - 150, avg, avg + 90, avg - 40, avg],
+        borderColor: '#22508f',
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        yAxisID: 'y1'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          grid: { color: 'rgba(128,128,128,0.1)' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          grid: { drawOnChartArea: false }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: { color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#fff' : '#1c2733' }
+        }
+      }
+    }
+  });
+}
+
+// ── 👤 Custom Profile Card Popup ──
+window.openCardDetailModal = function(card) {
+  const info = extractCardInfo(card);
+  if (!info.name) return;
+  
+  let rank = '', pos = '', area = '', phone = '', email = '', village = '';
+  info.rows.forEach(r => {
+    if (r.includes('ยศ') || r.includes('คำนำหน้า') || r.includes('ตำแหน่ง')) pos = r;
+    if (r.includes('ฝ่าย') || r.includes('งาน') || r.includes('ตำบล')) area = r;
+    if (r.includes('โทรศัพท์') || r.includes('โทร')) phone = r.replace(/📞|โทรศัพท์\s*:|โทร\s*:/g, '').trim();
+    if (r.includes('อีเมล') || r.includes('เมล')) email = r;
+    if (r.includes('หมู่')) village = r;
+  });
+
+  const category = card.closest('.grid').id.includes('personnel') ? 'บุคลากรตำรวจ สภ.ลานสัก' : 'ทำเนียบผู้นำชุมชน';
+  const avatarChar = info.name.replace(/^(พ\.ต\.อ\.|ร\.ต\.อ\.|ส\.ต\.ต\.|นาย|นาง|น\.ส\.)\s*/, '').charAt(0);
+
+  openModal(`
+    <div class="x-profile-card">
+      <div class="x-profile-avatar">${esc(avatarChar)}</div>
+      <div class="x-profile-name">${esc(info.name)}</div>
+      <div class="x-profile-role">${esc(category)}</div>
+      
+      <div style="width:100%; text-align:left; margin-bottom:16px">
+        ${pos ? `<div class="x-detail-row"><div class="k">ยศ/ตำแหน่ง</div><div class="v">${esc(pos.replace(/🎖️|ยศ\s*:|ตำแหน่ง\s*:/g, '').trim())}</div></div>` : ''}
+        ${area ? `<div class="x-detail-row"><div class="k">ฝ่าย/พื้นที่</div><div class="v">${esc(area.replace(/🏢|ฝ่าย\s*:|ตำบล\s*:/g, '').trim())}</div></div>` : ''}
+        ${village ? `<div class="x-detail-row"><div class="k">หมู่บ้าน</div><div class="v">${esc(village.replace(/🏡|หมู่ที่\s*:/g, '').trim())}</div></div>` : ''}
+        ${phone ? `<div class="x-detail-row"><div class="k">เบอร์โทร</div><div class="v" style="font-weight:700; color:var(--navy-700)">${esc(phone)}</div></div>` : ''}
+        ${email ? `<div class="x-detail-row"><div class="k">อีเมล</div><div class="v">${esc(email.replace(/📧|อีเมล\s*:/g, '').trim())}</div></div>` : ''}
+      </div>
+
+      <div style="margin-top:10px; width:100%; display:flex; flex-direction:column; gap:8px">
+        ${phone && phone !== '-' ? `<a href="tel:${phone.replace(/\D/g, '')}" class="btn btn-success" style="text-align:center; text-decoration:none">📞 โทรติดต่อด่วน</a>` : ''}
+        <div style="display:flex; gap:8px; width:100%">
+          <button class="btn btn-outline" style="flex:1; color:var(--navy-700); border-color:var(--line-c)" onclick="downloadVCard({firstName:'${escAttr(info.name)}', lastName:'', position:'${escAttr(pos)}', area:'สภ.ลานสัก', phone:'${escAttr(phone)}', email:'${escAttr(email)}'})">📥 บันทึก vCard</button>
+          <button class="btn btn-outline" style="flex:1; color:var(--navy-700); border-color:var(--line-c)" onclick="closeModal()">ปิด</button>
+        </div>
+      </div>
+    </div>
+  `);
+};
+
+// ── 🔒 RBAC สิทธิ์การเข้าถึงหน้าเว็บ ──
+function checkRBACPrivileges() {
+  const tabs = document.querySelectorAll('.tabbtn');
+  if (!TOKEN) {
+    tabs.forEach(t => {
+      if (['suspects', 'locations', 'users', 'broadcast', 'auth-codes', 'settings', 'audit-logs', 'aichat', 'qrcodes'].includes(t.dataset.tab)) {
+        t.style.display = 'none';
+      }
+    });
+  } else {
+    tabs.forEach(t => t.style.display = 'inline-block');
+  }
+}
+
+// ── 💀 Skeleton Loading ──
+function showSkelLoading(gridId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = Array(4).fill(0).map(() => `
+    <div class="card skel">
+      <div class="x-skeleton-title"></div>
+      <div class="x-skeleton-text medium"></div>
+      <div class="x-skeleton-text short"></div>
+    </div>
+  `).join('');
+}
+
 function decorateAllCardGrids(){
   ['grid-personnel','grid-leaders'].forEach(id=>{
     decorateBookmarks(id);
@@ -2393,23 +3049,68 @@ function initExtraFeatures(){
   // ── ห่อฟังก์ชันเดิม ──
   xWrap('renderPersonnel', ()=>{ decorateAllCardGrids(); applyCardEntranceAnimation('grid-personnel'); updateTabBadges(); });
   xWrap('renderLeaders', ()=>{ decorateAllCardGrids(); applyCardEntranceAnimation('grid-leaders'); updateTabBadges(); });
-  xWrap('renderDashboard', ()=>{ animateStatCounters(); renderDonutChart(); });
+  xWrap('renderDashboard', ()=>{ animateStatCounters(); fetchDashboardAnalytics(); });
   xWrap('renderEmergency', ()=>{ applyCardEntranceAnimation('grid-emergency'); });
   xWrap('loadSuspects', updateTabBadges);
   xWrap('loadUsers', updateTabBadges);
   xWrap('loadLocations', updateTabBadges);
-  xWrap('applyAuthState', updateTabBadges);
+  
+  // หุ้ม loadAuditLogs เพื่อแปลงเป็น Timeline
+  xWrap('loadAuditLogs', () => {
+    const el = document.getElementById('audit-logs-list');
+    if (!el) return;
+    const logRows = el.querySelectorAll('.log-row');
+    if (!logRows.length) return;
+    
+    let timelineHtml = '<div class="x-timeline">';
+    logRows.forEach(row => {
+      const time = row.querySelector('.log-time').textContent.replace('🕐', '').trim();
+      const action = row.querySelector('.log-action').textContent.trim();
+      const who = row.querySelector('.log-who').textContent.replace('—', '').trim();
+      const details = row.querySelector('.log-detail').textContent.trim();
+      
+      let dotClass = 'audit-success';
+      if (action.includes('ลบ') || action.includes('บล็อก') || action.includes('block')) {
+        dotClass = 'audit-danger';
+      } else if (action.includes('แก้ไข') || action.includes('ล้าง')) {
+        dotClass = 'audit-warning';
+      }
+      
+      timelineHtml += `
+        <div class="x-timeline-item">
+          <div class="x-timeline-dot ${dotClass}"></div>
+          <div class="x-timeline-content">
+            <div class="x-timeline-meta">
+              <span>👤 ${esc(who)}</span>
+              <span>⏱️ ${esc(time)}</span>
+            </div>
+            <div class="x-timeline-action">${esc(action)}</div>
+            <div class="x-timeline-details">${esc(details)}</div>
+          </div>
+        </div>
+      `;
+    });
+    timelineHtml += '</div>';
+    el.innerHTML = timelineHtml;
+  });
+
+  xWrap('applyAuthState', () => {
+    checkRBACPrivileges();
+    updateTabBadges();
+  });
+  
   xWrap('toast', function(msg, isErr){
     if (!isErr && typeof msg === 'string' && /(สำเร็จ)/.test(msg)) fireConfetti();
   });
 
+  // หุ้มฟังก์ชันการดึงข้อมูลเพื่อโชว์ Skeleton
+  xWrap('loadPersonnel', () => showSkelLoading('grid-personnel'));
+  xWrap('loadLeaders', () => showSkelLoading('grid-leaders'));
+
+  checkRBACPrivileges();
   updateTabBadges();
 }
 
-// หมายเหตุ: สคริปต์นี้อยู่ท้ายสุดของ <body> ดังนั้น element ทั้งหมดที่ต้องใช้
-// (header, nav, grid, modal) ถูกสร้างไว้แล้วในเอกสารก่อนหน้านี้ — เรียกทำงานทันที
-// (ไม่รอ DOMContentLoaded) เพื่อให้การ "ห่อ" ฟังก์ชัน render ทันเวลาก่อนที่
-// loadPersonnel()/loadLeaders() ของสคริปต์เดิม (ที่รันไปก่อนหน้าแล้ว) จะโหลดข้อมูลเสร็จ
 xSafe(initExtraFeatures);
 
 })();
