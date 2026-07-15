@@ -3365,7 +3365,7 @@ document.querySelectorAll('.tabbtn[data-tab]').forEach(btn => {
 </style>
 
 <script>
-// ── 📷 QR Code จุดเสี่ยง ──
+// ── 📷 QR Code ตรวจสถานที่ (ซีเจ, โลตัส, เซเว่น, ธนาคาร ฯลฯ) ──
 let cacheQRLocations = [];
 
 async function loadQRCodes() {
@@ -3382,10 +3382,10 @@ async function loadQRCodes() {
   `).join('');
 
   try {
-    const r = await fetch('/staff/api/locations', { headers: authHeaders() });
+    const r = await fetch('/staff/api/qrcodes', { headers: authHeaders() });
     const d = await r.json();
-    cacheQRLocations = (d.data || []).filter(l => l.title && l.title !== 'สถานที่ไม่มีชื่อ');
-    if (cnt) cnt.textContent = `ทั้งหมด ${cacheQRLocations.length} จุดเสี่ยง`;
+    cacheQRLocations = d.data || [];
+    if (cnt) cnt.textContent = `ทั้งหมด ${cacheQRLocations.length} สถานที่`;
     renderQRCodes();
   } catch (e) {
     grid.innerHTML = `<div class="empty">❌ ไม่สามารถโหลดข้อมูลได้: ${esc(e.message)}</div>`;
@@ -3399,87 +3399,48 @@ function renderQRCodes() {
   if (!grid) return;
 
   const q = (searchBox ? searchBox.value : '').toLowerCase();
-  const list = cacheQRLocations.filter(l =>
-    !q || (l.title + l.address + l.user + l.report).toLowerCase().includes(q)
+  const list = cacheQRLocations.filter(filename =>
+    !q || filename.toLowerCase().includes(q)
   );
 
   if (!list.length) {
     grid.innerHTML = q
-      ? `<div class="empty">🔍 ไม่พบ "${esc(q)}" ในรายการจุดเสี่ยง</div>`
-      : `<div class="empty">📭 ยังไม่มีจุดเสี่ยงในระบบ — บันทึกผ่านบอท LINE ได้เลยครับ</div>`;
-    if (cnt) cnt.textContent = `0 จุดเสี่ยง`;
+      ? `<div class="empty">🔍 ไม่พบ "${esc(q)}" ในรายการสถานที่ตรวจ</div>`
+      : `<div class="empty">📭 ยังไม่มีรูปภาพ QR Code ในระบบ</div>`;
+    if (cnt) cnt.textContent = `0 สถานที่`;
     return;
   }
 
-  if (cnt) cnt.textContent = `แสดง ${list.length} จาก ${cacheQRLocations.length} จุดเสี่ยง`;
+  if (cnt) cnt.textContent = `แสดง ${list.length} จาก ${cacheQRLocations.length} สถานที่`;
 
   grid.className = 'grid-qr';
-  grid.innerHTML = list.map((l, i) => {
-    const hasCoord = l.latitude && l.longitude;
-    const mapsUrl = hasCoord
-      ? `https://www.google.com/maps?q=${encodeURIComponent(l.latitude)},${encodeURIComponent(l.longitude)}`
-      : null;
-    const qrContent = mapsUrl || `จุดเสี่ยง: ${l.title}\n${l.address || ''}\nสภ.ลานสัก`;
+  grid.innerHTML = list.map(filename => {
+    // ตัดนามสกุลไฟล์ออกเพื่อใช้เป็นชื่อแสดงผล
+    const displayName = filename.replace(/\.[^/.]+$/, "");
+    const imageUrl = `/qrcodes/${encodeURIComponent(filename)}`;
 
     return `
       <div class="qr-location-card">
-        <div class="qr-canvas-wrap">
-          <canvas id="qr-canvas-${i}" width="160" height="160"></canvas>
+        <div class="qr-canvas-wrap" style="background:#fff; padding:8px; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.08);">
+          <img src="${escAttr(imageUrl)}" style="width:160px; height:160px; object-fit:contain; display:block;" alt="${escAttr(displayName)}">
         </div>
-        <div class="qr-title">📍 ${esc(l.title)}</div>
-        ${l.address ? `<div class="qr-addr">🏠 ${esc(l.address)}</div>` : ''}
-        <div class="qr-meta">
-          ${l.user ? `<span>✍️ ${esc(l.user)}</span>` : ''}
-          ${l.dateTime ? `<span>🕒 ${esc(l.dateTime)}</span>` : ''}
-        </div>
-        ${l.report ? `<div style="font-size:12px;color:var(--danger);text-align:center;padding:4px 8px;background:rgba(192,57,43,.07);border-radius:8px;width:100%">⚠️ ${esc(l.report)}</div>` : ''}
-        <div class="qr-actions">
-          ${mapsUrl ? `<a class="qr-btn maps" href="${escAttr(mapsUrl)}" target="_blank" rel="noopener">🗺️ Google Maps</a>` : ''}
-          <button class="qr-btn dl" onclick="downloadQR('qr-canvas-${i}', '${escAttr(l.title)}')">⬇️ บันทึก QR</button>
+        <div class="qr-title" style="margin-top:10px; font-weight:700; color:var(--navy-700);">📍 ${esc(displayName)}</div>
+        <div class="qr-addr" style="font-size:12px; color:var(--muted);">ไฟล์: ${esc(filename)}</div>
+        <div class="qr-actions" style="margin-top:10px; width:100%;">
+          <button class="qr-btn dl" style="width:100%; display:block;" onclick="downloadQRPicture('${escAttr(filename)}')">⬇️ ดาวน์โหลด QR Code</button>
         </div>
       </div>
     `;
   }).join('');
-
-  // Generate QR codes หลัง DOM update
-  requestAnimationFrame(() => {
-    list.forEach((l, i) => {
-      const canvas = document.getElementById(`qr-canvas-${i}`);
-      if (!canvas) return;
-      const hasCoord = l.latitude && l.longitude;
-      const qrContent = hasCoord
-        ? `https://www.google.com/maps?q=${encodeURIComponent(l.latitude)},${encodeURIComponent(l.longitude)}`
-        : `จุดเสี่ยง: ${l.title}\n${l.address || ''}\nสภ.ลานสัก`;
-
-      if (typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(canvas, qrContent, {
-          width: 160,
-          margin: 1,
-          color: { dark: '#0c1f38', light: '#ffffff' }
-        }, err => {
-          if (err) console.warn('QR Error:', err);
-        });
-      } else {
-        // Fallback: ใช้ Google Charts API
-        const img = document.createElement('img');
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrContent)}&color=0c1f38`;
-        img.style.cssText = 'width:160px;height:160px;border-radius:6px';
-        canvas.replaceWith(img);
-      }
-    });
-  });
 }
 
-function downloadQR(canvasId, title) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas || canvas.tagName !== 'CANVAS') {
-    alert('ไม่สามารถบันทึก QR ได้');
-    return;
-  }
+function downloadQRPicture(filename) {
   const link = document.createElement('a');
-  link.download = `QR_${title.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9]/g, '_')}.png`;
-  link.href = canvas.toDataURL('image/png');
+  link.href = `/qrcodes/${encodeURIComponent(filename)}`;
+  link.download = filename;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
 </script>
 </body>
