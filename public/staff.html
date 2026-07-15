@@ -935,9 +935,12 @@ function switchTab(name){
   document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
   rememberTab(name);
-  if (name==='suspects' && TOKEN) loadSuspects();
-  if (name==='locations' && TOKEN) loadLocations();
-  if (name==='users' && TOKEN) loadUsers();
+  if (name==='suspects'   && TOKEN) loadSuspects();
+  if (name==='locations'  && TOKEN) loadLocations();
+  if (name==='users'      && TOKEN) loadUsers();
+  if (name==='auth-codes' && TOKEN) loadAuthCodes();
+  if (name==='settings'   && TOKEN) loadSettings();
+  if (name==='audit-logs' && TOKEN) loadAuditLogs();
   if (name==='dashboard') renderDashboard();
 }
 
@@ -1145,6 +1148,12 @@ function applyAuthState(){
     document.getElementById('content-users').style.display='block';
     document.getElementById('lock-broadcast').style.display='none';
     document.getElementById('content-broadcast').style.display='block';
+    document.getElementById('lock-auth-codes').style.display='none';
+    document.getElementById('content-auth-codes').style.display='block';
+    document.getElementById('lock-settings').style.display='none';
+    document.getElementById('content-settings').style.display='block';
+    document.getElementById('lock-audit-logs').style.display='none';
+    document.getElementById('content-audit-logs').style.display='block';
     resetIdleTimer();
   } else {
     box.innerHTML = themeBtnHtml + '<button class="btn btn-gold" onclick="openLogin()">🔐 เข้าสู่ระบบเจ้าหน้าที่</button>';
@@ -1158,6 +1167,12 @@ function applyAuthState(){
     document.getElementById('content-users').style.display='none';
     document.getElementById('lock-broadcast').style.display='block';
     document.getElementById('content-broadcast').style.display='none';
+    document.getElementById('lock-auth-codes').style.display='block';
+    document.getElementById('content-auth-codes').style.display='none';
+    document.getElementById('lock-settings').style.display='block';
+    document.getElementById('content-settings').style.display='none';
+    document.getElementById('lock-audit-logs').style.display='block';
+    document.getElementById('content-audit-logs').style.display='none';
     clearTimeout(idleTimer); clearTimeout(warnTimer);
   }
   renderPersonnel(); renderLeaders(); renderDashboard();
