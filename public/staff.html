@@ -1215,16 +1215,16 @@
           <!-- เลือกกลุ่ม -->
           <div id="bcast-panel-role" class="bcast-target-panel" style="display:none">
             <div style="display:flex; flex-wrap:wrap; gap:10px;">
-              <label class="role-chip" id="chip-Staff">
-                <input type="checkbox" class="bcast-role-cb" value="Staff" onchange="updateBcastRoleChips()">
-                <span>👮‍♂️ เจ้าหน้าที่</span>
+              <label class="role-chip" id="chip-adminmaster">
+                <input type="checkbox" class="bcast-role-cb" value="adminmaster" onchange="updateBcastRoleChips()">
+                <span>👮‍♂️ เจ้าหน้าที่ (Master)</span>
               </label>
-              <label class="role-chip" id="chip-Admin">
-                <input type="checkbox" class="bcast-role-cb" value="Admin" onchange="updateBcastRoleChips()">
+              <label class="role-chip" id="chip-admin">
+                <input type="checkbox" class="bcast-role-cb" value="admin" onchange="updateBcastRoleChips()">
                 <span>🔑 Admin</span>
               </label>
-              <label class="role-chip" id="chip-User">
-                <input type="checkbox" class="bcast-role-cb" value="User" onchange="updateBcastRoleChips()">
+              <label class="role-chip" id="chip-people">
+                <input type="checkbox" class="bcast-role-cb" value="people" onchange="updateBcastRoleChips()">
                 <span>👤 ผู้ใช้ทั่วไป</span>
               </label>
             </div>
@@ -2114,9 +2114,9 @@ function setBcastTarget(mode) {
 
 function updateBcastRoleChips() {
   const selected = Array.from(document.querySelectorAll('.bcast-role-cb:checked')).map(cb => cb.value);
-  const labels = { Staff:'เจ้าหน้าที่', Admin:'Admin', User:'ผู้ใช้ทั่วไป' };
+  const labels = { adminmaster:'เจ้าหน้าที่ (Master)', admin:'Admin', people:'ผู้ใช้ทั่วไป' };
   // Style chips
-  ['Staff','Admin','User'].forEach(r => {
+  ['adminmaster','admin','people'].forEach(r => {
     const chip = document.getElementById('chip-'+r);
     if (!chip) return;
     const checked = selected.includes(r);
@@ -2129,8 +2129,11 @@ function updateBcastRoleChips() {
   if (selected.length === 0) {
     preview.textContent = '';
   } else {
-    const count = cacheUsers.filter(u => selected.includes(u.role)).length;
-    preview.textContent = `เลือก: ${selected.map(r => labels[r]||r).join(', ')} — ผู้บริโภคทั้งหมด ${count} คน`;
+    const count = cacheUsers.filter(u => {
+      const uRole = (u.role || 'people').toLowerCase().trim();
+      return selected.includes(uRole);
+    }).length;
+    preview.textContent = `เลือก: ${selected.map(r => labels[r]||r).join(', ')} — ผู้รับทั้งหมด ${count} คน`;
   }
 }
 
@@ -2167,7 +2170,10 @@ async function sendBroadcast(){
   if (bcastTargetMode === 'role') {
     const selectedRoles = Array.from(document.querySelectorAll('.bcast-role-cb:checked')).map(cb => cb.value);
     if (selectedRoles.length === 0){ toast('กรุณาเลือกกลุ่มอย่างน้อย 1 กลุ่ม', true); return; }
-    targetUserIds = cacheUsers.filter(u => selectedRoles.includes(u.role)).map(u => u.userId);
+    targetUserIds = cacheUsers.filter(u => {
+      const uRole = (u.role || 'people').toLowerCase().trim();
+      return selectedRoles.includes(uRole);
+    }).map(u => u.userId);
     if (targetUserIds.length === 0){ toast('ไม่พบผู้ใช้ในกลุ่มที่เลือก', true); return; }
   } else if (bcastTargetMode === 'select') {
     targetUserIds = cacheUsers.filter(u => bcastSelected.has(u.userId)).map(u => u.userId);
