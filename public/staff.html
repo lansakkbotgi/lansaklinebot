@@ -226,6 +226,37 @@
   .bcast-user-row .bn{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .bcast-user-row .brole{font-size:10px; color:var(--muted); flex-shrink:0;}
 
+  /* ── Broadcast Target Tabs ── */
+  .bcast-target-tabs{
+    display:flex; gap:6px; margin-bottom:12px; background:#f0f2f5;
+    padding:5px; border-radius:10px;
+  }
+  .btab{
+    flex:1; padding:9px 8px; border:none; border-radius:8px; cursor:pointer;
+    font-size:13px; font-weight:600; background:transparent; color:var(--muted);
+    transition:.18s; white-space:nowrap;
+  }
+  .btab:hover{ background:#e4e8ef; color:var(--ink); }
+  .btab.active{
+    background:#fff; color:var(--navy-700);
+    box-shadow:0 1px 4px rgba(0,0,0,.12);
+  }
+  .bcast-target-panel{ animation:fadeIn .15s; }
+  .bcast-target-info{
+    padding:10px 14px; background:#f0f9ff; border:1px solid #bae6fd;
+    border-radius:8px; font-size:13.5px; color:#0369a1;
+  }
+  .role-chip{
+    display:flex; align-items:center; gap:8px;
+    padding:10px 16px; border-radius:10px; cursor:pointer;
+    border:1.5px solid var(--line-c); background:#fff;
+    font-size:13.5px; font-weight:500; transition:.15s;
+    user-select:none;
+  }
+  .role-chip:hover{ border-color:var(--gold-400); background:var(--gold-50,#fffbeb); }
+  .role-chip input[type=checkbox]{ display:none; }
+  .role-chip span{ pointer-events:none; }
+
   .status-badge{
     font-size:11px; padding:3px 10px; border-radius:99px; margin-left:8px; vertical-align:middle;
     background:var(--card); border:1px solid var(--line-c); color:var(--muted); display:inline-block;
@@ -1163,25 +1194,52 @@
       </div>
       <div class="card" style="max-width:640px">
         <div class="field">
-          <label>ส่งถึง</label>
-          <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px; background:#f9fafb; padding:12px; border-radius:8px; border:1px solid var(--line-c);">
-            <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
-              <input type="checkbox" id="bcast-target-all" checked onchange="toggleBcastTargets(this)" style="width:18px;height:18px;">
-              <span>☑ ส่งหาทุกคน</span>
-            </label>
-            <div style="height:1px; background:var(--line-c); margin:4px 0;"></div>
-            <label style="display:flex; align-items:center; gap:8px; color:var(--navy-700); cursor:pointer;">
-              <input type="checkbox" class="bcast-target-role" value="Staff" disabled style="width:16px;height:16px;">
-              <span>☐ เจ้าหน้าที่ (Staff)</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; color:var(--navy-700); cursor:pointer;">
-              <input type="checkbox" class="bcast-target-role" value="Admin" disabled style="width:16px;height:16px;">
-              <span>☐ ผู้ดูแลระบบ (Admin)</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; color:var(--navy-700); cursor:pointer;">
-              <input type="checkbox" class="bcast-target-role" value="User" disabled style="width:16px;height:16px;">
-              <span>☐ ผู้ใช้ทั่วไป (User)</span>
-            </label>
+          <!-- ── ส่งถึง: Tab Switcher ── -->
+          <div class="bcast-target-tabs">
+            <button type="button" class="btab active" id="btab-all" onclick="setBcastTarget('all')">
+              👥 ทุกคน
+            </button>
+            <button type="button" class="btab" id="btab-role" onclick="setBcastTarget('role')">
+              🏷️ เลือกกลุ่ม
+            </button>
+            <button type="button" class="btab" id="btab-select" onclick="setBcastTarget('select')">
+              ☑️ เลือกรายชื่อ
+            </button>
+          </div>
+
+          <!-- ส่งทุกคน -->
+          <div id="bcast-panel-all" class="bcast-target-panel active">
+            <div class="bcast-target-info">📢 จะส่งข้อความหาผู้ใช้ <strong>ทุกคน</strong> ที่เคยแอดบอท</div>
+          </div>
+
+          <!-- เลือกกลุ่ม -->
+          <div id="bcast-panel-role" class="bcast-target-panel" style="display:none">
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+              <label class="role-chip" id="chip-Staff">
+                <input type="checkbox" class="bcast-role-cb" value="Staff" onchange="updateBcastRoleChips()">
+                <span>👮‍♂️ เจ้าหน้าที่</span>
+              </label>
+              <label class="role-chip" id="chip-Admin">
+                <input type="checkbox" class="bcast-role-cb" value="Admin" onchange="updateBcastRoleChips()">
+                <span>🔑 Admin</span>
+              </label>
+              <label class="role-chip" id="chip-User">
+                <input type="checkbox" class="bcast-role-cb" value="User" onchange="updateBcastRoleChips()">
+                <span>👤 ผู้ใช้ทั่วไป</span>
+              </label>
+            </div>
+            <div id="bcast-role-preview" style="margin-top:8px; font-size:12px; color:var(--muted);"></div>
+          </div>
+
+          <!-- เลือกรายชื่อ -->
+          <div id="bcast-panel-select" class="bcast-target-panel" style="display:none">
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+              <input type="text" class="search-input" style="flex:1;" placeholder="ค้นหาชื่อ..." id="bcast-user-search" oninput="renderBcastUserList()">
+              <button type="button" class="mini-btn" onclick="bcastSelectAll(true)">เลือกทั้งหมด</button>
+              <button type="button" class="mini-btn" onclick="bcastSelectAll(false)">ล้าง</button>
+            </div>
+            <div id="bcast-user-list" style="max-height:200px; overflow-y:auto; border:1px solid var(--line-c); border-radius:10px; padding:6px;"></div>
+            <div style="font-size:12px; color:var(--muted); margin-top:6px; text-align:right;" id="bcast-selected-count">เลือกแล้ว 0 คน</div>
           </div>
         </div>
         <div class="field">
@@ -2038,12 +2096,42 @@ function updateBcastSelectedCount(){
   if (el) el.textContent = `เลือกแล้ว ${bcastSelected.size} คน`;
 }
 
-function toggleBcastTargets(allCheckbox) {
-  const roleCheckboxes = document.querySelectorAll('.bcast-target-role');
-  roleCheckboxes.forEach(cb => {
-    cb.disabled = allCheckbox.checked;
-    if (allCheckbox.checked) cb.checked = false;
+/* ── Broadcast Target Tabs ── */
+let bcastTargetMode = 'all';
+
+function setBcastTarget(mode) {
+  bcastTargetMode = mode;
+  // Update tab active state
+  ['all','role','select'].forEach(m => {
+    const btn = document.getElementById('btab-'+m);
+    const panel = document.getElementById('bcast-panel-'+m);
+    if (btn) btn.classList.toggle('active', m === mode);
+    if (panel) panel.style.display = m === mode ? 'block' : 'none';
   });
+  // Load user list when switching to select
+  if (mode === 'select' && cacheUsers.length > 0) renderBcastUserList();
+}
+
+function updateBcastRoleChips() {
+  const selected = Array.from(document.querySelectorAll('.bcast-role-cb:checked')).map(cb => cb.value);
+  const labels = { Staff:'เจ้าหน้าที่', Admin:'Admin', User:'ผู้ใช้ทั่วไป' };
+  // Style chips
+  ['Staff','Admin','User'].forEach(r => {
+    const chip = document.getElementById('chip-'+r);
+    if (!chip) return;
+    const checked = selected.includes(r);
+    chip.style.background = checked ? 'var(--gold-100)' : '';
+    chip.style.borderColor = checked ? 'var(--gold-500)' : '';
+    chip.style.color = checked ? 'var(--navy-700)' : '';
+    chip.style.fontWeight = checked ? 'bold' : '';
+  });
+  const preview = document.getElementById('bcast-role-preview');
+  if (selected.length === 0) {
+    preview.textContent = '';
+  } else {
+    const count = cacheUsers.filter(u => selected.includes(u.role)).length;
+    preview.textContent = `เลือก: ${selected.map(r => labels[r]||r).join(', ')} — ผู้บริโภคทั้งหมด ${count} คน`;
+  }
 }
 
 let bcastImageBase64 = null;
@@ -2071,25 +2159,24 @@ function removeBcastImage() {
 async function sendBroadcast(){
   const message = val('bcast-message');
   const includeMenu = document.getElementById('bcast-menu').checked;
-  const isAll = document.getElementById('bcast-target-all').checked;
   
   if (!message && !bcastImageBase64){ toast('กรุณากรอกข้อความ หรือแนบรูปภาพอย่างน้อย 1 อย่าง', true); return; }
   
-  const selectedRoles = Array.from(document.querySelectorAll('.bcast-target-role:checked')).map(cb => cb.value);
-  
-  if (!isAll && selectedRoles.length === 0){ toast('กรุณาเลือกผู้รับอย่างน้อย 1 กลุ่ม', true); return; }
-  
   let targetUserIds = null;
-  if (!isAll) {
-    // กรอง User ตาม Role
+
+  if (bcastTargetMode === 'role') {
+    const selectedRoles = Array.from(document.querySelectorAll('.bcast-role-cb:checked')).map(cb => cb.value);
+    if (selectedRoles.length === 0){ toast('กรุณาเลือกกลุ่มอย่างน้อย 1 กลุ่ม', true); return; }
     targetUserIds = cacheUsers.filter(u => selectedRoles.includes(u.role)).map(u => u.userId);
-    if (targetUserIds.length === 0) {
-      toast('ไม่พบผู้ใช้ในกลุ่มที่เลือก', true);
-      return;
-    }
+    if (targetUserIds.length === 0){ toast('ไม่พบผู้ใช้ในกลุ่มที่เลือก', true); return; }
+  } else if (bcastTargetMode === 'select') {
+    targetUserIds = cacheUsers.filter(u => bcastSelected.has(u.userId)).map(u => u.userId);
+    if (targetUserIds.length === 0){ toast('กรุณาเลือกผู้รับอย่างน้อย 1 คน', true); return; }
   }
 
-  const confirmMsg = isAll ? 'ส่งข้อความหาผู้ใช้ทุกคน?' : `ส่งข้อความหากลุ่มเป้าหมาย (${targetUserIds.length} คน)?`;
+  const confirmMsg = bcastTargetMode === 'all'
+    ? 'ส่งข้อความหาผู้ใช้ทุกคน?'
+    : `ส่งข้อความหากลุ่มเป้าหมาย (${targetUserIds.length} คน)?`;
   if (!confirm(confirmMsg)) return;
 
   const box = document.getElementById('bcast-result');
