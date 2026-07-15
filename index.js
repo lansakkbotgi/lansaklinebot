@@ -991,31 +991,59 @@ return replyText(
           return replyText(replyToken, '🔧 ระบบ AI ผู้ช่วยอยู่ระหว่างปิดปรับปรุงชั่วคราวครับ\nหากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อเจ้าหน้าที่โดยตรงครับ');
         }
         if (typeof askAI === 'function') {
-          // ดึงข้อมูลเพื่อสร้างบริบทให้ AI
-          const [personnel, leaders] = await Promise.all([
-            fetchPersonnel(),
-            fetchLeaders()
+          // ตรวจสอบสิทธิ์ความปลอดภัยสูงสุดและดึงข้อมูลโปรไฟล์ผู้ใช้งาน
+          let displayName = 'ผู้ใช้งาน';
+          try {
+            const profile = await client.getProfile(userId);
+            displayName = profile.displayName || 'ผู้ใช้งาน';
+          } catch (e) { console.error('Get profile for AI error:', e.message); }
+
+          const isMaster = await isMasterAdmin(userId);
+
+          // ดึงฐานข้อมูลตามสิทธิ์ (Security Constraint)
+          const [personnel, leaders, locations, suspects] = await Promise.all([
+            fetchPersonnel().catch(() => []),
+            fetchLeaders().catch(() => []),
+            fetchLocations().catch(() => []),
+            isUserAdmin ? fetchAllData().catch(() => []) : Promise.resolve([])
           ]);
           
-          const personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
+          let personnelText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+          let suspectsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+          let locationsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+
+          if (isUserAdmin) {
+            personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
+            suspectsText = suspects.length > 0
+              ? suspects.map(s => `- ${s.fullName} คดี: ${s.crime} สถานะ: ${s.status} พื้นที่: ${s.area} หมายเลขคดี: ${s.caseNo || '-'}`).join('\n')
+              : 'ไม่มีข้อมูลผู้ต้องหาในระบบ';
+            locationsText = locations.length > 0
+              ? locations.map(l => `- ${l.title} ที่อยู่: ${l.address || '-'} พิกัด: ${l.latitude},${l.longitude} ผู้บันทึก: ${l.user || '-'}`).join('\n')
+              : 'ไม่มีข้อมูลสถานที่จุดเสี่ยง';
+          }
+
           const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
           
           const sheetContext = `
 ทำเนียบบุคลากร สภ.ลานสัก:
 ${personnelText}
 
-ทำเนียบผู้นำตำบล:
+ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):
 ${leadersText}
 
-เบอร์โทรฉุกเฉินหลัก:
-- สภ.ลานสัก (สายด่วน): 056537095
-- โรงพยาบาลลานสัก: 056537086
-- การแพทย์ฉุกเฉิน (EMS): 1669
-- ดับเพลิง/ไฟไหม้: 0897037534
-- การไฟฟ้าส่วนภูมิภาค: 1129
+รายการสถานที่/จุดตรวจเสี่ยงภัย:
+${locationsText}
+
+บัญชีข้อมูลผู้ต้องหาและหมายจับ (เฝ้าระวัง):
+${suspectsText}
           `.trim();
 
-          const aiReply = await askAI(searchQuery, sheetContext);
+          const aiReply = await askAI(searchQuery, sheetContext, {
+            isAdmin: isUserAdmin,
+            isMasterAdmin: isMaster,
+            userName: displayName,
+            userId: userId
+          });
           if (aiReply) return replyText(replyToken, aiReply);
         }
       } catch (aiErr) {
