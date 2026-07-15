@@ -2547,14 +2547,15 @@ async function loadAuditLogs() {
   } catch(e) { el.innerHTML = `<div class="empty">❌ ${e.message}</div>`; }
 }
 
-// ── เชื่อมกับ switchTab เดิม: โหลดข้อมูลเมื่อสลับแท็บ ──
-const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
-function switchTab(name) {
-  if (_origSwitchTab) _origSwitchTab(name);
-  if (name === 'auth-codes') loadAuthCodes();
-  if (name === 'settings')   loadSettings();
-  if (name === 'audit-logs') loadAuditLogs();
-}
+// ── โหลดข้อมูลเมื่อสลับแท็บ (ไม่ wrap switchTab เพื่อป้องกัน infinite loop) ──
+document.querySelectorAll('.tabbtn[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    if (tab === 'auth-codes') loadAuthCodes();
+    if (tab === 'settings')   loadSettings();
+    if (tab === 'audit-logs') loadAuditLogs();
+  });
+});
 </script>
 </body>
 </html>
