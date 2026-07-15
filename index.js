@@ -991,7 +991,31 @@ return replyText(
           return replyText(replyToken, '🔧 ระบบ AI ผู้ช่วยอยู่ระหว่างปิดปรับปรุงชั่วคราวครับ\nหากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อเจ้าหน้าที่โดยตรงครับ');
         }
         if (typeof askAI === 'function') {
-          const aiReply = await askAI(searchQuery);
+          // ดึงข้อมูลเพื่อสร้างบริบทให้ AI
+          const [personnel, leaders] = await Promise.all([
+            fetchPersonnel(),
+            fetchLeaders()
+          ]);
+          
+          const personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
+          const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
+          
+          const sheetContext = `
+ทำเนียบบุคลากร สภ.ลานสัก:
+${personnelText}
+
+ทำเนียบผู้นำตำบล:
+${leadersText}
+
+เบอร์โทรฉุกเฉินหลัก:
+- สภ.ลานสัก (สายด่วน): 056537095
+- โรงพยาบาลลานสัก: 056537086
+- การแพทย์ฉุกเฉิน (EMS): 1669
+- ดับเพลิง/ไฟไหม้: 0897037534
+- การไฟฟ้าส่วนภูมิภาค: 1129
+          `.trim();
+
+          const aiReply = await askAI(searchQuery, sheetContext);
           if (aiReply) return replyText(replyToken, aiReply);
         }
       } catch (aiErr) {
