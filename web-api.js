@@ -88,7 +88,8 @@ function requireAuth(req, res, next) {
   next();
 }
 
-router.use(express.json());
+router.use(express.json({ limit: '50mb' }));
+router.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ============================================================
 //  Auth
