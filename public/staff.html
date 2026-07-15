@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root{
     --navy-950:#081524;
@@ -3272,6 +3273,214 @@ document.querySelectorAll('.tabbtn[data-tab]').forEach(btn => {
     if (tab === 'audit-logs') loadAuditLogs();
   });
 });
+</script>
+
+<!-- ══════════════════════════════════════════
+     📷 QR Code จุดเสี่ยง — loadQRCodes / renderQRCodes
+══════════════════════════════════════════ -->
+<style>
+.qr-location-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  padding: 18px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: transform .18s, box-shadow .18s;
+  border: 1px solid var(--line-c);
+}
+.qr-location-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0,0,0,.13);
+}
+.qr-location-card .qr-canvas-wrap {
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.qr-location-card .qr-title {
+  font-family: 'Kanit', sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--navy-700);
+  text-align: center;
+  margin: 0;
+}
+.qr-location-card .qr-addr {
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.qr-location-card .qr-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.qr-location-card .qr-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+.qr-location-card .qr-btn {
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: .15s;
+}
+.qr-location-card .qr-btn.maps {
+  background: var(--success);
+  color: #fff;
+}
+.qr-location-card .qr-btn.maps:hover { opacity: .85; }
+.qr-location-card .qr-btn.dl {
+  background: var(--navy-700);
+  color: #fff;
+}
+.qr-location-card .qr-btn.dl:hover { opacity: .85; }
+.qr-location-card .qr-btn.report {
+  background: var(--gold-500);
+  color: var(--navy-950);
+}
+.grid-qr {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+</style>
+
+<script>
+// ── 📷 QR Code จุดเสี่ยง ──
+let cacheQRLocations = [];
+
+async function loadQRCodes() {
+  const grid = document.getElementById('grid-qrcodes');
+  const cnt = document.getElementById('cnt-qrcodes');
+  if (!grid) return;
+
+  grid.innerHTML = Array(4).fill(0).map(() => `
+    <div class="qr-location-card">
+      <div class="x-skeleton-title" style="width:140px;height:140px;border-radius:10px"></div>
+      <div class="x-skeleton-text medium"></div>
+      <div class="x-skeleton-text short"></div>
+    </div>
+  `).join('');
+
+  try {
+    const r = await fetch('/staff/api/locations', { headers: authHeaders() });
+    const d = await r.json();
+    cacheQRLocations = (d.data || []).filter(l => l.title && l.title !== 'สถานที่ไม่มีชื่อ');
+    if (cnt) cnt.textContent = `ทั้งหมด ${cacheQRLocations.length} จุดเสี่ยง`;
+    renderQRCodes();
+  } catch (e) {
+    grid.innerHTML = `<div class="empty">❌ ไม่สามารถโหลดข้อมูลได้: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderQRCodes() {
+  const grid = document.getElementById('grid-qrcodes');
+  const searchBox = document.getElementById('search-qrcodes');
+  const cnt = document.getElementById('cnt-qrcodes');
+  if (!grid) return;
+
+  const q = (searchBox ? searchBox.value : '').toLowerCase();
+  const list = cacheQRLocations.filter(l =>
+    !q || (l.title + l.address + l.user + l.report).toLowerCase().includes(q)
+  );
+
+  if (!list.length) {
+    grid.innerHTML = q
+      ? `<div class="empty">🔍 ไม่พบ "${esc(q)}" ในรายการจุดเสี่ยง</div>`
+      : `<div class="empty">📭 ยังไม่มีจุดเสี่ยงในระบบ — บันทึกผ่านบอท LINE ได้เลยครับ</div>`;
+    if (cnt) cnt.textContent = `0 จุดเสี่ยง`;
+    return;
+  }
+
+  if (cnt) cnt.textContent = `แสดง ${list.length} จาก ${cacheQRLocations.length} จุดเสี่ยง`;
+
+  grid.className = 'grid-qr';
+  grid.innerHTML = list.map((l, i) => {
+    const hasCoord = l.latitude && l.longitude;
+    const mapsUrl = hasCoord
+      ? `https://www.google.com/maps?q=${encodeURIComponent(l.latitude)},${encodeURIComponent(l.longitude)}`
+      : null;
+    const qrContent = mapsUrl || `จุดเสี่ยง: ${l.title}\n${l.address || ''}\nสภ.ลานสัก`;
+
+    return `
+      <div class="qr-location-card">
+        <div class="qr-canvas-wrap">
+          <canvas id="qr-canvas-${i}" width="160" height="160"></canvas>
+        </div>
+        <div class="qr-title">📍 ${esc(l.title)}</div>
+        ${l.address ? `<div class="qr-addr">🏠 ${esc(l.address)}</div>` : ''}
+        <div class="qr-meta">
+          ${l.user ? `<span>✍️ ${esc(l.user)}</span>` : ''}
+          ${l.dateTime ? `<span>🕒 ${esc(l.dateTime)}</span>` : ''}
+        </div>
+        ${l.report ? `<div style="font-size:12px;color:var(--danger);text-align:center;padding:4px 8px;background:rgba(192,57,43,.07);border-radius:8px;width:100%">⚠️ ${esc(l.report)}</div>` : ''}
+        <div class="qr-actions">
+          ${mapsUrl ? `<a class="qr-btn maps" href="${escAttr(mapsUrl)}" target="_blank" rel="noopener">🗺️ Google Maps</a>` : ''}
+          <button class="qr-btn dl" onclick="downloadQR('qr-canvas-${i}', '${escAttr(l.title)}')">⬇️ บันทึก QR</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Generate QR codes หลัง DOM update
+  requestAnimationFrame(() => {
+    list.forEach((l, i) => {
+      const canvas = document.getElementById(`qr-canvas-${i}`);
+      if (!canvas) return;
+      const hasCoord = l.latitude && l.longitude;
+      const qrContent = hasCoord
+        ? `https://www.google.com/maps?q=${encodeURIComponent(l.latitude)},${encodeURIComponent(l.longitude)}`
+        : `จุดเสี่ยง: ${l.title}\n${l.address || ''}\nสภ.ลานสัก`;
+
+      if (typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(canvas, qrContent, {
+          width: 160,
+          margin: 1,
+          color: { dark: '#0c1f38', light: '#ffffff' }
+        }, err => {
+          if (err) console.warn('QR Error:', err);
+        });
+      } else {
+        // Fallback: ใช้ Google Charts API
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrContent)}&color=0c1f38`;
+        img.style.cssText = 'width:160px;height:160px;border-radius:6px';
+        canvas.replaceWith(img);
+      }
+    });
+  });
+}
+
+function downloadQR(canvasId, title) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || canvas.tagName !== 'CANVAS') {
+    alert('ไม่สามารถบันทึก QR ได้');
+    return;
+  }
+  const link = document.createElement('a');
+  link.download = `QR_${title.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9]/g, '_')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
 </script>
 </body>
 </html>
