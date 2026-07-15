@@ -9,15 +9,14 @@ async function askAI(userQuestion, sheetContext) {
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   
-  // ปรับชื่อโมเดลให้ตรงตามที่ Google กำหนด
-  const modelNames = ['gemini-1.5-flash', 'gemini-pro'];
-  
-  let lastError = null;
+  // ปรับชื่อโมเดลให้ตรงตามที่ Google กำหนด (ใช้ตระกูล 1.5 ซึ่งเป็นรุ่นปัจจุบัน)
+  const modelNames = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+  const errors = [];
 
   for (const modelName of modelNames) {
     try {
-      // ใช้ v1beta เพื่อรองรับโมเดลใหม่ๆ ได้ดีกว่า
-      const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion: 'v1beta' });
+      // โหลดโมเดล (ละ apiVersion เพื่อให้ใช้ค่าเริ่มต้นที่เสถียรของ SDK)
+      const model = genAI.getGenerativeModel({ model: modelName });
       
       const systemPrompt = `
         คุณคือ "ผู้ช่วยอัจฉริยะ สายตรวจภูธรลานสัก"
@@ -33,12 +32,12 @@ async function askAI(userQuestion, sheetContext) {
       if (text) return text;
     } catch (err) {
       console.error(`AI Error (${modelName}):`, err.message);
-      lastError = err.message;
+      errors.push(`${modelName}: ${err.message}`);
       continue;
     }
   }
 
-  return `❌ AI ขัดข้อง: ${lastError}\nกรุณาตรวจสอบสิทธิ์การใช้งานที่ Google AI Studio`;
+  return `❌ AI ขัดข้อง:\n${errors.join('\n')}\n\n💡 กรุณาตรวจสอบสิทธิ์การใช้งานและการตั้งค่าคีย์ที่ Google AI Studio`;
 }
 
 module.exports = { askAI };
