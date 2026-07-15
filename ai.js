@@ -15,8 +15,8 @@ async function askAI(userQuestion, sheetContext) {
 
   for (const modelName of modelNames) {
     try {
-      // โหลดโมเดล (ละ apiVersion เพื่อให้ใช้ค่าเริ่มต้นที่เสถียรของ SDK)
-      const model = genAI.getGenerativeModel({ model: modelName });
+      // โหลดโมเดล (ระบุ apiVersion เป็น v1 เพื่อใช้เวอร์ชันที่เสถียรสูงสุด ป้องกัน Error 404 บน v1beta)
+      const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion: 'v1' });
       
       const systemPrompt = `
         คุณคือ "ผู้ช่วยอัจฉริยะ สายตรวจภูธรลานสัก"
