@@ -754,12 +754,12 @@ async function handleEvent(event) {
     // [2] คำสั่งทั่วไป / ค้นหา
     // ─────────────────────────────────────────────────────────
 
-    if (userText.includes('ทำเนียบบุคลากร') || userText === 'ตำรวจ') {
+    if ((userText.includes('ทำเนียบบุคลากร') || userText === 'ตำรวจ') && !looksLikeSpecificQuery(userText)) {
       if (!isUserAdmin) return replyText(replyToken, '🔒 ขออภัยครับ ข้อมูลทำเนียบบุคลากรจำกัดเฉพาะเจ้าหน้าที่เท่านั้น');
       return replyMessage(replyToken, buildPersonnelMenuFlex());
     }
     
-    if (userText.includes('ทำเนียบผู้นำตำบล') || userText === 'ผู้นำตำบล' || userText.includes('ผู้ใหญ่บ้าน')) {
+    if ((userText.includes('ทำเนียบผู้นำตำบล') || userText === 'ผู้นำตำบล' || userText.includes('ผู้ใหญ่บ้าน')) && !looksLikeSpecificQuery(userText)) {
       return replyMessage(replyToken, buildVillageLeaderMenuFlex());
     }
 
@@ -1070,6 +1070,23 @@ ${suspectsText}
 }
 
 // ===== Helpers =====
+function looksLikeSpecificQuery(text) {
+  if (!text) return false;
+  const cleanText = text.trim();
+  
+  // คำสำคัญที่บ่งบอกว่าเป็นคำถามเจาะจง
+  const questionWords = [
+    'เบอร์', 'โทร', 'ชื่อ', 'อะไร', 'ไหน', 'ใคร', 'ยังไง', 'คือ', 
+    'อีเมล', 'email', 'วาระ', 'ประวัติ', 'คดี', 'สืบสวน', 'สอบสวน', 
+    'จราจร', 'ปราบปราม', 'ร้อยเวร', 'ผู้กำกับ', 'ผกก', 'สารวัตร', 'สว'
+  ];
+  
+  const hasQuestionWord = questionWords.some(word => cleanText.includes(word));
+  const hasNumber = /[0-9]|๑|๒|๓|๔|๕|๖|๗|๘|๙|๐/.test(cleanText); // ตรวจจับตัวเลข (เช่น หมู่ 5)
+  
+  return hasQuestionWord || hasNumber || cleanText.length > 15;
+}
+
 async function replyMessage(token, msg) { 
   const messages = Array.isArray(msg) ? msg : [msg];
   return client.replyMessage({ replyToken: token, messages }); 
