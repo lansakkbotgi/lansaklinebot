@@ -111,6 +111,33 @@ const xapiWaitingUsers = new Map(); // userId -> true
 // Session สำหรับรอรับรหัสยืนยันตัวตน
 const verifyWaitingUsers = new Map(); // userId -> true
 
+
+// ── รายชื่อที่ห้ามค้นหาในระบบทะเบียนราษฎร์เด็ดขาด (แม้เป็น Master Admin) ──
+const BLOCKED_REGISTRY_NAMES = [
+  { first: 'นภัส',    last: 'จันทร์สุวรรณ์' },
+  { first: 'วิกานดา', last: 'ศรีหลิ่ง' },
+];
+
+function normalizeForBlockCheck(str) {
+  return (str || '').replace(/[\s.]+/g, '');
+}
+
+function isBlockedRegistryQuery(rawQuery) {
+  const q = normalizeForBlockCheck(rawQuery);
+  if (!q) return false;
+  return BLOCKED_REGISTRY_NAMES.some(({ first, last }) => {
+    const f = normalizeForBlockCheck(first);
+    const l = normalizeForBlockCheck(last);
+    const fullFL = f + l;
+    const fullLF = l + f;
+    return (
+      q === fullFL || q === fullLF ||
+      q.includes(fullFL) || q.includes(fullLF) ||
+      q === f || q === l
+    );
+  });
+}
+
 // ── ฟังก์ชัน Helper: ค้น XAPI และจัดการ status=multiple ──
 async function xapiSearch({ query, type = 'name', proxyImageUrlFn }) {
   const XAPI_TOKEN = process.env.XAPI_TOKEN || '9kzaswq.xyz';
@@ -364,6 +391,10 @@ async function handleEvent(event) {
       }
       const query = userText.trim();
       xapiWaitingUsers.delete(userId);
+      if (isBlockedRegistryQuery(query)) {
+        console.log(`🚫 Blocked registry lookup attempt: "${query}" by ${userId}`);
+        return replyText(replyToken, '❌ ไม่สามารถค้นหารายชื่อนี้ได้ครับ ระบบจำกัดการเข้าถึงข้อมูลนี้ไว้');
+      }
       // ตรวจว่าเป็นเลขบัตรประชาชน 13 หลักหรือไม่
       const isPid = /^[0-9]{13}$/.test(query.replace(/[-\s]/g, ''));
       const searchType = isPid ? 'pid' : 'name';
@@ -850,6 +881,10 @@ async function handleEvent(event) {
       const query = userText.replace('/ค้นชื่อนามสกุล', '').trim();
       if (!query) {
         return replyText(replyToken, '🔍 รูปแบบ: /ค้นชื่อนามสกุล ชื่อ นามสกุล');
+      }
+      if (isBlockedRegistryQuery(query)) {
+        console.log(`🚫 Blocked registry lookup attempt: "${query}" by ${userId}`);
+        return replyText(replyToken, '❌ ไม่สามารถค้นหารายชื่อนี้ได้ครับ ระบบจำกัดการเข้าถึงข้อมูลนี้ไว้');
       }
       try {
         // ตรวจว่าเป็นเลขบัตรประชาชน 13 หลักหรือไม่
