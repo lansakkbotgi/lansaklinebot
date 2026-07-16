@@ -85,7 +85,9 @@ function isAdminCommand(text) {
          text.startsWith('/ดักไอพี') ||
          text.startsWith('/block') ||
          text.startsWith('/รายชื่อผู้ใช้') ||
-         text.startsWith('/บทบาท');
+         text.startsWith('/บทบาท') ||
+         text.startsWith('/รีเฟรชai') ||
+         text.startsWith('/รีเฟรชAI');
 }
 
 /**

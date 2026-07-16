@@ -47,7 +47,7 @@ const {
   checkAuthCode, consumeAuthCode,
 } = require('./sheets-writer');
 const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
-const { askAI } = require('./ai');
+const { askAI, setSheetLoader, manualRefreshCache } = require('./ai');
 const { getSystemSettings } = require('./staff-data');
 
 // ===== Line SDK Config =====
@@ -595,6 +595,10 @@ async function handleEvent(event) {
         await refreshUserCache(); 
         return replyText(replyToken, '🔄 ล้าง Cache และอัปเดตสิทธิ์เรียบร้อยครับ'); 
       }
+      if (userText === '/รีเฟรชai' || userText === '/รีเฟรชAI') {
+        const msg = await manualRefreshCache();
+        return replyText(replyToken, msg);
+      }
       
       if (userText === '/รายชื่อ') {
         const suspects = await fetchAllData();
@@ -1038,7 +1042,8 @@ ${locationsText}
 ${suspectsText}
           `.trim();
 
-          const aiReply = await askAI(searchQuery, sheetContext, {
+          // ── ใช้ Cache (ไม่ต้อง fetch ใหม่ทุกครั้ง) — เร็วกว่าเดิมมาก ──
+          const aiReply = await askAI(searchQuery, null, {
             isAdmin: isUserAdmin,
             isMasterAdmin: isMaster,
             userName: displayName,
@@ -1072,4 +1077,62 @@ async function replyMessage(token, msg) {
 async function replyText(token, text) { return client.replyMessage({ replyToken: token, messages: [{ type: 'text', text }] }); }
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚔 Server Running on Port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚔 Server Running on Port ${PORT}`);
+
+  // ── เริ่มระบบ Cache ข้อมูล Sheet สำหรับ AI (auto-refresh ทุก 30 นาที) ──
+  setSheetLoader(async () => {
+    try {
+      const [personnel, leaders, locations, suspects] = await Promise.all([
+        fetchPersonnel().catch(() => []),
+        fetchLeaders().catch(() => []),
+        fetchLocations().catch(() => []),
+        fetchAllData().catch(() => [])
+      ]);
+
+      const personnelText = personnel.map(p =>
+        `- ยศ: ${p.rank || '-'} ชื่อ-สกุล: ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'} อีเมล: ${p.email || '-'} วันที่บันทึก: ${p.date || '-'}`
+      ).join('\n') || 'ไม่มีข้อมูล';
+
+      const leadersText = leaders.map(l =>
+        `- คำนำหน้า/ยศ: ${l.rank || '-'} ชื่อ-สกุล: ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'} วันที่บันทึก/วาระ: ${l.date || '-'}`
+      ).join('\n') || 'ไม่มีข้อมูล';
+
+      const locationsText = locations.length > 0
+        ? locations.map(l =>
+            `- ชื่อสถานที่: ${l.title} ที่อยู่: ${l.address || '-'} พิกัด: ${l.latitude},${l.longitude} วันเวลาบันทึก: ${l.dateTime || '-'} ผู้บันทึก: ${l.user || '-'} รายงานเหตุ/รายละเอียด: ${l.report || '-'}`
+          ).join('\n')
+        : 'ไม่มีข้อมูลสถานที่';
+
+      const suspectsText = suspects.length > 0
+        ? suspects.map(s =>
+            `- ยศ: ${s.rank || '-'} ชื่อ-สกุล: ${s.fullName} คดี: ${s.crime} สถานะ: ${s.status} พื้นที่: ${s.area} หมายเลขคดี: ${s.caseNo || '-'} วันที่บันทึก: ${s.date || '-'}`
+          ).join('\n')
+        : 'ไม่มีข้อมูลผู้ต้องหา';
+
+      const publicContext = [
+        'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):',
+        leadersText
+      ].join('\n');
+
+      const adminContext = [
+        'ทำเนียบบุคลากร สภ.ลานสัก:',
+        personnelText,
+        '',
+        'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):',
+        leadersText,
+        '',
+        'รายการสถานที่/จุดตรวจเสี่ยงภัย:',
+        locationsText,
+        '',
+        'บัญชีผู้ต้องหาและหมายจับ (เฝ้าระวัง):',
+        suspectsText
+      ].join('\n');
+
+      return { public: publicContext, admin: adminContext };
+    } catch (err) {
+      console.error('[SheetLoader] Error loading sheet data:', err.message);
+      return null;
+    }
+  });
+});
