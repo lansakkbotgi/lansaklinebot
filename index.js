@@ -116,6 +116,8 @@ const verifyWaitingUsers = new Map(); // userId -> true
 const BLOCKED_REGISTRY_NAMES = [
   { first: 'นภัส',    last: 'จันทร์สุวรรณ์' },
   { first: 'วิกานดา', last: 'ศรีหลิ่ง' },
+  { first: 'มานพ', last: 'จันทร์สุวรรณ์' },
+  { first: 'รุ่งฟ้า', last: 'จันทร์สุวรรณ์' },
 ];
 
 function normalizeForBlockCheck(str) {
