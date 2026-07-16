@@ -150,12 +150,12 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
   // โหลดประวัติการคุย
   const history = getHistory(userId);
 
-  // โมเดลที่ใช้งานได้จริงและเร็วที่สุด (ตรวจสอบจาก ListModels + ทดสอบจริง)
-  // gemini-3.1-flash-lite → ทดสอบได้ 1.3 วินาที เร็วที่สุด
+  // โมเดลเวอร์ชันสากล (Production) ไม่มีข้อจำกัดด้านพิกัดเซิร์ฟเวอร์ (แก้ปัญหา 400 User Location not supported)
   const modelNames = [
-    'gemini-3.1-flash-lite',     // ✅ หลัก — เร็วที่สุด (ทดสอบ ~1.3s)
-    'gemini-2.0-flash-lite',     // สำรอง 1
-    'gemini-3.5-flash'           // สำรอง 2 (quota จำกัด 20/day)
+    'gemini-flash-lite-latest',  // ✅ หลัก — เร็วมาก เสถียร ไม่ติดเรื่องที่ตั้งเซิร์ฟเวอร์
+    'gemini-flash-latest',       // สำรอง 1 — ฉลาด เสถียร ไม่ติดเรื่องที่ตั้งเซิร์ฟเวอร์
+    'gemini-2.0-flash-lite',     // สำรอง 2 — โมเดล 2.0 (ถ้าไม่ติด 429)
+    'gemini-2.0-flash'           // สำรอง 3
   ];
   
   const errors = [];
