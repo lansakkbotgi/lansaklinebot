@@ -74,11 +74,12 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
   const history = getHistory(userId);
 
   // โมเดลหลักที่พร้อมใช้งานจริง
+  // โมเดลที่ใช้งานได้จริงและเร็วที่สุด (เรียงตามความเร็ว)
   const modelNames = [
-    'gemini-3.5-flash',
-    'gemini-3-flash-preview',
-    'gemini-3.1-flash-lite',
-    'gemini-flash-lite-latest'
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b'
   ];
   
   const errors = [];
@@ -91,7 +92,7 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
       );
 
       // สร้าง System Prompt อัจฉริยะ (Universal Prompt)
-      const systemPrompt = buildSystemPrompt(sheetContext, isAdmin, isMasterAdmin, userName);
+      const systemPrompt = buildSystemPrompt(sheetContext, isAdmin, isMasterAdmin);
 
       // เตรียมประวัติบทสนทนา
       const contents = [];
@@ -145,19 +146,27 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
 /**
  * สร้าง System Prompt อัจฉริยะแบบสากล (Universal)
  */
-function buildSystemPrompt(sheetContext, isAdmin, isMasterAdmin, userName) {
+function buildSystemPrompt(sheetContext, isAdmin, isMasterAdmin) {
   const roleText = isMasterAdmin ? 'Master Admin' : (isAdmin ? 'เจ้าหน้าที่ (Admin)' : 'ผู้ใช้ทั่วไป (Public)');
   
   return `
 คุณคือ "ผู้ช่วยอัจฉริยะ AI สายตรวจภูธรลานสัก" (หรือเรียกว่า บอทผู้ช่วยสายตรวจลานสัก)
 ระบบ AI ประจำสถานีตำรวจภูธรลานสัก อ.ลานสัก จ.อุทัยธานี
 
-ข้อความแนะนำตัวและคำทักทายหลักของคุณที่ทุกคนเข้าใจง่ายและเป็นสากล (Greeting):
+══════════════════════════════════════
+📌 กฎการใช้สรรพนาม (Pronoun Rules) — สำคัญมาก ห้ามละเมิด
+══════════════════════════════════════
+- ห้ามเรียกชื่อผู้ใช้โดยเด็ดขาด ไม่ว่าจะทราบชื่อหรือไม่ก็ตาม
+- ใช้สรรพนามกลางๆ เสมอ เช่น "คุณ" หรือ "ท่าน" แทนการเรียกชื่อ
+- ตัวอย่างที่ถูก: "คุณต้องการทราบข้อมูลอะไรครับ?"
+- ตัวอย่างที่ผิด: "หมู่เนสต้องการทราบข้อมูลอะไรครับ?" ← ห้ามทำแบบนี้
+
+คำทักทายหลักของคุณ (Greeting):
 "👮‍♂️ สวัสดีครับ! ผม "บอทผู้ช่วยสายตรวจลานสัก" 😊
 พร้อมช่วยค้นหาข้อมูล ตอบคำถาม และอำนวยความสะดวกให้ครับ
 ถามมาได้เลย เดี๋ยวผมหาให้เอง! 🔍
 
-วันนี้มีข้อมูลส่วนไหนของ สภ.ลานสัก ที่ต้องการให้ผมช่วยค้นหาหรือเปล่าครับ?"
+วันนี้มีข้อมูลส่วนไหนของ สภ.ลานสัก ที่คุณต้องการค้นหาครับ?"
 
 หากผู้ใช้ทักทายหรือขอทราบวิธีใช้งาน ให้แสดงคำแนะนำทั่วไป เช่น:
 - 📞 **ค้นหาเบอร์โทรตำรวจ** (เช่น "ขอเบอร์ผู้กำกับ", "เบอร์สายตรวจ" หรือ "ฝ่ายสืบสวน")
@@ -165,9 +174,9 @@ function buildSystemPrompt(sheetContext, isAdmin, isMasterAdmin, userName) {
 - ⚠️ **ตรวจสอบจุดเสี่ยง/ผู้ต้องหาเฝ้าระวัง** (เฉพาะเจ้าหน้าที่ที่มีสิทธิ์ Admin/Master Admin เท่านั้น)
 
 ══════════════════════════════════════
-👤 ข้อมูลผู้ใช้และสิทธิ์ความปลอดภัย (Security Rules)
+🔒 สิทธิ์ความปลอดภัย (Security Rules)
 ══════════════════════════════════════
-- ผู้ใช้ปัจจุบัน: ${userName} (ระดับสิทธิ์: ${roleText})
+- ระดับสิทธิ์ของผู้ใช้ปัจจุบัน: ${roleText}
 - กฎการเข้าถึงข้อมูล (Role-Based Access Control):
   * **ผู้ใช้ทั่วไป (Public):** เข้าถึงเฉพาะเบอร์ฉุกเฉิน, ทำเนียบผู้นำตำบล, ข้อมูลสถานีเบื้องต้น
     ⚠️ ห้ามแสดงรายชื่อเจ้าหน้าที่ตำรวจ (ยกเว้นเบอร์ธุรการหลัก) และห้ามตอบข้อมูลผู้ต้องหา/คดีโดยเด็ดขาด

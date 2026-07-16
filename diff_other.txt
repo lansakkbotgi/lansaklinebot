@@ -1,0 +1,190 @@
+﻿diff --git a/broadcast.js b/broadcast.js
+index 6684b11..6e44c35 100644
+--- a/broadcast.js
++++ b/broadcast.js
+@@ -163,9 +163,39 @@ async function broadcastToTarget(client, message, targetName, includeMenu = fals
+   return { sent, failed, total: targetFollowers.length };
+ }
+ 
++/**
++ * เธชเนเธเธเนเธญเธเธงเธฒเธกเนเธเธขเธฑเธเธเธฅเธธเนเธกเธฃเธฒเธขเธเธทเนเธญเธเธนเนเนเธเนเธ—เธตเนเธฃเธฐเธเธธ (เธฃเธญเธเธฃเธฑเธเธญเธฒเธฃเนเน€เธฃเธขเนเธเนเธญเธเธงเธฒเธก)
++ */
++async function broadcastToGroup(client, messages, userIds) {
++  if (!userIds || userIds.length === 0) {
++    return { sent: 0, failed: 0, total: 0 };
++  }
++  
++  // เนเธเธฅเธ messages เน€เธเนเธเธญเธฒเธฃเนเน€เธฃเธขเนเน€เธชเธกเธญ
++  const msgList = Array.isArray(messages) ? messages : [messages];
++  let sent = 0, failed = 0;
++
++  for (const userId of userIds) {
++    try {
++      await client.pushMessage({
++        to: userId,
++        messages: msgList,
++      });
++      sent++;
++      await new Promise(resolve => setTimeout(resolve, 100)); // Rate limit protection
++    } catch (err) {
++      console.error(`โ เธชเนเธเธซเธฒ ${userId} เนเธกเนเธชเธณเน€เธฃเนเธ:`, err.message);
++      failed++;
++    }
++  }
++
++  return { sent, failed, total: userIds.length };
++}
++
+ module.exports = {
+   broadcastToAll,
+   broadcastToTarget,
++  broadcastToGroup,
+   removeFollower,
+   getStats,
+   buildBroadcastResultFlex,
+diff --git a/web-api.js b/web-api.js
+index 3e5d866..f3fe2a2 100644
+--- a/web-api.js
++++ b/web-api.js
+@@ -51,7 +51,7 @@ function getTokenName(req) {
+   return token ? (tokenNames.get(token) || 'Admin เน€เธงเนเธ') : 'Admin เน€เธงเนเธ';
+ }
+ 
+-const { broadcastToAll, broadcastToTarget } = require('./broadcast');
++const { broadcastToAll, broadcastToTarget, broadcastToGroup } = require('./broadcast');
+ 
+ // LINE client เนเธขเธเธ•เนเธฒเธเธซเธฒเธ เธชเธณเธซเธฃเธฑเธเนเธเน broadcast เธเธฒเธเธซเธเนเธฒเน€เธงเนเธ
+ const lineClient = new line.messagingApi.MessagingApiClient({
+@@ -347,22 +347,125 @@ router.post('/api/users/set-role', requireAuth, async (req, res) => {
+   }
+ });
+ 
++// ============================================================
++//  ๐–ผ๏ธ เธญเธฑเธเนเธซเธฅเธ”เธฃเธนเธเธ เธฒเธเธชเธณเธซเธฃเธฑเธ Broadcast (เธฃเธฑเธเนเธเธ Base64)
++// ============================================================
++router.post('/api/upload-image', requireAuth, (req, res) => {
++  try {
++    const { imageBase64, filename } = req.body || {};
++    if (!imageBase64) {
++      return res.status(400).json({ success: false, message: 'เนเธกเนเธเธเธเนเธญเธกเธนเธฅเธฃเธนเธเธ เธฒเธ' });
++    }
++
++    // เธ–เธญเธ”เธฃเธซเธฑเธช Base64
++    const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
++    if (!matches || matches.length !== 3) {
++      return res.status(400).json({ success: false, message: 'เธฃเธนเธเนเธเธเธฃเธนเธเธ เธฒเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ' });
++    }
++
++    const imageBuffer = Buffer.from(matches[2], 'base64');
++    
++    // เธ•เธฃเธงเธเธชเธญเธเนเธเธฅเน€เธ”เธญเธฃเน uploads
++    const uploadDir = path.join(__dirname, 'public', 'uploads');
++    if (!fs.existsSync(uploadDir)) {
++      fs.mkdirSync(uploadDir, { recursive: true });
++    }
++
++    // เธชเธฃเนเธฒเธเธเธทเนเธญเนเธเธฅเน
++    const ext = filename ? path.extname(filename) : '.png';
++    const uniqueFilename = `bcast_${Date.now()}${ext}`;
++    const filePath = path.join(uploadDir, uniqueFilename);
++
++    // เธเธฑเธเธ—เธถเธเนเธเธฅเนเธฅเธเธ”เธดเธชเธเน
++    fs.writeFileSync(filePath, imageBuffer);
++
++    // เธเธณเธเธงเธ“ URL เธชเธณเธซเธฃเธฑเธเน€เธเนเธฒเธ–เธถเธเธฃเธนเธเธ เธฒเธ
++    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
++    const host = req.get('host');
++    const imageUrl = `${protocol}://${host}/uploads/${uniqueFilename}`;
++
++    res.json({ success: true, imageUrl });
++  } catch (err) {
++    res.status(500).json({ success: false, message: err.message });
++  }
++});
++
+ // ============================================================
+ //  Broadcast
+ // ============================================================
+ router.post('/api/broadcast', requireAuth, async (req, res) => {
+   try {
+-    const { message, target, includeMenu } = req.body || {};
+-    if (!message || !message.trim()) {
+-      return res.status(400).json({ success: false, message: 'เธเธฃเธธเธ“เธฒเธฃเธฐเธเธธเธเนเธญเธเธงเธฒเธก' });
++    const { message, target, includeMenu, targetUserIds, imageUrl } = req.body || {};
++    
++    if ((!message || !message.trim()) && (!imageUrl || !imageUrl.trim())) {
++      return res.status(400).json({ success: false, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเนเธญเธเธงเธฒเธกเธซเธฃเธทเธญเนเธเธเธฃเธนเธเธ เธฒเธเธญเธขเนเธฒเธเนเธ”เธญเธขเนเธฒเธเธซเธเธถเนเธ' });
++    }
++
++    // เน€เธ•เธฃเธตเธขเธกเธฃเธฒเธขเธเธฒเธฃเธเนเธญเธเธงเธฒเธก LINE (เธชเนเธเธเธนเนเธเธฑเธเนเธ”เนเธชเธนเธเธชเธธเธ” 5 เธเนเธญเธเธงเธฒเธก)
++    const messages = [];
++
++    // 1. เธเนเธญเธเธงเธฒเธกเธฃเธนเธเธ เธฒเธ (เนเธชเธ”เธเธเนเธญเธ)
++    if (imageUrl && imageUrl.trim()) {
++      messages.push({
++        type: 'image',
++        originalContentUrl: imageUrl.trim(),
++        previewImageUrl: imageUrl.trim()
++      });
+     }
++
++    // 2. เธเนเธญเธเธงเธฒเธกเธ•เธฑเธงเธญเธฑเธเธฉเธฃ
++    if (message && message.trim()) {
++      const textMsg = { type: 'text', text: message.trim() };
++      if (includeMenu) {
++        textMsg.quickReply = {
++          items: [
++            {
++              type: 'action',
++              action: {
++                type: 'message',
++                label: '๐“ เน€เธเธดเธ”เน€เธกเธเธน',
++                text: '/เน€เธกเธเธน'
++              }
++            }
++          ]
++        };
++      }
++      messages.push(textMsg);
++    }
++
+     let result;
+-    if (target && target.trim()) {
+-      result = await broadcastToTarget(lineClient, message, target.trim(), !!includeMenu);
++
++    if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
++      // เธชเนเธเธซเธฒเธเธฅเธธเนเธกเน€เธเนเธฒเธซเธกเธฒเธขเธ—เธตเนเน€เธเธฒเธฐเธเธเธ—เธตเนเน€เธฅเธทเธญเธเธเธฒเธเธฃเธฐเธเธเธซเธเนเธฒเธเนเธฒเธ
++      result = await broadcastToGroup(lineClient, messages, targetUserIds);
++    } else if (target && target.trim()) {
++      // เธชเนเธเธซเธฒเธ•เธฒเธกเธเธทเนเธญเน€เธซเธกเธทเธญเธเน€เธ”เธดเธก
++      const { loadFollowersFromSheet } = require('./sheets-writer');
++      const followers = await loadFollowersFromSheet().catch(() => []);
++      const lowerTarget = target.trim().toLowerCase();
++      let targetFollowers = followers.filter(f =>
++        (f.displayName || '').trim().toLowerCase() === lowerTarget
++      );
++      if (targetFollowers.length === 0) {
++        targetFollowers = followers.filter(f =>
++          (f.displayName || '').toLowerCase().includes(lowerTarget)
++        );
++      }
++      if (targetFollowers.length === 0) {
++        return res.status(400).json({ success: false, message: `เนเธกเนเธเธเธเธนเนเธฃเธฑเธเธเธทเนเธญ "${target}"` });
++      }
++      const userIds = targetFollowers.map(f => f.userId);
++      result = await broadcastToGroup(lineClient, messages, userIds);
+     } else {
+-      result = await broadcastToAll(lineClient, message, !!includeMenu);
++      // เธชเนเธเธซเธฒเธ—เธธเธเธเธ
++      const { loadFollowersFromSheet } = require('./sheets-writer');
++      const followers = await loadFollowersFromSheet().catch(() => []);
++      const userIds = followers.map(f => f.userId);
++      result = await broadcastToGroup(lineClient, messages, userIds);
+     }
+-    await appendAuditLog('-', getTokenName(req), 'Broadcast', `${target ? 'เธ–เธถเธ: '+target : 'เธ—เธธเธเธเธ'} โ€” "${message.slice(0,40)}${message.length>40?'โ€ฆ':''}"`).catch(()=>{});
++
++    const logDetail = `${targetUserIds ? 'เธเธฅเธธเนเธกเน€เธเนเธฒเธซเธกเธฒเธข ('+targetUserIds.length+' เธเธ)' : (target ? 'เธ–เธถเธ: '+target : 'เธ—เธธเธเธเธ')} โ€” ${imageUrl ? '[เนเธเธเธฃเธนเธ] ' : ''}${message ? '"'+message.slice(0, 30)+'โ€ฆ"' : ''}`;
++    await appendAuditLog('-', getTokenName(req), 'Broadcast', logDetail).catch(()=>{});
+     res.json({ success: true, result });
+   } catch (err) {
+     res.status(500).json({ success: false, message: err.message });
