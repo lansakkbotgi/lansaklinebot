@@ -47,7 +47,7 @@ const {
   checkAuthCode, consumeAuthCode,
 } = require('./sheets-writer');
 const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
-const { askAI, setSheetLoader, manualRefreshCache } = require('./ai');
+const { askAI, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./ai');
 const { getSystemSettings } = require('./staff-data');
 
 // ===== Line SDK Config =====
@@ -58,6 +58,12 @@ const lineConfig = {
 const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_TOKEN,
 });
+
+setLinePushFn((userId, message) =>
+  client.pushMessage({ to: userId, messages: [{ type: 'text', text: message }] })
+);
+
+
 
 // ระบบตรวจสอบการแจ้งเตือนจุดเสี่ยง (ตรวจสอบทุก 1 นาที)
 setInterval(async () => {

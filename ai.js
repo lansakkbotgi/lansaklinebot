@@ -138,6 +138,13 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
   const isAdmin = !!userOptions.isAdmin;
   const isMasterAdmin = !!userOptions.isMasterAdmin;
 
+  // ── ตรวจจับ Intent ท้องถิ่น (Note/Reminder) — ก่อนส่ง Gemini ──
+  const localResult = detectLocalIntent(userQuestion, userId);
+  if (localResult !== null) {
+    const roleEmoji = isMasterAdmin ? '👑' : (isAdmin ? '🔐' : '👤');
+    return `${roleEmoji} AI ผู้ช่วยสายตรวจ สภ.ลานสัก\n${'─'.repeat(30)}\n${localResult}`;
+  }
+
   // ── ใช้ Cache ถ้าไม่มี sheetContext ส่งมา ──
   let resolvedContext = sheetContext;
   if (!resolvedContext) {
@@ -314,4 +321,196 @@ ${sheetContext || 'ไม่มีข้อมูลในระบบ'}
   `.trim();
 }
 
-module.exports = { askAI, setSheetLoader, manualRefreshCache, getCachedContext };
+
+// ============================================================
+// 📝 ระบบบันทึกข้อความ (Notes System)
+// ============================================================
+const userNotes = new Map(); // userId -> [{id, text, timestamp}]
+let _noteIdCounter = 1;
+
+function saveNote(userId, text) {
+  if (!userNotes.has(userId)) userNotes.set(userId, []);
+  const note = { id: _noteIdCounter++, text: text.trim(), timestamp: Date.now() };
+  const notes = userNotes.get(userId);
+  notes.push(note);
+  if (notes.length > 100) notes.shift(); // เก็บสูงสุด 100 รายการ
+  return note;
+}
+
+function getUserNotes(userId, filter) {
+  const notes = userNotes.get(userId) || [];
+  if (filter === 'today') {
+    const today = new Date();
+    return notes.filter(n => {
+      const d = new Date(n.timestamp);
+      return d.getDate() === today.getDate()
+          && d.getMonth() === today.getMonth()
+          && d.getFullYear() === today.getFullYear();
+    });
+  }
+  return [...notes];
+}
+
+function clearUserNotes(userId) {
+  userNotes.delete(userId);
+}
+
+// ============================================================
+// ⏰ ระบบแจ้งเตือน (Reminder System)
+// ============================================================
+let _linePushFn = null;
+const activeReminders = new Map(); // userId -> [{id, text, triggerAt, timerId}]
+let _reminderId = 1;
+
+/** เรียกจาก index.js เพื่อลงทะเบียน LINE push function */
+function setLinePushFn(fn) {
+  _linePushFn = fn;
+}
+
+/** แปลงข้อความเวลา เช่น "60 นาที", "1 ชั่วโมงครึ่ง" → milliseconds */
+function parseDelayMs(text) {
+  let ms = 0;
+  const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*ชั่วโมง/);
+  if (hourMatch) ms += parseFloat(hourMatch[1]) * 3600000;
+  if (/ครึ่ง/.test(text) && /ชั่วโมง/.test(text)) ms += 1800000;
+  const minMatch = text.match(/(\d+)\s*นาที/);
+  if (minMatch) ms += parseInt(minMatch[1]) * 60000;
+  const secMatch = text.match(/(\d+)\s*วินาที/);
+  if (secMatch) ms += parseInt(secMatch[1]) * 1000;
+  return ms;
+}
+
+function setReminder(userId, text, delayMs) {
+  if (!activeReminders.has(userId)) activeReminders.set(userId, []);
+  const id = _reminderId++;
+  const triggerAt = Date.now() + delayMs;
+
+  const timerId = setTimeout(async () => {
+    if (_linePushFn) {
+      const thTime = new Date(triggerAt).toLocaleTimeString('th-TH', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok'
+      });
+      try {
+        await _linePushFn(userId, `⏰ แจ้งเตือน — ${thTime} น.\n${'─'.repeat(24)}\n${text}`);
+      } catch(e) {
+        console.error('[Reminder] push failed:', e.message);
+      }
+    }
+    // ลบออกหลังแจ้งเตือนแล้ว
+    const list = activeReminders.get(userId) || [];
+    const idx = list.findIndex(r => r.id === id);
+    if (idx !== -1) list.splice(idx, 1);
+  }, delayMs);
+
+  activeReminders.get(userId).push({ id, text, triggerAt, timerId });
+  return { id, triggerAt };
+}
+
+function getActiveReminders(userId) {
+  return (activeReminders.get(userId) || []).filter(r => r.triggerAt > Date.now());
+}
+
+function cancelReminderById(userId, id) {
+  const list = activeReminders.get(userId) || [];
+  const idx = list.findIndex(r => r.id === id);
+  if (idx !== -1) { clearTimeout(list[idx].timerId); list.splice(idx, 1); return true; }
+  return false;
+}
+
+// ============================================================
+// 🧠 ตรวจจับ Intent ท้องถิ่น (Note / Reminder) — เร็วกว่าส่ง Gemini
+// ============================================================
+function detectLocalIntent(question, userId) {
+  const q = question.trim();
+
+  // ── บันทึกข้อความ ──
+  const savePat = [
+    /^(?:ช่วย)?บันทึก(?:ข้อความ)?(?:ให้หน่อย|หน่อย)?(?:ว่า|:| )\s*(.+)/si,
+    /^(?:ช่วย)?จดไว้(?:ว่า|:| )\s*(.+)/si,
+    /^(?:ช่วย)?จำ(?:ไว้)?(?:ว่า|:| )\s*(.+)/si,
+    /^(?:ช่วย)?note[:\s]+(.+)/si,
+  ];
+  for (const pat of savePat) {
+    const m = q.match(pat);
+    if (m && m[1]?.trim()) {
+      const note = saveNote(userId, m[1].trim());
+      const t = new Date(note.timestamp).toLocaleString('th-TH', {
+        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok'
+      });
+      return `✅ บันทึกแล้วครับ [${t}]\n${'─'.repeat(24)}\n📝 ${note.text}`;
+    }
+  }
+
+  // ── ตั้งแจ้งเตือน ──
+  const remindPat = [
+    /(?:ช่วย)?(?:แจ้งเตือน|เตือน)(?:ข้อความ|ด้วย|หน่อย|ว่า)?\s*(?:อีก)?\s*([\d\u0e00-\u0e7fก-์\s]+(?:นาที|ชั่วโมง|วินาที)[ก-์\s]*)\s*(?:ว่า|:)?\s*(.+)/si,
+    /reminder\s+(?:อีก)?\s*([\d\u0e00-\u0e7fก-์\s]+(?:นาที|ชั่วโมง)[ก-์\s]*)\s*(?:ว่า|:)?\s*(.+)/si,
+  ];
+  for (const pat of remindPat) {
+    const m = q.match(pat);
+    if (m && m[1] && m[2]?.trim()) {
+      const delayMs = parseDelayMs(m[1]);
+      if (delayMs >= 10000) { // ขั้นต่ำ 10 วินาที
+        const reminder = setReminder(userId, m[2].trim(), delayMs);
+        const mins = delayMs >= 3600000
+          ? `${(delayMs/3600000).toFixed(1)} ชั่วโมง`
+          : delayMs >= 60000
+            ? `${Math.round(delayMs/60000)} นาที`
+            : `${Math.round(delayMs/1000)} วินาที`;
+        const thTime = new Date(reminder.triggerAt).toLocaleTimeString('th-TH', {
+          hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok'
+        });
+        const noLinePush = !_linePushFn ? '\n⚠️ กรุณา setLinePushFn() ใน index.js ก่อนครับ' : '';
+        return `⏰ ตั้งแจ้งเตือนแล้วครับ\n🕐 อีก ${mins} (เวลา ${thTime} น.)\n${'─'.repeat(24)}\n💬 "${m[2].trim()}"${noLinePush}`;
+      }
+    }
+  }
+
+  // ── ดูบันทึก ──
+  if (/ดู(?:บันทึก|note|สิ่งที่บันทึก)|บันทึก(?:วันนี้|ที่มี|ทั้งหมด)|note(?:s)?(?:วันนี้|ทั้งหมด)?/.test(q)) {
+    const isToday = /วันนี้/.test(q);
+    const notes = getUserNotes(userId, isToday ? 'today' : null);
+    if (!notes.length) return `📋 ยังไม่มีบันทึก${isToday ? 'วันนี้' : ''}ครับ`;
+    const list = notes.slice(-20).map((n, i) => {
+      const t = new Date(n.timestamp).toLocaleString('th-TH', {
+        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok'
+      });
+      return `${i+1}. [${t}]\n   ${n.text}`;
+    }).join('\n\n');
+    return `📋 บันทึก${isToday ? 'วันนี้' : 'ทั้งหมด'} (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
+  }
+
+  // ── ดูแจ้งเตือน ──
+  if (/ดู(?:แจ้งเตือน|reminder)|แจ้งเตือน(?:ที่ตั้งไว้|ที่มี|ทั้งหมด)/.test(q)) {
+    const reminders = getActiveReminders(userId);
+    if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนที่รอดำเนินการครับ`;
+    const list = reminders.map((r, i) => {
+      const t = new Date(r.triggerAt).toLocaleTimeString('th-TH', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok'
+      });
+      const remaining = Math.round((r.triggerAt - Date.now()) / 60000);
+      return `${i+1}. ${t} น. (อีก ${remaining} นาที)\n   "${r.text}"`;
+    }).join('\n\n');
+    return `⏰ แจ้งเตือนที่ตั้งไว้ (${reminders.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
+  }
+
+  // ── ยกเลิกแจ้งเตือน ──
+  if (/ยกเลิก(?:แจ้งเตือน|reminder)|cancel.*reminder/.test(q)) {
+    const reminders = getActiveReminders(userId);
+    if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนที่จะยกเลิกครับ`;
+    // ยกเลิกทั้งหมด
+    reminders.forEach(r => cancelReminderById(userId, r.id));
+    return `✅ ยกเลิกแจ้งเตือนทั้งหมด (${reminders.length} รายการ) แล้วครับ`;
+  }
+
+  // ── ลบบันทึก ──
+  if (/ลบบันทึก(?:ทั้งหมด)?|ล้างบันทึก|clear.*note/.test(q)) {
+    const count = getUserNotes(userId).length;
+    clearUserNotes(userId);
+    return `🗑️ ลบบันทึกทั้งหมด (${count} รายการ) แล้วครับ`;
+  }
+
+  return null; // ไม่ match → ส่งต่อ Gemini
+}
+
+module.exports = { askAI, setSheetLoader, manualRefreshCache, getCachedContext, setLinePushFn };
