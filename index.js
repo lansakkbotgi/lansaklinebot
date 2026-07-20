@@ -58,8 +58,9 @@ const {
 const {
   summarizePersonnel,
   formatPersonnelFactsOrUnavailable,
-  isPersonnelAnalysisQuestion,
-  buildPersonnelAnalysisContext,
+  summarizeLeaders,
+  isAnalyticalQuestion,
+  buildCombinedAnalysisContext,
 } = require('./personnel-summary');
 
 // ===== Line SDK Config =====
@@ -277,6 +278,97 @@ app.post('/webhook', line.middleware(lineConfig), (req, res) => {
 app.get('/', (_, res) => res.send('✅ Bot-Score ลานสัก Online'));
 
 // ===== Event Handler หลัก =====
+/**
+ * เรียก AI ตอบคำถาม โดยเตรียมบริบทจากชีตสด (ใช้ทั้งกรณี "ค้นหาไม่พบ" และกรณี
+ * "คำถามวิเคราะห์/สรุปข้อมูล" ที่ไม่ควรเข้า flow ค้นหารายบุคคลตั้งแต่แรก)
+ * คืนค่า true ถ้าตอบสำเร็จ (ส่งข้อความไปแล้ว), false ถ้าไม่ได้ตอบ (ให้ caller ตัดสินใจต่อ เช่น แสดง NotFound)
+ */
+async function answerWithAI(userText, userId, replyToken, isUserAdmin) {
+  try {
+    const sysSet = await getSystemSettings();
+    const aiEnabled = (sysSet.ai_enabled || 'true').toLowerCase() !== 'false';
+    if (!aiEnabled) {
+      await replyText(replyToken, '🔧 ระบบ AI ผู้ช่วยอยู่ระหว่างปิดปรับปรุงชั่วคราวครับ\nหากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อเจ้าหน้าที่โดยตรงครับ');
+      return true;
+    }
+    if (typeof askAI !== 'function') return false;
+
+    let displayName = 'ผู้ใช้งาน';
+    try {
+      const profile = await client.getProfile(userId);
+      displayName = profile.displayName || 'ผู้ใช้งาน';
+    } catch (e) { console.error('Get profile for AI error:', e.message); }
+
+    const isMaster = await isMasterAdmin(userId);
+
+    const [personnel, leaders, locations, suspects] = await Promise.all([
+      fetchPersonnel().catch(() => []),
+      fetchLeaders().catch(() => []),
+      fetchLocations().catch(() => []),
+      isUserAdmin ? fetchAllData().catch(() => []) : Promise.resolve([])
+    ]);
+
+    let personnelText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+    let personnelFacts = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+    let personnelSummary = null;
+    let suspectsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+    let locationsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+
+    if (isUserAdmin) {
+      personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
+      personnelSummary = summarizePersonnel(personnel);
+      personnelFacts = formatPersonnelFactsOrUnavailable(personnelSummary);
+      suspectsText = suspects.length > 0
+        ? suspects.map(s => `- ${s.fullName} คดี: ${s.crime} สถานะ: ${s.status} พื้นที่: ${s.area} หมายเลขคดี: ${s.caseNo || '-'}`).join('\n')
+        : 'ไม่มีข้อมูลผู้ต้องหาในระบบ';
+      locationsText = locations.length > 0
+        ? locations.map(l => `- ${l.title} ที่อยู่: ${l.address || '-'} พิกัด: ${l.latitude},${l.longitude} ผู้บันทึก: ${l.user || '-'}`).join('\n')
+        : 'ไม่มีข้อมูลสถานที่จุดเสี่ยง';
+    }
+
+    const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
+
+    const sheetContext = `
+${personnelFacts}
+
+ทำเนียบบุคลากร สภ.ลานสัก:
+${personnelText}
+
+ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):
+${leadersText}
+
+รายการสถานที่/จุดตรวจเสี่ยงภัย:
+${locationsText}
+
+บัญชีข้อมูลผู้ต้องหาและหมายจับ (เฝ้าระวัง):
+${suspectsText}
+          `.trim();
+
+    // คำถามวิเคราะห์ใช้เฉพาะยอดที่โปรแกรมคำนวณจากชีตจริง เพื่อให้ AI วิเคราะห์/คำนวณ %
+    // ได้แม่นยำ โดยไม่ต้องนับเองจากรายชื่อดิบ (ซึ่งเสี่ยงนับผิด/หลงประเด็น)
+    let aiContext = sheetContext;
+    if (isUserAdmin && isAnalyticalQuestion(userText)) {
+      const leaderSummary = summarizeLeaders(leaders);
+      aiContext = buildCombinedAnalysisContext(personnelSummary, leaderSummary);
+    }
+
+    const aiReply = await askAI(userText, aiContext, {
+      isAdmin: isUserAdmin,
+      isMasterAdmin: isMaster,
+      userName: displayName,
+      userId: userId
+    });
+    if (aiReply) {
+      await replyText(replyToken, aiReply);
+      return true;
+    }
+    return false;
+  } catch (aiErr) {
+    console.error('[answerWithAI] error:', aiErr.message);
+    return false;
+  }
+}
+
 async function handleEvent(event) {
   try {
     const userId   = event.source?.userId;
@@ -1033,6 +1125,15 @@ return replyText(
         }
       }
 
+      // ── คำถามวิเคราะห์/สรุปข้อมูล (เช่น ขอสัดส่วน % ตำรวจ vs ผู้นำตำบล ทั้งหมด) ──
+      // ตอบด้วย AI ตรงๆ โดยไม่ต้องเข้าค้นหารายบุคคลก่อน: เร็วกว่า และไม่เสี่ยงแมตช์ผิดตัว
+      // จากการค้นหาแบบ substring ล้วนๆ ใน searchByName()
+      if (isUserAdmin && isAnalyticalQuestion(userText)) {
+        const answered = await answerWithAI(userText, userId, replyToken, isUserAdmin);
+        if (answered) return;
+        // answerWithAI ตอบไม่สำเร็จ (เช่น AI ปิดอยู่/error) → ไหลต่อเข้า flow ค้นหาปกติด้านล่างแทน ไม่ทิ้งผู้ใช้ไว้เฉยๆ
+      }
+
       const isPersonnelSearch = userText.startsWith('บุคลากร');
       const isLeaderSearch    = userText.startsWith('ผู้นำตำบล');
       let searchQuery = userText.replace(/^(ค้นหา|ตรวจสอบ|เช็ค|ส่อง|check|search|หา|บุคลากร|ผู้นำตำบล|บอท|bot)\s*/i, '').trim();
@@ -1062,84 +1163,8 @@ return replyText(
         return replyMessage(replyToken, buildCarouselFlex(results, searchQuery, isUserAdmin));
       }
       // ── ไม่พบข้อมูล → ถามไปยัง AI (ถ้าเปิดใช้งาน) ──
-      try {
-        const sysSet = await getSystemSettings();
-        const aiEnabled = (sysSet.ai_enabled || 'true').toLowerCase() !== 'false';
-        if (!aiEnabled) {
-          return replyText(replyToken, '🔧 ระบบ AI ผู้ช่วยอยู่ระหว่างปิดปรับปรุงชั่วคราวครับ\nหากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อเจ้าหน้าที่โดยตรงครับ');
-        }
-        if (typeof askAI === 'function') {
-          // ตรวจสอบสิทธิ์ความปลอดภัยสูงสุดและดึงข้อมูลโปรไฟล์ผู้ใช้งาน
-          let displayName = 'ผู้ใช้งาน';
-          try {
-            const profile = await client.getProfile(userId);
-            displayName = profile.displayName || 'ผู้ใช้งาน';
-          } catch (e) { console.error('Get profile for AI error:', e.message); }
-
-          const isMaster = await isMasterAdmin(userId);
-
-          // ดึงฐานข้อมูลตามสิทธิ์ (Security Constraint)
-          const [personnel, leaders, locations, suspects] = await Promise.all([
-            fetchPersonnel().catch(() => []),
-            fetchLeaders().catch(() => []),
-            fetchLocations().catch(() => []),
-            isUserAdmin ? fetchAllData().catch(() => []) : Promise.resolve([])
-          ]);
-          
-          let personnelText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
-          let personnelFacts = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
-          let personnelSummary = null;
-          let suspectsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
-          let locationsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
-
-          if (isUserAdmin) {
-            personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
-            personnelSummary = summarizePersonnel(personnel);
-            personnelFacts = formatPersonnelFactsOrUnavailable(personnelSummary);
-            suspectsText = suspects.length > 0
-              ? suspects.map(s => `- ${s.fullName} คดี: ${s.crime} สถานะ: ${s.status} พื้นที่: ${s.area} หมายเลขคดี: ${s.caseNo || '-'}`).join('\n')
-              : 'ไม่มีข้อมูลผู้ต้องหาในระบบ';
-            locationsText = locations.length > 0
-              ? locations.map(l => `- ${l.title} ที่อยู่: ${l.address || '-'} พิกัด: ${l.latitude},${l.longitude} ผู้บันทึก: ${l.user || '-'}`).join('\n')
-              : 'ไม่มีข้อมูลสถานที่จุดเสี่ยง';
-          }
-
-          const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
-          
-          const sheetContext = `
-${personnelFacts}
-
-ทำเนียบบุคลากร สภ.ลานสัก:
-${personnelText}
-
-ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):
-${leadersText}
-
-รายการสถานที่/จุดตรวจเสี่ยงภัย:
-${locationsText}
-
-บัญชีข้อมูลผู้ต้องหาและหมายจับ (เฝ้าระวัง):
-${suspectsText}
-          `.trim();
-
-          // คำถามวิเคราะห์กำลังพลใช้เฉพาะยอดที่โปรแกรมคำนวณจากชีตจริง
-          // เพื่อให้ AI วิเคราะห์ได้โดยไม่หลงกับรายชื่อและข้อมูลหมวดอื่นที่ยาวเกินจำเป็น
-          const aiContext = isUserAdmin && isPersonnelAnalysisQuestion(userText)
-            ? buildPersonnelAnalysisContext(personnelSummary)
-            : sheetContext;
-
-          // ส่งบริบทสดพร้อมตัวเลขที่โปรแกรมคำนวณ เพื่อให้ AI วิเคราะห์ได้โดยไม่เดายอดเอง
-          const aiReply = await askAI(userText, aiContext, {
-            isAdmin: isUserAdmin,
-            isMasterAdmin: isMaster,
-            userName: displayName,
-            userId: userId
-          });
-          if (aiReply) return replyText(replyToken, aiReply);
-        }
-      } catch (aiErr) {
-        console.error('[AI fallback] error:', aiErr.message);
-      }
+      const answeredByAI = await answerWithAI(userText, userId, replyToken, isUserAdmin);
+      if (answeredByAI) return;
       return replyMessage(replyToken, buildNotFoundFlex(searchQuery));
     }
   } catch (err) {

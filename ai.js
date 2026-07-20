@@ -587,35 +587,40 @@ async function detectAIIntent(userQuestion, userOptions = {}) {
 // ============================================================
 // 🧠 คำสั่งดู/ยกเลิก/ล้าง บันทึก-แจ้งเตือน (regex ธรรมดา อ่านจาก Google Sheet)
 // ============================================================
-async function detectLocalIntent(question) {
+async function detectLocalIntent(question, userId) {
   const q = question.trim();
 
-  // ── ดูบันทึก ──
+  // ── ดูบันทึก (เฉพาะบันทึกเหตุการณ์แบบทีม type='note' เท่านั้น) ──
+  // ห้ามดึง type='saved_message' มาปนด้วย เพราะนั่นคือข้อความส่วนตัวที่ผู้ใช้บันทึกผ่าน
+  // /บันทึกข้อความ ซึ่งควรเห็นเฉพาะเจ้าของ (ดูได้ผ่าน /ดูข้อความที่บันทึก เท่านั้น)
   if (/ดู(?:บันทึก|note|สิ่งที่บันทึก)|บันทึก(?:วันนี้|ที่มี|ทั้งหมด)|note(?:s)?(?:วันนี้|ทั้งหมด)?/.test(q)) {
-    const notes = await getAllMemories(20);
-    if (!notes.length) return `📋 ยังไม่มีบันทึกในระบบครับ`;
+    const allNotes = await getAllMemories(50);
+    const notes = allNotes.filter(n => n.type !== 'saved_message').slice(0, 20);
+    if (!notes.length) return `📋 ยังไม่มีบันทึกเหตุการณ์ของทีมในระบบครับ`;
     const list = notes.map((n, i) => `${i + 1}. [${n.createdAt}]\n   ${n.message}`).join('\n\n');
-    return `📋 บันทึกล่าสุด (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
+    return `📋 บันทึกเหตุการณ์ล่าสุด (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
   }
 
-  // ── ดูแจ้งเตือน ──
+  // ── ดูแจ้งเตือน (เฉพาะของผู้ใช้ที่ถามเท่านั้น) ──
   if (/ดู(?:แจ้งเตือน|reminder)|แจ้งเตือน(?:ที่ตั้งไว้|ที่มี|ทั้งหมด)/.test(q)) {
-    const reminders = await getWaitingReminders();
-    if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนที่รอดำเนินการครับ`;
+    const allReminders = await getWaitingReminders();
+    const reminders = userId ? allReminders.filter(r => r.createdBy === userId) : allReminders;
+    if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนของคุณที่รอดำเนินการครับ`;
     const list = reminders.map((r, i) => `${i + 1}. ${r.remindTime} น.\n   "${r.message}"`).join('\n\n');
     return `⏰ แจ้งเตือนที่ตั้งไว้ (${reminders.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
   }
 
-  // ── ยกเลิกแจ้งเตือน (ทั้งหมดที่ยังรอดำเนินการ) ──
+  // ── ยกเลิกแจ้งเตือน (เฉพาะของผู้ใช้ที่ถามเท่านั้น ไม่แตะของคนอื่น) ──
   if (/ยกเลิก(?:แจ้งเตือน|reminder)|cancel.*reminder/.test(q)) {
-    const reminders = await getWaitingReminders();
-    if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนที่จะยกเลิกครับ`;
+    const allReminders = await getWaitingReminders();
+    const reminders = userId ? allReminders.filter(r => r.createdBy === userId) : allReminders;
+    if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนของคุณที่จะยกเลิกครับ`;
     for (const r of reminders) {
       const timerId = _reminderTimers.get(r.rowIndex);
       if (timerId) { clearTimeout(timerId); _reminderTimers.delete(r.rowIndex); }
       await updateReminderStatus(r.rowIndex, 'cancel', false);
     }
-    return `✅ ยกเลิกแจ้งเตือนทั้งหมด (${reminders.length} รายการ) แล้วครับ`;
+    return `✅ ยกเลิกแจ้งเตือนของคุณทั้งหมด (${reminders.length} รายการ) แล้วครับ`;
   }
 
   return null; // ไม่ match → ส่งต่อ Gemini
