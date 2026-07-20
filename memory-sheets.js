@@ -22,13 +22,9 @@ const _ensuredSheets = new Set();
 function getSheetsClient() {
   if (_sheetsClient) return _sheetsClient;
 
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY || process.env.GGOOGLE_PRIVATE_KEY || '';
-  privateKey = privateKey.replace(/\\n/g, '\n').trim();
-
-  if (privateKey.includes('BEGINPRIVATEKEY')) privateKey = privateKey.replace('BEGINPRIVATEKEY', 'BEGIN PRIVATE KEY');
-  if (privateKey.includes('ENDPRIVATEKEY')) privateKey = privateKey.replace('ENDPRIVATEKEY', 'END PRIVATE KEY');
-  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}`;
-  if (privateKey && !privateKey.includes('-----END PRIVATE KEY-----')) privateKey = `${privateKey}\n-----END PRIVATE KEY-----\n`;
+  const privateKey = normalizePrivateKey(
+    process.env.GOOGLE_PRIVATE_KEY || process.env.GGOOGLE_PRIVATE_KEY || ''
+  );
 
   const credentials = {
     type: 'service_account',
@@ -50,9 +46,41 @@ function getSheetsClient() {
   return _sheetsClient;
 }
 
+function normalizePrivateKey(value) {
+  let privateKey = String(value || '').replace(/\\n/g, '\n').replace(/\r\n?/g, '\n').trim();
+  if (!privateKey) return '';
+
+  // Some .env editors wrap PEM labels across lines or remove their spaces.
+  // Repair only the labels; the base64 payload remains untouched.
+  privateKey = privateKey
+    .replace(/-----BEGIN\s*(?:RSA\s*)?PRIVATE\s*KEY-----/g, '-----BEGIN PRIVATE KEY-----')
+    .replace(/-----END\s*(?:RSA\s*)?PRIVATE\s*KEY-----/g, '-----END PRIVATE KEY-----');
+
+  if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}`;
+  }
+  if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+    privateKey = `${privateKey}\n-----END PRIVATE KEY-----`;
+  }
+
+  const header = '-----BEGIN PRIVATE KEY-----';
+  const footer = '-----END PRIVATE KEY-----';
+  let payload = privateKey
+    .slice(privateKey.indexOf(header) + header.length, privateKey.lastIndexOf(footer))
+    .replace(/\s/g, '');
+
+  // A hard-wrapped literal "\\n" can leave one stray "n" before the payload.
+  // Base64 cannot have length 1 modulo 4, so this exact repair is unambiguous.
+  if (payload.length % 4 === 1 && payload.startsWith('n')) payload = payload.slice(1);
+
+  const payloadLines = payload.match(/.{1,64}/g) || [];
+  return `${header}\n${payloadLines.join('\n')}\n${footer}`;
+}
+
 /** สร้าง Sheet (tab) อัตโนมัติถ้ายังไม่มี พร้อมใส่หัวตาราง */
 async function ensureSheetExists(title, headers) {
   if (_ensuredSheets.has(title)) return;
+  if (!SPREADSHEET_ID) throw new Error('SPREADSHEET_ID is not configured');
   const sheets = getSheetsClient();
   try {
     const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
@@ -99,7 +127,8 @@ async function appendMemory({ message, type = 'note', createdBy = '' }) {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: `${SHEET_MEMORY}!A:F`,
-    valueInputOption: 'USER_ENTERED',
+    // User-supplied reports must be stored as plain text, never evaluated as formulas.
+    valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] },
   });
@@ -109,24 +138,44 @@ async function appendMemory({ message, type = 'note', createdBy = '' }) {
 
 /** ดึงบันทึกข้อมูลล่าสุด (จำกัดจำนวน) */
 async function getAllMemories(limit = 20) {
-  await ensureSheetExists(SHEET_MEMORY, MEMORY_HEADERS);
-  const sheets = getSheetsClient();
   try {
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_MEMORY}!A:F`,
-    });
-    const rows = (res.data.values || []).slice(1); // ข้าม header
-    const items = rows
-      .filter(r => (r[3] || '').trim())
-      .map(r => ({
-        id: r[0], createdAt: r[1], type: r[2], message: r[3], status: r[4] || 'active', createdBy: r[5] || '',
-      }));
-    return items.slice(-limit).reverse(); // ล่าสุดก่อน
+    const items = await readMemories();
+    return items.slice(-normalizeLimit(limit)).reverse(); // ล่าสุดก่อน
   } catch (err) {
     console.error('[memory-sheets] getAllMemories error:', err.message);
     return [];
   }
+}
+
+/** อ่านข้อความที่บันทึกไว้เฉพาะเจ้าของข้อความ โดยใช้ LINE userId ที่เก็บใน created_by */
+async function getMemoriesByCreator(createdBy, limit = 20) {
+  if (!createdBy) return [];
+  const items = await readMemories();
+  return items
+    .filter(item => item.createdBy === createdBy)
+    .slice(-normalizeLimit(limit))
+    .reverse(); // ล่าสุดก่อน
+}
+
+async function readMemories() {
+  await ensureSheetExists(SHEET_MEMORY, MEMORY_HEADERS);
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_MEMORY}!A:F`,
+  });
+  const rows = (res.data.values || []).slice(1); // ข้าม header
+  return rows
+    .filter(r => (r[3] || '').trim())
+    .map(r => ({
+      id: r[0], createdAt: r[1], type: r[2], message: r[3], status: r[4] || 'active', createdBy: r[5] || '',
+    }));
+}
+
+function normalizeLimit(limit) {
+  const value = Number(limit);
+  if (!Number.isInteger(value)) return 20;
+  return Math.max(1, Math.min(value, 100));
 }
 
 // ============================================================
@@ -208,6 +257,8 @@ async function updateReminderStatus(rowIndex, status, sent) {
 module.exports = {
   appendMemory,
   getAllMemories,
+  getMemoriesByCreator,
+  normalizePrivateKey,
   appendReminder,
   getWaitingReminders,
   updateReminderStatus,

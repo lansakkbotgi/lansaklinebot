@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "setup-menu": "node setup-menu.js"
+    "setup-menu": "node setup-menu.js",
+    "test": "node --test test/saved-message-command.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

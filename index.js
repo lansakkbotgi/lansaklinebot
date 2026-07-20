@@ -49,6 +49,8 @@ const {
 const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
 const { askAI, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./ai');
 const { getSystemSettings } = require('./staff-data');
+const { appendMemory, getMemoriesByCreator } = require('./memory-sheets');
+const { handleSavedMessageCommand } = require('./saved-message-command');
 
 // ===== Line SDK Config =====
 const lineConfig = {
@@ -608,6 +610,21 @@ async function handleEvent(event) {
       if (!isExplicitAdmin && !isExplicitSearch && !isPhone && !isMentionBot && !isMainKeywords) {
         return; 
       }
+    }
+
+    // ── บันทึกข้อความแบบคำสั่งตายตัว ──
+    // ส่งเฉพาะคำสั่งที่ตรงรูปแบบไปยัง Google Sheets แล้วจบการทำงานทันที
+    // ข้อความทั่วไปจะได้ null และไหลเข้าระบบค้นหา/AI เดิมโดยไม่เปลี่ยนพฤติกรรม
+    try {
+      const savedMessageReply = await handleSavedMessageCommand(userText, {
+        userId,
+        appendMemory,
+        getMemoriesByCreator,
+      });
+      if (savedMessageReply) return replyText(replyToken, savedMessageReply);
+    } catch (err) {
+      console.error('[saved-message] error:', err.message);
+      return replyText(replyToken, '❌ ไม่สามารถบันทึกหรือเรียกดูข้อความจาก Google Sheets ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
     }
 
     const isUserAdmin = await isAdmin(userId);

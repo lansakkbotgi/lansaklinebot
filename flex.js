@@ -1113,6 +1113,22 @@ function buildAllCommandsFlex(isAdminUser) {
     },
     {
       type: 'text',
+      text: '📝 บันทึกข้อความ',
+      weight: 'bold',
+      size: 'sm',
+      margin: 'md',
+      color: '#2c3e50',
+    },
+    {
+      type: 'text',
+      text: '• บันทึก: /บันทึกข้อความ <รายละเอียด>\n• ดูข้อความของคุณ: /ดูข้อความที่บันทึก\nระบบจะบันทึกเฉพาะคำสั่งนี้ ส่วนคำถามทั่วไปจะยังส่งไปวิเคราะห์ตามปกติ',
+      size: 'xs',
+      color: '#7f8c8d',
+      wrap: true,
+      margin: 'sm',
+    },
+    {
+      type: 'text',
       text: '📋 คำสั่งควบคุมระบบ',
       weight: 'bold',
       size: 'sm',
