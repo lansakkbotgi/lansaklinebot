@@ -130,3 +130,13 @@ test('removes the unambiguous stray n left by a broken escaped newline', () => {
     '-----BEGIN PRIVATE KEY-----\nABCD\n-----END PRIVATE KEY-----'
   );
 });
+
+test('repairs a literal escaped newline split across physical lines', () => {
+  const slash = String.fromCharCode(92);
+  const malformed = `-----BEGIN PRIVATE KEY-----${slash}\nnABCD${slash}\n-----END PRIVATE KEY-----${slash}\nn`;
+
+  assert.equal(
+    normalizePrivateKey(malformed),
+    '-----BEGIN PRIVATE KEY-----\nABCD\n-----END PRIVATE KEY-----'
+  );
+});

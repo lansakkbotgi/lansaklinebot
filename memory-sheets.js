@@ -47,7 +47,14 @@ function getSheetsClient() {
 }
 
 function normalizePrivateKey(value) {
-  let privateKey = String(value || '').replace(/\\n/g, '\n').replace(/\r\n?/g, '\n').trim();
+  let privateKey = String(value || '')
+    // Some environment editors split a literal "\\n" across physical lines
+    // as "\\" + newline + "n". A backslash is never valid in PEM base64.
+    .replace(/\\\r?\n[ \t]*n/g, '\n')
+    .replace(/\\\r?\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\r\n?/g, '\n')
+    .trim();
   if (!privateKey) return '';
 
   // Some .env editors wrap PEM labels across lines or remove their spaces.

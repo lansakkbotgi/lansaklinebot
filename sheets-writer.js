@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { google } = require('googleapis');
+const { normalizePrivateKey } = require('./memory-sheets');
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
@@ -159,35 +160,9 @@ async function appendLocationRecord(locationData, userName) {
  * สร้าง Google Sheets client ด้วย Service Account
  */
 function getSheetsClient() {
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY || process.env.GGOOGLE_PRIVATE_KEY || '';
-  
-  // 1. จัดการเรื่อง \n ที่อาจจะถูกแก้เป็นตัวอักษรธรรมดา
-  privateKey = privateKey.replace(/\\n/g, '\n');
-  
-  // 2. ลบช่องว่างส่วนเกินที่อาจจะติดมาจากการก๊อปปี้
-  privateKey = privateKey.trim();
-
-  // 3. ตรวจสอบและแก้ไข Header/Footer (ต้องมีช่องว่าง "PRIVATE KEY")
-  if (privateKey.includes('BEGINPRIVATEKEY')) {
-    privateKey = privateKey.replace('BEGINPRIVATEKEY', 'BEGIN PRIVATE KEY');
-  }
-  if (privateKey.includes('ENDPRIVATEKEY')) {
-    privateKey = privateKey.replace('ENDPRIVATEKEY', 'END PRIVATE KEY');
-  }
-
-  // 4. ถ้าไม่มี Header/Footer เลย ให้เติมให้
-  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-    privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}`;
-  }
-  if (privateKey && !privateKey.includes('-----END PRIVATE KEY-----')) {
-    privateKey = `${privateKey}\n-----END PRIVATE KEY-----\n`;
-  }
-
-  // 🔍 DEBUG ชั่วคราว — ลบทิ้งหลังแก้ปัญหาเสร็จ
-  console.log('🔍 DEBUG privateKey length:', privateKey.length);
-  console.log('🔍 DEBUG privateKey first 40:', JSON.stringify(privateKey.slice(0, 40)));
-  console.log('🔍 DEBUG privateKey last 40:', JSON.stringify(privateKey.slice(-40)));
-  console.log('🔍 DEBUG env var used:', process.env.GOOGLE_PRIVATE_KEY ? 'GOOGLE_PRIVATE_KEY' : (process.env.GGOOGLE_PRIVATE_KEY ? 'GGOOGLE_PRIVATE_KEY (fallback - ชื่อผิด!)' : 'ไม่มีตัวไหนถูกตั้งเลย'));
+  const privateKey = normalizePrivateKey(
+    process.env.GOOGLE_PRIVATE_KEY || process.env.GGOOGLE_PRIVATE_KEY || ''
+  );
 
   const credentials = {
     type: 'service_account',
