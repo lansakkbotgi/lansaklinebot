@@ -51,6 +51,12 @@ const { askAI, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./
 const { getSystemSettings } = require('./staff-data');
 const { appendMemory, getMemoriesByCreator } = require('./memory-sheets');
 const { handleSavedMessageCommand } = require('./saved-message-command');
+const {
+  summarizePersonnel,
+  formatPersonnelFactsOrUnavailable,
+  isPersonnelAnalysisQuestion,
+  buildPersonnelAnalysisContext,
+} = require('./personnel-summary');
 
 // ===== Line SDK Config =====
 const lineConfig = {
@@ -1073,11 +1079,15 @@ return replyText(
           ]);
           
           let personnelText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+          let personnelFacts = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
+          let personnelSummary = null;
           let suspectsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
           let locationsText = '🔒 จำกัดเฉพาะเจ้าหน้าที่เท่านั้น';
 
           if (isUserAdmin) {
             personnelText = personnel.map(p => `- ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'}`).join('\n');
+            personnelSummary = summarizePersonnel(personnel);
+            personnelFacts = formatPersonnelFactsOrUnavailable(personnelSummary);
             suspectsText = suspects.length > 0
               ? suspects.map(s => `- ${s.fullName} คดี: ${s.crime} สถานะ: ${s.status} พื้นที่: ${s.area} หมายเลขคดี: ${s.caseNo || '-'}`).join('\n')
               : 'ไม่มีข้อมูลผู้ต้องหาในระบบ';
@@ -1089,6 +1099,8 @@ return replyText(
           const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
           
           const sheetContext = `
+${personnelFacts}
+
 ทำเนียบบุคลากร สภ.ลานสัก:
 ${personnelText}
 
@@ -1102,8 +1114,14 @@ ${locationsText}
 ${suspectsText}
           `.trim();
 
-          // ── ใช้ Cache (ไม่ต้อง fetch ใหม่ทุกครั้ง) — เร็วกว่าเดิมมาก ──
-          const aiReply = await askAI(searchQuery, null, {
+          // คำถามวิเคราะห์กำลังพลใช้เฉพาะยอดที่โปรแกรมคำนวณจากชีตจริง
+          // เพื่อให้ AI วิเคราะห์ได้โดยไม่หลงกับรายชื่อและข้อมูลหมวดอื่นที่ยาวเกินจำเป็น
+          const aiContext = isUserAdmin && isPersonnelAnalysisQuestion(userText)
+            ? buildPersonnelAnalysisContext(personnelSummary)
+            : sheetContext;
+
+          // ส่งบริบทสดพร้อมตัวเลขที่โปรแกรมคำนวณ เพื่อให้ AI วิเคราะห์ได้โดยไม่เดายอดเอง
+          const aiReply = await askAI(userText, aiContext, {
             isAdmin: isUserAdmin,
             isMasterAdmin: isMaster,
             userName: displayName,
@@ -1170,6 +1188,7 @@ app.listen(PORT, () => {
       const personnelText = personnel.map(p =>
         `- ยศ: ${p.rank || '-'} ชื่อ-สกุล: ${p.fullName} ตำแหน่ง: ${p.position} ฝ่าย: ${p.area} โทร: ${p.phone || '-'} อีเมล: ${p.email || '-'} วันที่บันทึก: ${p.date || '-'}`
       ).join('\n') || 'ไม่มีข้อมูล';
+      const personnelFacts = formatPersonnelFactsOrUnavailable(summarizePersonnel(personnel));
 
       const leadersText = leaders.map(l =>
         `- คำนำหน้า/ยศ: ${l.rank || '-'} ชื่อ-สกุล: ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'} วันที่บันทึก/วาระ: ${l.date || '-'}`
@@ -1193,6 +1212,8 @@ app.listen(PORT, () => {
       ].join('\n');
 
       const adminContext = [
+        personnelFacts,
+        '',
         'ทำเนียบบุคลากร สภ.ลานสัก:',
         personnelText,
         '',
