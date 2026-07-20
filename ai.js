@@ -1,4 +1,11 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const {
+  appendMemory,
+  getAllMemories,
+  appendReminder,
+  getWaitingReminders,
+  updateReminderStatus,
+} = require('./memory-sheets');
 
 // ============================================================
 //  ai.js — ระบบ AI อัจฉริยะ สายตรวจภูธรลานสัก (Production Grade v4.0)
@@ -138,11 +145,18 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
   const isAdmin = !!userOptions.isAdmin;
   const isMasterAdmin = !!userOptions.isMasterAdmin;
 
-  // ── ตรวจจับ Intent ท้องถิ่น (Note/Reminder) — ก่อนส่ง Gemini ──
-  const localResult = detectLocalIntent(userQuestion, userId);
+  // ── คำสั่งดู/ยกเลิก/ล้าง บันทึก-แจ้งเตือน (regex ธรรมดา ตรวจก่อนเสมอ กันสับสนกับ AI) ──
+  const localResult = await detectLocalIntent(userQuestion, userId);
   if (localResult !== null) {
     const roleEmoji = isMasterAdmin ? '👑' : (isAdmin ? '🔐' : '👤');
     return `${roleEmoji} AI ผู้ช่วยสายตรวจ สภ.ลานสัก\n${'─'.repeat(30)}\n${localResult}`;
+  }
+
+  // ── ตรวจจับ Intent ด้วย AI (บันทึกข้อมูล/แจ้งเตือน) โดยวิเคราะห์บริบท ไม่ต้องมีคำสั่งตายตัว ──
+  const aiIntentResult = await detectAIIntent(userQuestion, { userId, userName });
+  if (aiIntentResult !== null) {
+    const roleEmoji = isMasterAdmin ? '👑' : (isAdmin ? '🔐' : '👤');
+    return `${roleEmoji} AI ผู้ช่วยสายตรวจ สภ.ลานสัก\n${'─'.repeat(30)}\n${aiIntentResult}`;
   }
 
   // ── ใช้ Cache ถ้าไม่มี sheetContext ส่งมา ──
@@ -323,194 +337,295 @@ ${sheetContext || 'ไม่มีข้อมูลในระบบ'}
 
 
 // ============================================================
-// 📝 ระบบบันทึกข้อความ (Notes System)
-// ============================================================
-const userNotes = new Map(); // userId -> [{id, text, timestamp}]
-let _noteIdCounter = 1;
-
-function saveNote(userId, text) {
-  if (!userNotes.has(userId)) userNotes.set(userId, []);
-  const note = { id: _noteIdCounter++, text: text.trim(), timestamp: Date.now() };
-  const notes = userNotes.get(userId);
-  notes.push(note);
-  if (notes.length > 100) notes.shift(); // เก็บสูงสุด 100 รายการ
-  return note;
-}
-
-function getUserNotes(userId, filter) {
-  const notes = userNotes.get(userId) || [];
-  if (filter === 'today') {
-    const today = new Date();
-    return notes.filter(n => {
-      const d = new Date(n.timestamp);
-      return d.getDate() === today.getDate()
-          && d.getMonth() === today.getMonth()
-          && d.getFullYear() === today.getFullYear();
-    });
-  }
-  return [...notes];
-}
-
-function clearUserNotes(userId) {
-  userNotes.delete(userId);
-}
-
-// ============================================================
-// ⏰ ระบบแจ้งเตือน (Reminder System)
+// ⏰ ระบบแจ้งเตือน (Reminder System) — เก็บลง Google Sheet + timer ใน memory สำหรับ push
 // ============================================================
 let _linePushFn = null;
-const activeReminders = new Map(); // userId -> [{id, text, triggerAt, timerId}]
-let _reminderId = 1;
+const _reminderTimers = new Map(); // rowIndex -> timerId (กันตั้งซ้ำ)
 
 /** เรียกจาก index.js เพื่อลงทะเบียน LINE push function */
 function setLinePushFn(fn) {
   _linePushFn = fn;
 }
 
-/** แปลงข้อความเวลา เช่น "60 นาที", "1 ชั่วโมงครึ่ง" → milliseconds */
-function parseDelayMs(text) {
-  let ms = 0;
-  const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*ชั่วโมง/);
-  if (hourMatch) ms += parseFloat(hourMatch[1]) * 3600000;
-  if (/ครึ่ง/.test(text) && /ชั่วโมง/.test(text)) ms += 1800000;
-  const minMatch = text.match(/(\d+)\s*นาที/);
-  if (minMatch) ms += parseInt(minMatch[1]) * 60000;
-  const secMatch = text.match(/(\d+)\s*วินาที/);
-  if (secMatch) ms += parseInt(secMatch[1]) * 1000;
-  return ms;
-}
-
-function setReminder(userId, text, delayMs) {
-  if (!activeReminders.has(userId)) activeReminders.set(userId, []);
-  const id = _reminderId++;
-  const triggerAt = Date.now() + delayMs;
+/** ตั้ง timer ในหน่วยความจำสำหรับ push แจ้งเตือนเมื่อถึงเวลา แล้วอัปเดตสถานะในชีตเป็น done/sent */
+function scheduleReminderTimer(userId, rowIndex, message, triggerAtMs) {
+  if (_reminderTimers.has(rowIndex)) return; // ตั้งไว้แล้ว ไม่ต้องตั้งซ้ำ
+  const delayMs = Math.max(0, triggerAtMs - Date.now());
 
   const timerId = setTimeout(async () => {
-    if (_linePushFn) {
-      const thTime = new Date(triggerAt).toLocaleTimeString('th-TH', {
+    _reminderTimers.delete(rowIndex);
+    if (_linePushFn && userId) {
+      const thTime = new Date(triggerAtMs).toLocaleTimeString('th-TH', {
         hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok'
       });
       try {
-        await _linePushFn(userId, `⏰ แจ้งเตือน — ${thTime} น.\n${'─'.repeat(24)}\n${text}`);
-      } catch(e) {
+        await _linePushFn(userId, `⏰ แจ้งเตือน — ${thTime} น.\n${'─'.repeat(24)}\n${message}`);
+      } catch (e) {
         console.error('[Reminder] push failed:', e.message);
       }
     }
-    // ลบออกหลังแจ้งเตือนแล้ว
-    const list = activeReminders.get(userId) || [];
-    const idx = list.findIndex(r => r.id === id);
-    if (idx !== -1) list.splice(idx, 1);
+    try {
+      await updateReminderStatus(rowIndex, 'done', true);
+    } catch (e) {
+      console.error('[Reminder] update sheet status failed:', e.message);
+    }
   }, delayMs);
 
-  activeReminders.get(userId).push({ id, text, triggerAt, timerId });
-  return { id, triggerAt };
+  _reminderTimers.set(rowIndex, timerId);
 }
 
-function getActiveReminders(userId) {
-  return (activeReminders.get(userId) || []).filter(r => r.triggerAt > Date.now());
-}
-
-function cancelReminderById(userId, id) {
-  const list = activeReminders.get(userId) || [];
-  const idx = list.findIndex(r => r.id === id);
-  if (idx !== -1) { clearTimeout(list[idx].timerId); list.splice(idx, 1); return true; }
-  return false;
-}
-
-// ============================================================
-// 🧠 ตรวจจับ Intent ท้องถิ่น (Note / Reminder) — เร็วกว่าส่ง Gemini
-// ============================================================
-function detectLocalIntent(question, userId) {
-  const q = question.trim();
-
-  // ── บันทึกข้อความ ──
-  const savePat = [
-    /^(?:ช่วย)?บันทึก(?:ข้อความ)?(?:ให้หน่อย|หน่อย)?(?:ว่า|:| )\s*(.+)/si,
-    /^(?:ช่วย)?จดไว้(?:ว่า|:| )\s*(.+)/si,
-    /^(?:ช่วย)?จำ(?:ไว้)?(?:ว่า|:| )\s*(.+)/si,
-    /^(?:ช่วย)?note[:\s]+(.+)/si,
-  ];
-  for (const pat of savePat) {
-    const m = q.match(pat);
-    if (m && m[1]?.trim()) {
-      const note = saveNote(userId, m[1].trim());
-      const t = new Date(note.timestamp).toLocaleString('th-TH', {
-        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok'
-      });
-      return `✅ บันทึกแล้วครับ [${t}]\n${'─'.repeat(24)}\n📝 ${note.text}`;
+/**
+ * โหลดแจ้งเตือนที่ยังค้างอยู่จาก Google Sheet มาตั้ง timer ใหม่ (เรียกตอนเซิร์ฟเวอร์ start)
+ * เพื่อไม่ให้แจ้งเตือนหายเมื่อรีสตาร์ทเซิร์ฟเวอร์
+ * @param {string|null} fallbackUserId - userId ที่จะ push ไปหาถ้าในชีตไม่มีข้อมูลผู้รับ (ทางเลือก)
+ */
+async function initReminders(fallbackUserId = null) {
+  try {
+    const pending = await getWaitingReminders();
+    for (const r of pending) {
+      const triggerAtMs = new Date(r.remindTime.replace(' ', 'T')).getTime();
+      const validTime = !isNaN(triggerAtMs) ? triggerAtMs : Date.now();
+      const targetUserId = r.createdBy || fallbackUserId;
+      scheduleReminderTimer(targetUserId, r.rowIndex, r.message, validTime);
     }
+    if (pending.length) {
+      console.log(`[Reminder] โหลดแจ้งเตือนค้างจาก Sheet มาตั้งใหม่ ${pending.length} รายการ`);
+    }
+  } catch (err) {
+    console.error('[Reminder] initReminders error:', err.message);
   }
+}
 
-  // ── ตั้งแจ้งเตือน ──
-  const remindPat = [
-    /(?:ช่วย)?(?:แจ้งเตือน|เตือน)(?:ข้อความ|ด้วย|หน่อย|ว่า)?\s*(?:อีก)?\s*([\d\u0e00-\u0e7fก-์\s]+(?:นาที|ชั่วโมง|วินาที)[ก-์\s]*)\s*(?:ว่า|:)?\s*(.+)/si,
-    /reminder\s+(?:อีก)?\s*([\d\u0e00-\u0e7fก-์\s]+(?:นาที|ชั่วโมง)[ก-์\s]*)\s*(?:ว่า|:)?\s*(.+)/si,
-  ];
-  for (const pat of remindPat) {
-    const m = q.match(pat);
-    if (m && m[1] && m[2]?.trim()) {
-      const delayMs = parseDelayMs(m[1]);
-      if (delayMs >= 10000) { // ขั้นต่ำ 10 วินาที
-        const reminder = setReminder(userId, m[2].trim(), delayMs);
-        const mins = delayMs >= 3600000
-          ? `${(delayMs/3600000).toFixed(1)} ชั่วโมง`
-          : delayMs >= 60000
-            ? `${Math.round(delayMs/60000)} นาที`
-            : `${Math.round(delayMs/1000)} วินาที`;
-        const thTime = new Date(reminder.triggerAt).toLocaleTimeString('th-TH', {
-          hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok'
+// ============================================================
+// 🧠 Gemini Function Calling — วิเคราะห์ Intent จากบริบทข้อความจริง
+// (บันทึกข้อมูล / สร้างการแจ้งเตือน) โดยไม่ต้องพิมพ์คำสั่งตายตัว
+// ============================================================
+const memoryReminderTools = [{
+  functionDeclarations: [
+    {
+      name: 'save_memory',
+      description: 'บันทึกข้อมูล เหตุการณ์ บุคคล สถานที่ สิ่งผิดปกติ หรือเบาะแสที่ผู้ใช้ต้องการเก็บไว้ในระบบเพื่อดูภายหลัง เช่น พบเห็นเหตุการณ์ต้องสงสัย บุคคลแปลกหน้า รถต้องสงสัย ฯลฯ',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'ข้อความสรุปสิ่งที่ต้องการบันทึก (ภาษาไทย กระชับ ตรงประเด็น)' },
+        },
+        required: ['message'],
+      },
+    },
+    {
+      name: 'create_reminder',
+      description: 'สร้างการแจ้งเตือนเมื่อผู้ใช้ต้องการให้ระบบเตือนในอนาคต โดยมีการระบุช่วงเวลาหรือเวลาที่ชัดเจน เช่น "อีก 30 นาที", "พรุ่งนี้เช้า", "16:00", "เย็นนี้"',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'ข้อความที่จะแจ้งเตือน (ภาษาไทย กระชับ ตรงประเด็น)' },
+          remind_after_minutes: { type: 'number', description: 'จำนวนนาทีนับจากเวลาปัจจุบันที่จะแจ้งเตือน ใช้เมื่อผู้ใช้ระบุเป็นช่วงเวลา เช่น "อีก 30 นาที" หรือ "อีก 2 ชั่วโมง"' },
+          remind_at: { type: 'string', description: 'วันที่และเวลาที่จะแจ้งเตือนแบบ ISO 8601 (เช่น 2026-07-19T21:20:00) ใช้เมื่อผู้ใช้ระบุเวลาที่ชัดเจน เช่น "16:00" หรือ "พรุ่งนี้เช้า"' },
+        },
+        required: ['message'],
+      },
+    },
+  ],
+}];
+
+function buildIntentSystemPrompt() {
+  const nowStr = new Date().toLocaleString('th-TH', {
+    dateStyle: 'full', timeStyle: 'short', timeZone: 'Asia/Bangkok',
+  });
+  const nowISO = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' }).replace(' ', 'T');
+  return `
+คุณคือระบบวิเคราะห์ความต้องการ (Intent Classifier) ของ AI ผู้ช่วยศูนย์ปฏิบัติการตำรวจ
+หน้าที่ของคุณคือวิเคราะห์ "ข้อความ" ที่ผู้ใช้พิมพ์มา ว่าเข้าข่ายต้องการอย่างใดอย่างหนึ่งต่อไปนี้หรือไม่ โดยพิจารณาจากบริบท ไม่จำเป็นต้องมีคำว่า "บันทึก" หรือ "แจ้งเตือน" ตรงตัว
+
+══════════════════════════════════════
+📌 กฎการเรียกฟังก์ชัน
+══════════════════════════════════════
+1. **save_memory** — เรียกเมื่อข้อความรายงานเหตุการณ์ บุคคล สถานที่ สิ่งที่พบ สิ่งผิดปกติ หรือเบาะแสที่ "เกิดขึ้นแล้ว/กำลังเกิด" และควรเก็บไว้ดูภายหลัง
+2. **create_reminder** — เรียกเมื่อข้อความขอให้ระบบเตือน "ในอนาคต" และมีการระบุช่วงเวลาหรือเวลาที่ชัดเจน (เช่น อีก 30 นาที, พรุ่งนี้เช้า, 16:00, เย็นนี้)
+3. ถ้าข้อความเดียวเข้าข่ายทั้งสองอย่าง (มีทั้งเหตุการณ์ที่ต้องบันทึก และมีเวลาที่ต้องเตือนให้ตรวจซ้ำ) ให้เรียกทั้งสองฟังก์ชันพร้อมกัน
+
+══════════════════════════════════════
+🚫 ห้ามเรียกฟังก์ชันใดๆ ทั้งสิ้นในกรณีต่อไปนี้ (สำคัญมาก)
+══════════════════════════════════════
+- ข้อความเป็นคำถามทั่วไป การทักทาย หรือการสนทนาปกติ
+- ข้อความเป็นการ "ขอดู" ข้อมูลที่เคยบันทึกไว้ หรือ "ขอดู/ยกเลิก" แจ้งเตือนที่ตั้งไว้แล้ว (เช่น "ดูบันทึกหน่อย", "มีแจ้งเตือนอะไรบ้าง", "ยกเลิกแจ้งเตือนที") — เคสนี้ไม่ใช่การสร้างใหม่ ห้ามเรียก save_memory หรือ create_reminder
+- ข้อความเป็นคำถามค้นหาข้อมูลจากระบบ เช่น เบอร์โทร ชื่อเจ้าหน้าที่ ตำแหน่ง สถานะคดี แม้จะมีคำเกี่ยวกับเวลาปนอยู่ก็ตาม (เช่น "วันนี้เวรใคร", "ตอนนี้ผู้กำกับอยู่ไหม") — เพราะนี่คือคำถาม ไม่ใช่คำสั่งให้เตือน
+- เวลาที่กล่าวถึงเป็น "อดีต" ที่ผ่านไปแล้ว (เช่น "เมื่อกี้", "เมื่อ 10 นาทีที่แล้ว", "เมื่อวาน") ไม่ใช่อนาคต ห้ามเรียก create_reminder เด็ดขาด (แต่ถ้าเนื้อหาเป็นการรายงานเหตุการณ์ ให้พิจารณาเรียก save_memory แทน)
+
+══════════════════════════════════════
+✅ ตัวอย่างที่ควรเรียกฟังก์ชัน
+══════════════════════════════════════
+- "มีรถกระบะสีดำจอดต้องสงสัยหน้าหมู่ 5" → save_memory
+- "เจอเด็กหลงทางแถวตลาดสด ตอนนี้พาไปที่ป้อมแล้ว" → save_memory
+- "อีก 30 นาทีเตือนให้ไปรับตัวผู้ต้องหาด้วย" → create_reminder
+- "พรุ่งนี้เช้า 7 โมงเตือนประชุมด้วย" → create_reminder
+- "บันทึกว่าหน้าหมู่ 5 มีรถต้องสงสัย แล้วอีก 30 นาทีเตือนให้มาตรวจซ้ำ" → save_memory และ create_reminder พร้อมกัน
+
+══════════════════════════════════════
+❌ ตัวอย่างที่ห้ามเรียกฟังก์ชัน (ต้องปล่อยผ่านเป็นคำถามปกติ)
+══════════════════════════════════════
+- "ดูบันทึกวันนี้หน่อย" → ห้ามเรียก (เป็นคำขอดูข้อมูลเก่า)
+- "มีแจ้งเตือนอะไรตั้งไว้บ้าง" → ห้ามเรียก
+- "ยกเลิกแจ้งเตือนที" → ห้ามเรียก
+- "วันนี้เวรใครครับ" → ห้ามเรียก (เป็นคำถามค้นข้อมูล ไม่ใช่คำสั่งเตือน)
+- "ขอเบอร์โทรผู้ใหญ่บ้านหน่อย" → ห้ามเรียก
+- "เมื่อกี้เจอรถต้องสงสัยแล้วแจ้งไปหมดแล้ว" → ห้ามเรียก create_reminder (เพราะเป็นอดีต และเหตุการณ์จบไปแล้ว ไม่ต้องบันทึกซ้ำ)
+- "สวัสดีครับ" → ห้ามเรียก
+
+เวลาปัจจุบันคือ: ${nowStr} (ISO: ${nowISO}, Asia/Bangkok)
+ใช้เวลาปัจจุบันนี้ในการคำนวณ remind_at หรือ remind_after_minutes ให้ถูกต้อง หากไม่แน่ใจว่าเข้าข่ายหรือไม่ ให้เลือก "ไม่เรียกฟังก์ชัน" ไว้ก่อน เพื่อความปลอดภัย
+  `.trim();
+}
+
+/** ดึง function call ออกจาก response ของ Gemini อย่างปลอดภัย (รองรับหลายเวอร์ชันของ SDK) */
+function extractFunctionCalls(response) {
+  if (typeof response.functionCalls === 'function') {
+    try {
+      const calls = response.functionCalls();
+      if (calls && calls.length) return calls;
+    } catch (_) { /* ignore */ }
+  }
+  try {
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    return parts.filter(p => p.functionCall).map(p => p.functionCall);
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * วิเคราะห์ Intent ด้วย Gemini function calling จริง
+ * คืนค่า string (ข้อความตอบกลับ) ถ้าตรวจพบว่าต้องบันทึก/แจ้งเตือน
+ * คืนค่า null ถ้าไม่เข้าข่าย (ให้ไปทำงาน Q&A ปกติต่อ) — ไม่กระทบ flow เดิม
+ */
+async function detectAIIntent(userQuestion, userOptions = {}) {
+  const ai = getGenAI();
+  if (!ai) return null;
+
+  const userId = userOptions.userId || null;
+  const userName = userOptions.userName || 'ผู้ใช้งาน';
+
+  try {
+    const model = ai.getGenerativeModel(
+      { model: 'gemini-flash-lite-latest' },
+      { apiVersion: 'v1beta' }
+    );
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: userQuestion }] }],
+      systemInstruction: buildIntentSystemPrompt(),
+      tools: memoryReminderTools,
+      toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
+      generationConfig: { temperature: 0, maxOutputTokens: 512 },
+    });
+
+    const response = await result.response;
+    const calls = extractFunctionCalls(response);
+    if (!calls || calls.length === 0) return null;
+
+    const replies = [];
+
+    for (const call of calls) {
+      const args = call.args || {};
+
+      if (call.name === 'save_memory') {
+        const msg = (args.message || '').trim();
+        if (!msg) continue;
+        await appendMemory({ message: msg, type: 'note', createdBy: userName });
+        replies.push(`✅ บันทึกข้อมูลเรียบร้อยแล้ว\n📝 ${msg}`);
+
+      } else if (call.name === 'create_reminder') {
+        const msg = (args.message || '').trim();
+        if (!msg) continue;
+
+        let triggerAtMs = null;
+        if (args.remind_at) {
+          const d = new Date(args.remind_at);
+          if (!isNaN(d.getTime())) triggerAtMs = d.getTime();
+        }
+        if (triggerAtMs === null && args.remind_after_minutes) {
+          const mins = Number(args.remind_after_minutes);
+          if (!isNaN(mins) && mins > 0) triggerAtMs = Date.now() + Math.round(mins * 60000);
+        }
+        // ขั้นต่ำ 10 วินาที กันตั้งเวลาผิดพลาด/ในอดีต
+        if (triggerAtMs === null || triggerAtMs - Date.now() < 10000) continue;
+
+        const saved = await appendReminder({
+          message: msg,
+          remindAt: new Date(triggerAtMs).toISOString(),
+          createdBy: userId || userName,
+        });
+
+        // ต้องหา rowIndex จริงเพื่อผูก timer (append ไม่คืน rowIndex ตรงๆ จึงอ่านรายการที่รอดำเนินการล่าสุด)
+        const waiting = await getWaitingReminders();
+        const matched = waiting.find(w => String(w.id) === String(saved.id));
+        if (matched) {
+          scheduleReminderTimer(userId, matched.rowIndex, msg, triggerAtMs);
+        }
+
+        const delayMs = triggerAtMs - Date.now();
+        const durationText = delayMs >= 3600000
+          ? `${(delayMs / 3600000).toFixed(1)} ชั่วโมง`
+          : `${Math.round(delayMs / 60000)} นาที`;
+        const thTime = new Date(triggerAtMs).toLocaleTimeString('th-TH', {
+          hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok',
         });
         const noLinePush = !_linePushFn ? '\n⚠️ กรุณา setLinePushFn() ใน index.js ก่อนครับ' : '';
-        return `⏰ ตั้งแจ้งเตือนแล้วครับ\n🕐 อีก ${mins} (เวลา ${thTime} น.)\n${'─'.repeat(24)}\n💬 "${m[2].trim()}"${noLinePush}`;
+        replies.push(`⏰ ตั้งการแจ้งเตือนเรียบร้อยแล้ว\n🕐 อีกประมาณ ${durationText} (เวลา ${thTime} น.)\n💬 "${msg}"${noLinePush}`);
       }
     }
+
+    if (replies.length === 0) return null;
+    return replies.join('\n\n');
+  } catch (err) {
+    console.error('[detectAIIntent] error:', err.message);
+    return null; // เรียก AI ไม่ได้ → ปล่อยผ่านไปทำงาน Q&A ปกติ ไม่กระทบระบบเดิม
   }
+}
+
+// ============================================================
+// 🧠 คำสั่งดู/ยกเลิก/ล้าง บันทึก-แจ้งเตือน (regex ธรรมดา อ่านจาก Google Sheet)
+// ============================================================
+async function detectLocalIntent(question) {
+  const q = question.trim();
 
   // ── ดูบันทึก ──
   if (/ดู(?:บันทึก|note|สิ่งที่บันทึก)|บันทึก(?:วันนี้|ที่มี|ทั้งหมด)|note(?:s)?(?:วันนี้|ทั้งหมด)?/.test(q)) {
-    const isToday = /วันนี้/.test(q);
-    const notes = getUserNotes(userId, isToday ? 'today' : null);
-    if (!notes.length) return `📋 ยังไม่มีบันทึก${isToday ? 'วันนี้' : ''}ครับ`;
-    const list = notes.slice(-20).map((n, i) => {
-      const t = new Date(n.timestamp).toLocaleString('th-TH', {
-        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok'
-      });
-      return `${i+1}. [${t}]\n   ${n.text}`;
-    }).join('\n\n');
-    return `📋 บันทึก${isToday ? 'วันนี้' : 'ทั้งหมด'} (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
+    const notes = await getAllMemories(20);
+    if (!notes.length) return `📋 ยังไม่มีบันทึกในระบบครับ`;
+    const list = notes.map((n, i) => `${i + 1}. [${n.createdAt}]\n   ${n.message}`).join('\n\n');
+    return `📋 บันทึกล่าสุด (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
   }
 
   // ── ดูแจ้งเตือน ──
   if (/ดู(?:แจ้งเตือน|reminder)|แจ้งเตือน(?:ที่ตั้งไว้|ที่มี|ทั้งหมด)/.test(q)) {
-    const reminders = getActiveReminders(userId);
+    const reminders = await getWaitingReminders();
     if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนที่รอดำเนินการครับ`;
-    const list = reminders.map((r, i) => {
-      const t = new Date(r.triggerAt).toLocaleTimeString('th-TH', {
-        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok'
-      });
-      const remaining = Math.round((r.triggerAt - Date.now()) / 60000);
-      return `${i+1}. ${t} น. (อีก ${remaining} นาที)\n   "${r.text}"`;
-    }).join('\n\n');
+    const list = reminders.map((r, i) => `${i + 1}. ${r.remindTime} น.\n   "${r.message}"`).join('\n\n');
     return `⏰ แจ้งเตือนที่ตั้งไว้ (${reminders.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
   }
 
-  // ── ยกเลิกแจ้งเตือน ──
+  // ── ยกเลิกแจ้งเตือน (ทั้งหมดที่ยังรอดำเนินการ) ──
   if (/ยกเลิก(?:แจ้งเตือน|reminder)|cancel.*reminder/.test(q)) {
-    const reminders = getActiveReminders(userId);
+    const reminders = await getWaitingReminders();
     if (!reminders.length) return `⏰ ไม่มีแจ้งเตือนที่จะยกเลิกครับ`;
-    // ยกเลิกทั้งหมด
-    reminders.forEach(r => cancelReminderById(userId, r.id));
+    for (const r of reminders) {
+      const timerId = _reminderTimers.get(r.rowIndex);
+      if (timerId) { clearTimeout(timerId); _reminderTimers.delete(r.rowIndex); }
+      await updateReminderStatus(r.rowIndex, 'cancel', false);
+    }
     return `✅ ยกเลิกแจ้งเตือนทั้งหมด (${reminders.length} รายการ) แล้วครับ`;
-  }
-
-  // ── ลบบันทึก ──
-  if (/ลบบันทึก(?:ทั้งหมด)?|ล้างบันทึก|clear.*note/.test(q)) {
-    const count = getUserNotes(userId).length;
-    clearUserNotes(userId);
-    return `🗑️ ลบบันทึกทั้งหมด (${count} รายการ) แล้วครับ`;
   }
 
   return null; // ไม่ match → ส่งต่อ Gemini
 }
 
-module.exports = { askAI, setSheetLoader, manualRefreshCache, getCachedContext, setLinePushFn };
+module.exports = {
+  askAI,
+  setSheetLoader,
+  manualRefreshCache,
+  getCachedContext,
+  setLinePushFn,
+  initReminders,
+};
