@@ -505,6 +505,10 @@ async function detectAIIntent(userQuestion, userOptions = {}) {
 
   const userId = userOptions.userId || null;
   const userName = userOptions.userName || 'ผู้ใช้งาน';
+  // created_by must be the immutable LINE user ID, never the display name.
+  // A missing ID is left blank rather than substituting a name that cannot be
+  // used for ownership filtering later.
+  const createdBy = String(userId || '').trim();
 
   try {
     const model = ai.getGenerativeModel(
@@ -532,7 +536,7 @@ async function detectAIIntent(userQuestion, userOptions = {}) {
       if (call.name === 'save_memory') {
         const msg = (args.message || '').trim();
         if (!msg) continue;
-        await appendMemory({ message: msg, type: 'note', createdBy: userName });
+        await appendMemory({ message: msg, type: 'note', createdBy });
         replies.push(`✅ บันทึกข้อมูลเรียบร้อยแล้ว\n📝 ${msg}`);
 
       } else if (call.name === 'create_reminder') {
@@ -554,7 +558,7 @@ async function detectAIIntent(userQuestion, userOptions = {}) {
         const saved = await appendReminder({
           message: msg,
           remindAt: new Date(triggerAtMs).toISOString(),
-          createdBy: userId || userName,
+          createdBy,
         });
 
         // ต้องหา rowIndex จริงเพื่อผูก timer (append ไม่คืน rowIndex ตรงๆ จึงอ่านรายการที่รอดำเนินการล่าสุด)
