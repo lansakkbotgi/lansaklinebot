@@ -6,6 +6,8 @@ const {
   parseSavedMessageCommand,
   handleSavedMessageCommand,
   formatSavedMessages,
+  getPersistentStorageCommandHint,
+  formatSavedMessageStorageError,
 } = require('../saved-message-command');
 const { normalizePrivateKey } = require('../memory-sheets');
 
@@ -15,6 +17,19 @@ test('parses an exact save command with a complex incident message', () => {
     action: 'save',
     message: 'พบชายแปลกหน้าวนเวียนหน้าธนาคารช่วง 14:30 น. แต่งกายเสื้อสีดำ และเฝ้าสังเกตทางเข้าออก',
   });
+});
+
+test('accepts incident-command aliases and list aliases as persistent commands', () => {
+  assert.deepEqual(parseSavedMessageCommand('/บันทึกเหตุการณ์ พบชายแปลกหน้าหน้าธนาคาร'), {
+    action: 'save',
+    message: 'พบชายแปลกหน้าหน้าธนาคาร',
+  });
+  assert.deepEqual(parseSavedMessageCommand('/บันทึกเหตุการ พบชายแปลกหน้าหน้าธนาคาร'), {
+    action: 'save',
+    message: 'พบชายแปลกหน้าหน้าธนาคาร',
+  });
+  assert.deepEqual(parseSavedMessageCommand('/ดูรายการที่บันทึก'), { action: 'list' });
+  assert.deepEqual(parseSavedMessageCommand('/ดูบันทึกเหตุการณ์'), { action: 'list' });
 });
 
 test('does not confuse a normal complex analysis question with a save request', async () => {
@@ -34,6 +49,18 @@ test('does not confuse a normal complex analysis question with a save request', 
 test('does not treat natural language containing the word บันทึก as the slash command', () => {
   assert.equal(parseSavedMessageCommand('ช่วยบันทึกข้อความนี้ไว้ แล้วช่วยวิเคราะห์ความเสี่ยงด้วย'), null);
   assert.equal(parseSavedMessageCommand('/บันทึกข้อความเรื่องนี้ช่วยวิเคราะห์ด้วย'), null);
+});
+
+test('redirects legacy in-memory note phrases instead of letting them claim a persistent save', () => {
+  assert.match(getPersistentStorageCommandHint('ช่วยบันทึกว่า พบเหตุผิดปกติหน้าธนาคาร'), /Google Sheets/);
+  assert.match(getPersistentStorageCommandHint('ดูบันทึก'), /\/ดูข้อความที่บันทึก/);
+  assert.equal(getPersistentStorageCommandHint('ช่วยวิเคราะห์บันทึกเหตุการณ์ที่เกิดขึ้น'), null);
+});
+
+test('gives an actionable but non-sensitive storage error for invalid credentials', () => {
+  const text = formatSavedMessageStorageError(new Error('invalid_grant: Invalid JWT Signature.'));
+  assert.match(text, /Service Account key/);
+  assert.doesNotMatch(text, /JWT Signature/i);
 });
 
 test('returns usage text for an empty save command', async () => {

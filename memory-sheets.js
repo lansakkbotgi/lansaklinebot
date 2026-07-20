@@ -101,6 +101,7 @@ async function ensureSheetExists(title, headers) {
     _ensuredSheets.add(title);
   } catch (err) {
     console.error(`[memory-sheets] ตรวจสอบ/สร้างชีต "${title}" ล้มเหลว:`, err.message);
+    throw err;
   }
 }
 

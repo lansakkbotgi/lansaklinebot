@@ -3,9 +3,17 @@
 // Commands in this module are intentionally exact. Keeping this routing
 // separate from ai.js prevents ordinary questions from being treated as notes.
 const SAVE_COMMAND = '/บันทึกข้อความ';
+const SAVE_COMMANDS = new Set([
+  SAVE_COMMAND,
+  '/บันทึกเหตุการณ์',
+  '/บันทึกเหตุการ',
+]);
 const LIST_COMMANDS = new Set([
   '/ดูข้อความที่บันทึก',
   '/ดูข้อความที่บันทึกไว้',
+  '/ดูรายการที่บันทึก',
+  '/ดูบันทึกเหตุการณ์',
+  '/ดูบันทึกเหตุการ',
 ]);
 const MAX_SAVED_MESSAGE_LENGTH = 1000;
 const MAX_LIST_ITEMS = 10;
@@ -18,7 +26,7 @@ function parseSavedMessageCommand(text) {
 
   // Whitespace is required when content follows the command. This avoids
   // treating similarly named text as a save request.
-  const match = normalized.match(/^\/บันทึกข้อความ(?:\s+([\s\S]*))?$/u);
+  const match = normalized.match(/^\/(?:บันทึกข้อความ|บันทึกเหตุการณ์|บันทึกเหตุการ)(?:\s+([\s\S]*))?$/u);
   if (!match) return null;
 
   const message = (match[1] || '').trim();
@@ -35,12 +43,57 @@ function buildUsageText() {
     '📝 วิธีบันทึกข้อความ',
     '',
     'พิมพ์: /บันทึกข้อความ <รายละเอียด>',
+    'หรือ: /บันทึกเหตุการณ์ <รายละเอียด>',
     'ตัวอย่าง: /บันทึกข้อความ พบชายแปลกหน้าวนเวียนอยู่หน้าธนาคาร เวลา 14:30 น.',
     '',
-    'ดูข้อความของคุณ: /ดูข้อความที่บันทึก',
+    'ดูข้อความของคุณ: /ดูข้อความที่บันทึก หรือ /ดูรายการที่บันทึก',
     '',
-    'หมายเหตุ: ระบบจะบันทึกเฉพาะข้อความที่ขึ้นต้นด้วย /บันทึกข้อความ เท่านั้น คำถามหรือข้อความทั่วไปจะไม่ถูกบันทึกด้วยคำสั่งนี้',
+    'หมายเหตุ: ระบบจะบันทึกเฉพาะข้อความที่ขึ้นต้นด้วยคำสั่ง / เท่านั้น คำถามหรือข้อความทั่วไปจะไม่ถูกบันทึกโดยไม่ตั้งใจ',
   ].join('\n');
+}
+
+/**
+ * Redirect phrases previously intercepted by the volatile in-memory note
+ * feature. This runs in index.js before askAI(), so it cannot claim a save
+ * succeeded unless the persistent Google Sheets command was used.
+ */
+function getPersistentStorageCommandHint(text) {
+  if (typeof text !== 'string') return null;
+  const normalized = text.trim();
+  if (!normalized || normalized.startsWith('/')) return null;
+
+  const looksLikeLegacySave = [
+    /^(?:ช่วย)?บันทึก(?:ข้อความ)?(?:ให้หน่อย|หน่อย)?(?:ว่า|:|\s+)\s*(.+)/su,
+    /^(?:ช่วย)?จดไว้(?:ว่า|:|\s+)\s*(.+)/su,
+    /^(?:ช่วย)?จำ(?:ไว้)?(?:ว่า|:|\s+)\s*(.+)/su,
+    /^(?:ช่วย)?note[:\s]+(.+)/isu,
+  ].some(pattern => pattern.test(normalized));
+
+  if (looksLikeLegacySave) {
+    return [
+      '📝 เพื่อให้บันทึกถาวรลง Google Sheets โปรดใช้คำสั่งนี้ครับ',
+      '/บันทึกข้อความ <รายละเอียด>',
+      'หรือ /บันทึกเหตุการณ์ <รายละเอียด>',
+    ].join('\n');
+  }
+
+  const looksLikeLegacyList = /^(?:ช่วย)?(?:ดู(?:บันทึก|note|สิ่งที่บันทึก)|บันทึก(?:วันนี้|ที่มี|ทั้งหมด)|note(?:s)?(?:วันนี้|ทั้งหมด)?)\s*$/iu.test(normalized);
+  if (looksLikeLegacyList) {
+    return '📋 ดูรายการที่บันทึกถาวรได้ด้วย /ดูข้อความที่บันทึก หรือ /ดูรายการที่บันทึก';
+  }
+
+  return null;
+}
+
+function formatSavedMessageStorageError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('invalid jwt signature') || message.includes('invalid_grant')) {
+    return '❌ ยังเชื่อม Google Sheets ไม่ได้ เพราะ Service Account key ของระบบไม่ถูกต้อง กรุณาให้ผู้ดูแลเปลี่ยนคีย์ใหม่แล้วตั้งค่าในเซิร์ฟเวอร์';
+  }
+  if (message.includes('permission') || message.includes('not found')) {
+    return '❌ ยังเชื่อม Google Sheets ไม่ได้ กรุณาตรวจสอบว่า Service Account ได้รับสิทธิ์ Editor สำหรับชีตนี้แล้ว';
+  }
+  return '❌ ไม่สามารถบันทึกหรือเรียกดูข้อความจาก Google Sheets ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
 }
 
 function truncateText(text, maxLength = 300) {
@@ -91,9 +144,12 @@ async function handleSavedMessageCommand(text, { userId, appendMemory, getMemori
 
 module.exports = {
   SAVE_COMMAND,
+  SAVE_COMMANDS,
   MAX_LIST_ITEMS,
   parseSavedMessageCommand,
   buildUsageText,
   formatSavedMessages,
+  getPersistentStorageCommandHint,
+  formatSavedMessageStorageError,
   handleSavedMessageCommand,
 };

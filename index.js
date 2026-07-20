@@ -50,7 +50,11 @@ const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } 
 const { askAI, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./ai');
 const { getSystemSettings } = require('./staff-data');
 const { appendMemory, getMemoriesByCreator } = require('./memory-sheets');
-const { handleSavedMessageCommand } = require('./saved-message-command');
+const {
+  handleSavedMessageCommand,
+  getPersistentStorageCommandHint,
+  formatSavedMessageStorageError,
+} = require('./saved-message-command');
 const {
   summarizePersonnel,
   formatPersonnelFactsOrUnavailable,
@@ -630,8 +634,12 @@ async function handleEvent(event) {
       if (savedMessageReply) return replyText(replyToken, savedMessageReply);
     } catch (err) {
       console.error('[saved-message] error:', err.message);
-      return replyText(replyToken, '❌ ไม่สามารถบันทึกหรือเรียกดูข้อความจาก Google Sheets ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+      return replyText(replyToken, formatSavedMessageStorageError(err));
     }
+
+    // ป้องกันระบบโน้ตเก่าใน RAM จากการตอบว่าสำเร็จ ทั้งที่ไม่ได้เขียน Google Sheets
+    const persistentStorageHint = getPersistentStorageCommandHint(userText);
+    if (persistentStorageHint) return replyText(replyToken, persistentStorageHint);
 
     const isUserAdmin = await isAdmin(userId);
 
