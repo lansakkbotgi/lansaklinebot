@@ -59,6 +59,7 @@ const {
   summarizePersonnel,
   formatPersonnelFactsOrUnavailable,
   summarizeLeaders,
+  formatLeaderFacts,
   isAnalyticalQuestion,
   buildCombinedAnalysisContext,
 } = require('./personnel-summary');
@@ -1184,6 +1185,13 @@ return replyText(
         else if (isLeaderSearch) results = await fetchLeaders();
         else results = await searchByName(searchQuery);
       } else {
+        // [Smart Answer] ถามนับจำนวนหรือดึงเฉพาะกลุ่มด้วย pattern คำถาม
+        if (isLeaderSearch) {
+          const allLeaders = await fetchLeaders();
+          const smartAns = buildLeaderCountAnswer(userText, allLeaders);
+          if (smartAns) return replyText(replyToken, smartAns);
+        }
+
         results = await searchByName(searchQuery);
       }
 
@@ -1219,6 +1227,95 @@ return replyText(
 }
 
 // ===== Helpers =====
+
+/**
+ * buildLeaderCountAnswer
+ * ตอบคำถามนับจำนวน / รายชื่อผู้นำตำบลโดยตรงจาก DB
+ * รองรับ: "ผู้ใหญ่บ้านหมู่ 5 มีกี่คน", "กำนันตำบลลานสักมีกี่คน", "ผู้ใหญ่บ้านหมู่ 4 และหมู่ 5 ..."
+ * คืน: สตริง ถ้าตอบได้; null ถ้า pattern ไม่ตรง
+ */
+function buildLeaderCountAnswer(userText, allLeaders) {
+  if (!allLeaders || allLeaders.length === 0) return null;
+
+  // หาหมู่ที่ถามถึง (เช่น หมู่ 4, หมู่ 5, หมู่4)
+  const villageNums = [];
+  for (const m of userText.matchAll(/หมู่\s*(\d{1,3})/g)) {
+    if (!villageNums.includes(m[1])) villageNums.push(m[1]);
+  }
+
+  // หาตำบล (เช่น ตำบลลานสัก, ตำบลน้ำรอบ หรือ "ลานสัก" ใน position context)
+  const tambonMatch = userText.match(/(?:ตำบล|ตบ\.?)(\S+)/);
+  const tambon = tambonMatch ? tambonMatch[1] : null;
+
+  // หาตำแหน่ง
+  const posRaw = userText.match(/^(ผู้ช่วยผู้ใหญ่บ้าน|ผู้ใหญ่บ้าน|กำนัน)/u);
+  const posFilter = posRaw ? posRaw[1] : null;
+  const posText   = posFilter || 'ผู้นำชุมชน';
+
+  // ตรวจว่าถามสัดส่วน/เปอร์เซ็นต์ด้วยหรือไม่
+  const wantsPercent = /เปอร์เซ็นต์|สัดส่วน|%|คิดเป็น/.test(userText);
+
+  // กรองตามตำแหน่ง
+  let basePool = allLeaders;
+  if (posFilter) {
+    basePool = allLeaders.filter(l => (l.position || '').trim() === posFilter);
+  }
+
+  // กรองตามตำบล
+  if (tambon) {
+    basePool = basePool.filter(l => (l.area || '').includes(tambon));
+  }
+
+  // กรองตามหมู่
+  let filtered = basePool;
+  if (villageNums.length > 0) {
+    filtered = basePool.filter(l => {
+      const v = (l.village || '').replace(/\D/g, '');
+      return villageNums.includes(v);
+    });
+  }
+
+  // ถ้าไม่มีการ filter เลย และไม่ได้ถามตำแหน่งเฉพาะ → อาจไม่ใช่คำถามนับจำนวน
+  if (villageNums.length === 0 && !posFilter && !tambon) return null;
+
+  const count   = filtered.length;
+  const total   = basePool.length;
+  const percent = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+
+  const villageText = villageNums.length > 0 ? `หมู่ ${villageNums.join(', หมู่ ')}` : '';
+  const tambonStr   = tambon ? `ตำบล${tambon} ` : '';
+
+  let ans = `📊 ผลวิเคราะห์ ${posText}${tambonStr ? ' ' + tambonStr : ''}${villageText ? ' ' + villageText : ''}
+${'─'.repeat(30)}
+`;
+
+  if (count === 0) {
+    ans += `❌ ไม่พบข้อมูล${posText}${villageText ? ' ' + villageText : ''}ในระบบครับ`;
+    if (total > 0) ans += `
+(ผู้นำสังกัดทั้งหมด ${total} คน อยู่ในระบบ)`;
+    return ans;
+  }
+
+  ans += `✅ จำนวน: ${count} คน`;
+  if (wantsPercent && total > 0) {
+    ans += `\n📊 คิดเป็น: ${percent}% ของ${posText}ทั้งหมด (${total} คน)`;
+  }
+
+  if (count <= 25) {
+    const lines = filtered.map(l => {
+      const vStr = l.village ? ` หมู่ที่: ${l.village}` : '';
+      const aStr = l.area   ? ` ตำบล: ${l.area}` : '';
+      const pStr = l.phone  ? ` โทร: ${l.phone}` : '';
+      return `• ${l.fullName}${aStr}${vStr}${pStr}`;
+    });
+    ans += `\n\n👥 รายชื่อ:\n${lines.join('\n')}`;
+  } else {
+    ans += `\n(\u0e21ีรายชื่อมากเกินไป ใช้ ผู้ใหญ่บ้านทั้งหมด เพื่อดูรายชื่อเต็ม)`;
+  }
+
+  return ans;
+}
+
 function looksLikeSpecificQuery(text) {
   if (!text) return false;
   const cleanText = text.trim();
