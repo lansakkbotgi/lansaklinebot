@@ -1152,9 +1152,30 @@ return replyText(
       }
 
       const isPersonnelSearch = userText.startsWith('บุคลากร');
-      const isLeaderSearch    = userText.startsWith('ผู้นำตำบล') || userText.startsWith('ผู้นำชุมชน');
-      let searchQuery = userText.replace(/^(ค้นหา|ตรวจสอบ|เช็ค|ส่อง|check|search|หา|บุคลากร|ผู้นำตำบล|ผู้นำชุมชน|บอท|bot)\s*/i, '').trim();
+      const isLeaderSearch    = (
+        userText.startsWith('ผู้นำตำบล') ||
+        userText.startsWith('ผู้นำชุมชน') ||
+        userText.startsWith('ผู้ใหญ่บ้าน') ||
+        userText.startsWith('กำนัน') ||
+        userText.startsWith('ผู้ช่วยผู้ใหญ่บ้าน')
+      );
+      let searchQuery = userText.replace(/^(ค้นหา|ตรวจสอบ|เช็ค|ส่อง|check|search|หา|บุคลากร|ผู้นำตำบล|ผู้นำชุมชน|ผู้ใหญ่บ้าน|กำนัน|ผู้ช่วยผู้ใหญ่บ้าน|บอท|bot)\s*/i, '').trim();
       searchQuery = searchQuery.replace(/(บอท|bot)\s*/gi, '').trim();
+
+      // พิมพ์แค่ตำแหน่ง เช่น "ผู้ใหญ่บ้าน" / "กำนัน" โดยไม่มีชื่อ → แสดงรายชื่อทั้งหมดตามตำแหน่ง
+      if (!searchQuery && isLeaderSearch) {
+        const allLeaders = await fetchLeaders();
+        let positionFilter = '';
+        if (userText.startsWith('ผู้ช่วยผู้ใหญ่บ้าน'))       positionFilter = 'ผู้ช่วยผู้ใหญ่บ้าน';
+        else if (userText.startsWith('ผู้ใหญ่บ้าน'))         positionFilter = 'ผู้ใหญ่บ้าน';
+        else if (userText.startsWith('กำนัน'))               positionFilter = 'กำนัน';
+        const filtered = positionFilter
+          ? allLeaders.filter(l => (l.position || '').trim() === positionFilter)
+          : allLeaders;
+        if (filtered.length > 0) return replyMessage(replyToken, buildLeaderCarouselFlex(filtered, positionFilter || 'ทั้งหมด'));
+        return replyText(replyToken, `🔍 ไม่พบข้อมูล "${positionFilter || 'ผู้นำ'}" ในระบบครับ`);
+      }
+
       if (!searchQuery) return;
       
       let results;
@@ -1208,11 +1229,16 @@ function looksLikeSpecificQuery(text) {
     'อีเมล', 'email', 'วาระ', 'ประวัติ', 'คดี', 'สืบสวน', 'สอบสวน', 
     'จราจร', 'ปราบปราม', 'ร้อยเวร', 'ผู้กำกับ', 'ผกก', 'สารวัตร', 'สว'
   ];
-  
+
   const hasQuestionWord = questionWords.some(word => cleanText.includes(word));
   const hasNumber = /[0-9]|๑|๒|๓|๔|๕|๖|๗|๘|๙|๐/.test(cleanText); // ตรวจจับตัวเลข (เช่น หมู่ 5)
-  
-  return hasQuestionWord || hasNumber || cleanText.length > 15;
+
+  // ถ้าขึ้นต้นด้วยตำแหน่งผู้นำตามด้วยชื่อ → ถือว่าเป็น specific query (ค้นหาบุคคล)
+  const leaderPositionPrefixes = ['ผู้ใหญ่บ้าน', 'กำนัน', 'ผู้ช่วยผู้ใหญ่บ้าน', 'ผู้นำชุมชน', 'ผู้นำตำบล'];
+  const hasLeaderPrefix = leaderPositionPrefixes.some(p => cleanText.startsWith(p));
+  const hasNameAfterPosition = hasLeaderPrefix && cleanText.replace(leaderPositionPrefixes.find(p => cleanText.startsWith(p)) || '', '').trim().length >= 2;
+
+  return hasQuestionWord || hasNumber || cleanText.length > 15 || hasNameAfterPosition;
 }
 
 async function replyMessage(token, msg) { 
