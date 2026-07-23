@@ -594,15 +594,12 @@ async function detectAIIntent(userQuestion, userOptions = {}) {
 async function detectLocalIntent(question, userId) {
   const q = question.trim();
 
-  // ── ดูบันทึก (เฉพาะบันทึกเหตุการณ์แบบทีม type='note' เท่านั้น) ──
-  // ห้ามดึง type='saved_message' มาปนด้วย เพราะนั่นคือข้อความส่วนตัวที่ผู้ใช้บันทึกผ่าน
-  // /บันทึกข้อความ ซึ่งควรเห็นเฉพาะเจ้าของ (ดูได้ผ่าน /ดูข้อความที่บันทึก เท่านั้น)
+  // ── ดูบันทึก (รวมทุกรายการ ทุกคน ไม่แยกส่วนตัว/ทีม ตามที่ผู้ใช้ต้องการ) ──
   if (/ดู(?:บันทึก|note|สิ่งที่บันทึก)|บันทึก(?:วันนี้|ที่มี|ทั้งหมด)|note(?:s)?(?:วันนี้|ทั้งหมด)?/.test(q)) {
-    const allNotes = await getAllMemories(50);
-    const notes = allNotes.filter(n => n.type !== 'saved_message').slice(0, 20);
-    if (!notes.length) return `📋 ยังไม่มีบันทึกเหตุการณ์ของทีมในระบบครับ`;
+    const notes = await getAllMemories(20);
+    if (!notes.length) return `📋 ยังไม่มีบันทึกในระบบครับ`;
     const list = notes.map((n, i) => `${i + 1}. [${n.createdAt}]\n   ${n.message}`).join('\n\n');
-    return `📋 บันทึกเหตุการณ์ล่าสุด (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
+    return `📋 บันทึกล่าสุด (${notes.length} รายการ)\n${'─'.repeat(24)}\n${list}`;
   }
 
   // ── ดูแจ้งเตือน (เฉพาะของผู้ใช้ที่ถามเท่านั้น) ──

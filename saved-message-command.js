@@ -119,7 +119,7 @@ function formatSavedMessages(memories) {
  * Return null when the input is not one of this feature's exact commands.
  * The caller can then continue through the existing search/AI route unchanged.
  */
-async function handleSavedMessageCommand(text, { userId, appendMemory, getMemoriesByCreator }) {
+async function handleSavedMessageCommand(text, { userId, appendMemory, getAllMemories }) {
   const command = parseSavedMessageCommand(text);
   if (!command) return null;
 
@@ -138,7 +138,8 @@ async function handleSavedMessageCommand(text, { userId, appendMemory, getMemori
     return `✅ บันทึกข้อความลง Google Sheets เรียบร้อยแล้ว\n📝 ${command.message}\n📅 ${saved.createdAt || 'บันทึกแล้ว'}`;
   }
 
-  const memories = await getMemoriesByCreator(userId, MAX_LIST_ITEMS);
+  // แสดงรวมทุกคน ไม่แยกส่วนตัว/ทีม — ใครก็ตามที่ใช้คำสั่งบันทึกข้อความ ต้องเห็นในรายการนี้ได้ทั้งหมด
+  const memories = await getAllMemories(MAX_LIST_ITEMS);
   return formatSavedMessages(memories);
 }
 

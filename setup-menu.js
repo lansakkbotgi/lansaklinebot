@@ -54,7 +54,7 @@ async function setupRichMenu() {
       },
       {
         bounds: { x: 1875, y: 0, width: 625, height: 843 },
-        action: { type: 'message', label: 'ผู้นำตำบล', text: 'ทำเนียบผู้นำตำบล' },
+        action: { type: 'message', label: 'ผู้นำชุมชน', text: '/ทำเนียบผู้นำชุมชน' },
       },
       // ── แถวล่าง 3 ปุ่ม ──
       {

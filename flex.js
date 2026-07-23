@@ -296,7 +296,7 @@ function buildWelcomeFlex(isAdminUser = false) {
 
   bubble1Contents.push(
     buildMenuButton('👥', 'ทำเนียบบุคลากร สภ.ลานสัก', 'ทำเนียบบุคลากร',   '#1a5276'),
-    buildMenuButton('🏘️', 'ทำเนียบผู้นำตำบล',          'ทำเนียบผู้นำตำบล', '#1d6a4a'),
+    buildMenuButton('🏘️', 'ทำเนียบผู้นำชุมชน',         '/ทำเนียบผู้นำชุมชน', '#1d6a4a'),
     buildMenuButton('📍', 'จุดเสี่ยง / QR Code',       '/จุดเสี่ยง',        '#e67e22')
   );
 
@@ -575,7 +575,7 @@ function buildPersonnelCarouselFlex(persons, department) {
 function buildVillageLeaderMenuFlex() {
   return {
     type: 'flex',
-    altText: 'ทำเนียบผู้นำตำบล — เลือกตำบลที่ต้องการ',
+    altText: 'ทำเนียบผู้นำชุมชน — เลือกตำบลที่ต้องการ',
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -585,7 +585,7 @@ function buildVillageLeaderMenuFlex() {
         backgroundColor: '#1d6a4a',
         paddingAll: '16px',
         contents: [
-          { type: 'text', text: '🏘️ ทำเนียบผู้นำตำบล', color: '#a9dfbf', size: 'sm' },
+          { type: 'text', text: '🏘️ ทำเนียบผู้นำชุมชน', color: '#a9dfbf', size: 'sm' },
           {
             type: 'text',
             text: 'อำเภอลานสัก จ.อุทัยธานี',
@@ -1073,7 +1073,7 @@ function buildAllCommandsFlex(isAdminUser) {
     },
     {
       type: 'text',
-      text: '• ค้นหาบุคคล: พิมพ์ "ชื่อ", "นามสกุล" หรือ "เบอร์โทร" ได้ทันที\n• นามเรียกขาน: พิมพ์นามเรียกขาน เช่น "ลานสัก 2127" เพื่อดูชื่อเจ้าหน้าที่\n• ทำเนียบตำรวจ: พิมพ์ "ตำรวจ" หรือเลือกจากเมนู\n• ทำเนียบผู้นำ: พิมพ์ "ผู้นำตำบล" หรือ "ผู้ใหญ่บ้าน"',
+      text: '• ค้นหาบุคคล: พิมพ์ "ชื่อ", "นามสกุล" หรือ "เบอร์โทร" ได้ทันที\n• นามเรียกขาน: พิมพ์นามเรียกขาน เช่น "ลานสัก 2127" เพื่อดูชื่อเจ้าหน้าที่\n• ทำเนียบตำรวจ: พิมพ์ "ตำรวจ" หรือเลือกจากเมนู\n• ทำเนียบผู้นำ: พิมพ์ "/ทำเนียบผู้นำชุมชน", "ผู้นำชุมชน" หรือ "ผู้ใหญ่บ้าน"',
       size: 'xs',
       color: '#7f8c8d',
       wrap: true,

@@ -49,7 +49,7 @@ const {
 const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
 const { askAI, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./ai');
 const { getSystemSettings } = require('./staff-data');
-const { appendMemory, getMemoriesByCreator } = require('./memory-sheets');
+const { appendMemory, getAllMemories } = require('./memory-sheets');
 const {
   handleSavedMessageCommand,
   getPersistentStorageCommandHint,
@@ -703,7 +703,7 @@ async function handleEvent(event) {
       const isPhone = /^(0[0-9]{8,9})$/.test(userText.replace(/\D/g, ''));
       const isMentionBot = userText.includes('บอท') || userText.toLowerCase().includes('bot');
       const isMainKeywords = [
-        'ทำเนียบบุคลากร', 'ทำเนียบผู้นำตำบล', 'ผู้นำตำบล', 'ผู้ใหญ่บ้าน', 'กำนัน',
+        'ทำเนียบบุคลากร', 'ทำเนียบผู้นำชุมชน', 'ทำเนียบผู้นำตำบล', 'ทำเนียบผู้นำ', 'ผู้นำชุมชน', 'ผู้นำตำบล', 'ผู้ใหญ่บ้าน', 'กำนัน',
         'บุคลากร', 'ตำรวจ', 'เว็บไซต์', 'ข้อมูลสถานี', 
         'เมนู', 'สวัสดี', 'เริ่ม', 'help', 'รีเฟรช',
         'รายการสถานที่', 'คำสั่ง', 'จุดเสี่ยง'
@@ -721,7 +721,7 @@ async function handleEvent(event) {
       const savedMessageReply = await handleSavedMessageCommand(userText, {
         userId,
         appendMemory,
-        getMemoriesByCreator,
+        getAllMemories,
       });
       if (savedMessageReply) return replyText(replyToken, savedMessageReply);
     } catch (err) {
@@ -921,7 +921,18 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildPersonnelMenuFlex());
     }
     
-    if ((userText.includes('ทำเนียบผู้นำตำบล') || userText === 'ผู้นำตำบล' || userText.includes('ผู้ใหญ่บ้าน')) && !looksLikeSpecificQuery(userText)) {
+    const isLeaderMenuCmd = (
+      userText.includes('ทำเนียบผู้นำ') ||
+      userText.includes('ผู้นำชุมชน') ||
+      userText.includes('ผู้นำตำบล') ||
+      userText === 'ผู้นำชุมชน' ||
+      userText === 'ผู้นำตำบล' ||
+      userText.includes('ผู้ใหญ่บ้าน') ||
+      userText.includes('กำนัน') ||
+      userText.startsWith('/ทำเนียบผู้นำ') ||
+      userText.startsWith('/ผู้นำ')
+    );
+    if (isLeaderMenuCmd && !looksLikeSpecificQuery(userText)) {
       return replyMessage(replyToken, buildVillageLeaderMenuFlex());
     }
 
@@ -1135,8 +1146,8 @@ return replyText(
       }
 
       const isPersonnelSearch = userText.startsWith('บุคลากร');
-      const isLeaderSearch    = userText.startsWith('ผู้นำตำบล');
-      let searchQuery = userText.replace(/^(ค้นหา|ตรวจสอบ|เช็ค|ส่อง|check|search|หา|บุคลากร|ผู้นำตำบล|บอท|bot)\s*/i, '').trim();
+      const isLeaderSearch    = userText.startsWith('ผู้นำตำบล') || userText.startsWith('ผู้นำชุมชน');
+      let searchQuery = userText.replace(/^(ค้นหา|ตรวจสอบ|เช็ค|ส่อง|check|search|หา|บุคลากร|ผู้นำตำบล|ผู้นำชุมชน|บอท|bot)\s*/i, '').trim();
       searchQuery = searchQuery.replace(/(บอท|bot)\s*/gi, '').trim();
       if (!searchQuery) return;
       

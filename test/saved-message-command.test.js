@@ -92,14 +92,13 @@ test('stores an exact command using the caller user ID', async () => {
   assert.match(result, /Google Sheets/);
 });
 
-test('lists only records returned for the requesting user', async () => {
-  let requestedUserId;
+test('lists records returned by the configured shared-memory reader', async () => {
+  let requestedLimit;
   const result = await handleSavedMessageCommand('/ดูข้อความที่บันทึก', {
     userId: 'U-owner-only',
     appendMemory: async () => assert.fail('must not save'),
-    getMemoriesByCreator: async (userId, limit) => {
-      requestedUserId = userId;
-      assert.equal(limit, 10);
+    getAllMemories: async (limit) => {
+      requestedLimit = limit;
       return [{
         createdAt: '20/7/2569 14:30:00',
         message: 'ข้อความของผู้ใช้คนนี้',
@@ -107,7 +106,7 @@ test('lists only records returned for the requesting user', async () => {
     },
   });
 
-  assert.equal(requestedUserId, 'U-owner-only');
+  assert.equal(requestedLimit, 10);
   assert.match(result, /ข้อความของผู้ใช้คนนี้/);
 });
 
