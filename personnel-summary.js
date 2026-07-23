@@ -154,7 +154,7 @@ function buildPersonnelAnalysisContext(summary) {
  * บริบทวิเคราะห์แบบรวม บุคลากรตำรวจ + ผู้นำตำบล พร้อมยอดรวมทั้งสองกลุ่ม
  * เพื่อให้ AI คำนวณสัดส่วน/เปอร์เซ็นต์ข้ามกลุ่มได้ถูกต้องจากตัวเลขจริง โดยไม่ต้องเดา
  */
-function buildCombinedAnalysisContext(personnelSummary, leaderSummary) {
+function buildCombinedAnalysisContext(personnelSummary, leaderSummary, extraContext = {}) {
   const personnelFacts = formatPersonnelFactsOrUnavailable(personnelSummary);
   const leaderFacts = formatLeaderFacts(leaderSummary);
   const officerCount = personnelSummary?.officerCount ?? null;
@@ -165,16 +165,34 @@ function buildCombinedAnalysisContext(personnelSummary, leaderSummary) {
     ? `- รวมทั้งสองกลุ่ม (เจ้าหน้าที่ตำรวจ + ผู้นำตำบล): ${grandTotal} คน (ตำรวจ ${officerCount} คน, ผู้นำตำบล ${leaderCount} คน)`
     : null;
 
-  return [
+  const lines = [
     personnelFacts,
     '',
     leaderFacts,
     ...(totalsLine ? ['', totalsLine] : []),
+  ];
+
+  if (extraContext.leadersText) {
+    lines.push('', 'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน/ผู้นำชุมชน ทุกหมู่บ้าน):', extraContext.leadersText);
+  }
+  if (extraContext.personnelText) {
+    lines.push('', 'ทำเนียบบุคลากร สภ.ลานสัก:', extraContext.personnelText);
+  }
+  if (extraContext.locationsText) {
+    lines.push('', 'รายการสถานที่/จุดตรวจเสี่ยงภัย:', extraContext.locationsText);
+  }
+  if (extraContext.suspectsText) {
+    lines.push('', 'บัญชีผู้ต้องหาและหมายจับ (เฝ้าระวัง):', extraContext.suspectsText);
+  }
+
+  lines.push(
     '',
-    'คำถามนี้ต้องการการวิเคราะห์/เปรียบเทียบจากข้อเท็จจริงข้างต้นเท่านั้น ห้ามเดาตัวเลข',
-    'หากผู้ใช้ถามหาสัดส่วนหรือเปอร์เซ็นต์ ให้คำนวณจากตัวเลขที่ให้มาโดยตรง แสดงวิธีคิดสั้นๆ ได้',
-    'ไม่ต้องแสดงรายชื่อทั้งหมด เว้นแต่ผู้ใช้ขอรายชื่อโดยตรง',
-  ].join('\n');
+    'คำถามนี้ต้องการการวิเคราะห์/เปรียบเทียบจากข้อเท็จจริงข้างต้น:',
+    '- หากผู้ใช้ถามถึงผู้นำ/ผู้ใหญ่บ้าน/กำนัน/ตำรวจ ในหมู่บ้านหรือตำบลใดๆ (เช่น ผู้ใหญ่บ้านหมู่ 4, หมู่ 5) ให้ตรวจสอบรายชื่อใน Context และแสดงชื่อ-นามสกุล, ตำแหน่ง, หมู่, ตำบล และเบอร์โทรศัพท์ให้ครบถ้วนทุกคน',
+    '- หากผู้ใช้ขอให้คำนวณสัดส่วนหรือเปอร์เซ็นต์ ให้แสดงจำนวนคนในกลุ่มนั้นๆ พร้อมรายชื่อและเบอร์โทร แล้วคำนวณ % เทียบกับยอดรวมให้ชัดเจน'
+  );
+
+  return lines.join('\n');
 }
 
 module.exports = {

@@ -327,14 +327,18 @@ async function answerWithAI(userText, userId, replyToken, isUserAdmin) {
     }
 
     const leadersText = leaders.map(l => `- ${l.fullName} ตำแหน่ง: ${l.position} ตำบล: ${l.area} หมู่: ${l.village || '-'} โทร: ${l.phone || '-'}`).join('\n');
+    const leaderSummary = summarizeLeaders(leaders);
+    const leaderFacts = formatLeaderFacts(leaderSummary);
 
     const sheetContext = `
 ${personnelFacts}
 
+${leaderFacts}
+
 ทำเนียบบุคลากร สภ.ลานสัก:
 ${personnelText}
 
-ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):
+ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน/ผู้นำชุมชน ทุกหมู่บ้าน):
 ${leadersText}
 
 รายการสถานที่/จุดตรวจเสี่ยงภัย:
@@ -344,12 +348,14 @@ ${locationsText}
 ${suspectsText}
           `.trim();
 
-    // คำถามวิเคราะห์ใช้เฉพาะยอดที่โปรแกรมคำนวณจากชีตจริง เพื่อให้ AI วิเคราะห์/คำนวณ %
-    // ได้แม่นยำ โดยไม่ต้องนับเองจากรายชื่อดิบ (ซึ่งเสี่ยงนับผิด/หลงประเด็น)
     let aiContext = sheetContext;
     if (isUserAdmin && isAnalyticalQuestion(userText)) {
-      const leaderSummary = summarizeLeaders(leaders);
-      aiContext = buildCombinedAnalysisContext(personnelSummary, leaderSummary);
+      aiContext = buildCombinedAnalysisContext(personnelSummary, leaderSummary, {
+        leadersText,
+        personnelText,
+        locationsText,
+        suspectsText
+      });
     }
 
     const aiReply = await askAI(userText, aiContext, {
@@ -1250,18 +1256,25 @@ app.listen(PORT, () => {
           ).join('\n')
         : 'ไม่มีข้อมูลผู้ต้องหา';
 
+      const leaderSummary = summarizeLeaders(leaders);
+      const leaderFacts = formatLeaderFacts(leaderSummary);
+
       const publicContext = [
-        'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):',
+        leaderFacts,
+        '',
+        'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน/ผู้นำชุมชน ทุกหมู่บ้าน):',
         leadersText
       ].join('\n');
 
       const adminContext = [
         personnelFacts,
         '',
+        leaderFacts,
+        '',
         'ทำเนียบบุคลากร สภ.ลานสัก:',
         personnelText,
         '',
-        'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน):',
+        'ทำเนียบผู้นำตำบล (กำนัน/ผู้ใหญ่บ้าน/ผู้นำชุมชน ทุกหมู่บ้าน):',
         leadersText,
         '',
         'รายการสถานที่/จุดตรวจเสี่ยงภัย:',
