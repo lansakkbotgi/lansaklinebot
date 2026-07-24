@@ -6,6 +6,7 @@ const {
   getWaitingReminders,
   updateReminderStatus,
 } = require('./memory-sheets');
+const { searchPlaces, formatPlacesText } = require('./places-data');
 
 // ============================================================
 //  ai.js — ระบบ AI อัจฉริยะ สายตรวจภูธรลานสัก (Production Grade v4.0)
@@ -166,6 +167,18 @@ async function askAI(userQuestion, sheetContext, userOptions = {}) {
     if (cached) {
       resolvedContext = isAdmin ? (cached.admin || cached.public) : cached.public;
     }
+  }
+
+  // ── ค้นหาสถานที่ที่เกี่ยวข้องกับคำถาม (จากฐานข้อมูล LS-PLACE) แล้วแนบเข้า context ──
+  // ใช้วิธี keyword-match แทนการอัดข้อมูลทั้งหมดทุกครั้ง เพื่อประหยัด token และลดโอกาสสับสน
+  try {
+    const matchedPlaces = searchPlaces(userQuestion, 12);
+    if (matchedPlaces.length > 0) {
+      const placesBlock = `\n\nสถานที่ที่เกี่ยวข้องกับคำถาม (จากฐานข้อมูลสถานที่ อ.ลานสัก):\n${formatPlacesText(matchedPlaces)}`;
+      resolvedContext = (resolvedContext || '') + placesBlock;
+    }
+  } catch (err) {
+    console.error('[Places Search] Error:', err.message);
   }
 
   // โหลดประวัติการคุย
