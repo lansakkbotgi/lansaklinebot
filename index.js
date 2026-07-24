@@ -1046,6 +1046,11 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildPersonnelMenuFlex());
     }
     
+    // คำสั่งจากปุ่มใน /เมนู ต้องแสดง Flex Card เสมอ
+    if (userText === '/ทำเนียบผู้นำชุมชน') {
+      return replyMessage(replyToken, buildVillageLeaderMenuFlex());
+    }
+
     const isLeaderMenuCmd = (
       userText.includes('ทำเนียบผู้นำ') ||
       userText.includes('ผู้นำชุมชน') ||
