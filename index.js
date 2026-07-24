@@ -47,7 +47,7 @@ const {
   checkAuthCode, consumeAuthCode,
 } = require('./sheets-writer');
 const { broadcastToAll, broadcastToTarget, getStats, buildBroadcastResultFlex } = require('./broadcast');
-const { askAI, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./ai');
+const { askAI, analyzeImage, setSheetLoader, manualRefreshCache, setLinePushFn } = require('./ai');
 const { getSystemSettings } = require('./staff-data');
 const { appendMemory, getAllMemories } = require('./memory-sheets');
 const {
@@ -489,7 +489,57 @@ async function handleEvent(event) {
       }
     }
 
+    // ── รับรูปภาพจากผู้ใช้ — วิเคราะห์ด้วย Gemini Vision ──
+    if (event.type === 'message' && event.message.type === 'image') {
+      let displayName = 'ไม่ระบุชื่อ';
+      try {
+        const profile = await client.getProfile(userId);
+        displayName = profile.displayName;
+      } catch (err) { console.error('Get profile error (image):', err.message); }
+
+      const isUserAdmin  = userId ? await isAdmin(userId)  : false;
+      const isMaster     = userId ? await isMasterAdmin(userId) : false;
+
+      try {
+        // ดาวน์โหลดรูปจาก LINE API
+        const blobClient = new line.messagingApi.MessagingApiBlobClient({
+          channelAccessToken: process.env.LINE_CHANNEL_TOKEN,
+        });
+        const stream = await blobClient.getMessageContent(event.message.id);
+        // เก็บ chunks
+        const chunks = [];
+        for await (const chunk of stream.body) {
+          chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+        }
+        const imageBuffer = Buffer.concat(chunks);
+
+        // ตรวจสอบว่ามีรูปหรือไม่
+        if (!imageBuffer || imageBuffer.length === 0) {
+          return replyText(replyToken, '❌ ไม่สามารถเปิดรูปภาพได้ กรุณาส่งรูปภาพใหม่อีกครั้งครับ');
+        }
+
+        // ระบุ mimeType (ตรวจจาก header bytes)
+        let mimeType = 'image/jpeg';
+        if (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50) mimeType = 'image/png';
+        else if (imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49) mimeType = 'image/gif';
+        else if (imageBuffer[0] === 0x52 && imageBuffer[1] === 0x49) mimeType = 'image/webp';
+
+        console.log(`[IMAGE] Received from ${displayName} (${userId}) | size=${imageBuffer.length} | type=${mimeType}`);
+
+        const result = await analyzeImage(imageBuffer, mimeType, '', {
+          userName: displayName,
+          isAdmin: isUserAdmin,
+          isMasterAdmin: isMaster,
+        });
+        return replyText(replyToken, result);
+      } catch (err) {
+        console.error('[IMAGE Handler Error]:', err.message);
+        return replyText(replyToken, '❌ เกิดข้อผิดพลาดระหว่างวิเคราะห์ภาพ กรุณาลองอีกครั้งครับ');
+      }
+    }
+
     if (event.type !== 'message' && event.type !== 'postback') return;
+
 
     let userText = '';
     if (event.type === 'message' && event.message.type === 'text') {
