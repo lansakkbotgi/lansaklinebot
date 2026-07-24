@@ -132,6 +132,22 @@ const xapiWaitingUsers = new Map(); // userId -> true
 // Session สำหรับรอรับรหัสยืนยันตัวตน
 const verifyWaitingUsers = new Map(); // userId -> true
 
+// Cache สำหรับจับคู่คำสั่งและรูปภาพ (ในกรณีส่งแยกข้อความ หรือใช้ระบบ Reply)
+const recentUserTexts = new Map(); // userId -> { text: string, timestamp: number }
+const recentImages = new Map(); // messageId -> { buffer: Buffer, mimeType: string, timestamp: number, userId: string }
+
+function cleanImageCaches() {
+  const now = Date.now();
+  const TTL = 5 * 60 * 1000; // 5 นาที
+  for (const [key, val] of recentUserTexts.entries()) {
+    if (now - val.timestamp > TTL) recentUserTexts.delete(key);
+  }
+  for (const [key, val] of recentImages.entries()) {
+    if (now - val.timestamp > TTL) recentImages.delete(key);
+  }
+}
+setInterval(cleanImageCaches, 60000);
+
 
 // ── รายชื่อที่ห้ามค้นหาในระบบทะเบียนราษฎร์เด็ดขาด (แม้เป็น Master Admin) ──
 const BLOCKED_REGISTRY_NAMES = [
@@ -524,9 +540,25 @@ async function handleEvent(event) {
         else if (imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49) mimeType = 'image/gif';
         else if (imageBuffer[0] === 0x52 && imageBuffer[1] === 0x49) mimeType = 'image/webp';
 
-        console.log(`[IMAGE] Received from ${displayName} (${userId}) | size=${imageBuffer.length} | type=${mimeType}`);
+        // บันทึกรูปใน cache เพื่อรองรับการ reply ภายหลัง
+        recentImages.set(event.message.id, {
+          buffer: imageBuffer,
+          mimeType,
+          timestamp: Date.now(),
+          userId,
+        });
 
-        const result = await analyzeImage(imageBuffer, mimeType, '', {
+        // ค้นหาข้อความ/คำสั่งล่าสุดของผู้ใช้คนนี้ที่ส่งมาก่อนหน้านี้ไม่เกิน 15 วินาที
+        let userCommand = '';
+        const recentText = recentUserTexts.get(userId);
+        if (recentText && (Date.now() - recentText.timestamp < 15000)) {
+          userCommand = recentText.text;
+          recentUserTexts.delete(userId); // ใช้แล้วลบออกเลย
+        }
+
+        console.log(`[IMAGE] Received from ${displayName} (${userId}) | size=${imageBuffer.length} | type=${mimeType} | command="${userCommand}"`);
+
+        const result = await analyzeImage(imageBuffer, mimeType, userCommand, {
           userName: displayName,
           isAdmin: isUserAdmin,
           isMasterAdmin: isMaster,
@@ -549,6 +581,39 @@ async function handleEvent(event) {
     }
 
     if (!userText) return;
+
+    // บันทึกข้อความแชทล่าสุด เผื่อใช้คู่กับรูปภาพที่จะถูกส่งตามมาทีหลัง
+    if (userId && event.type === 'message' && event.message.type === 'text') {
+      recentUserTexts.set(userId, { text: userText, timestamp: Date.now() });
+
+      // ดักกรณีผู้ใช้ "ตอบกลับ" (Reply) รูปภาพที่ถูกส่งมาก่อนหน้านี้
+      const quotedId = event.message.quotedMessageId;
+      if (quotedId && recentImages.has(quotedId)) {
+        const cached = recentImages.get(quotedId);
+        let displayName = 'ไม่ระบุชื่อ';
+        try {
+          const profile = await client.getProfile(userId);
+          displayName = profile.displayName;
+        } catch (err) { console.error('Get profile error (reply):', err.message); }
+
+        const isUserAdmin  = userId ? await isAdmin(userId)  : false;
+        const isMaster     = userId ? await isMasterAdmin(userId) : false;
+
+        console.log(`[REPLY IMAGE] User quoted image msgId=${quotedId} with command="${userText}"`);
+
+        try {
+          const result = await analyzeImage(cached.buffer, cached.mimeType, userText, {
+            userName: displayName,
+            isAdmin: isUserAdmin,
+            isMasterAdmin: isMaster,
+          });
+          return replyText(replyToken, result);
+        } catch (err) {
+          console.error('[Reply Image Analysis Error]:', err.message);
+          return replyText(replyToken, '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพนี้ครับ');
+        }
+      }
+    }
 
     // ── ตรวจสอบ Session รอรับชื่อ/เลขบัตรค้นทะเบียนราษฎร์ (ต้องเช็คก่อน filter กลุ่ม) ──
     if (xapiWaitingUsers.has(userId) && event.type === 'message') {
