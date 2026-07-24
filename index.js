@@ -524,7 +524,7 @@ async function handleEvent(event) {
         const stream = await blobClient.getMessageContent(event.message.id);
         // เก็บ chunks
         const chunks = [];
-        for await (const chunk of stream.body) {
+        for await (const chunk of stream) {
           chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
         }
         const imageBuffer = Buffer.concat(chunks);
