@@ -62,6 +62,7 @@ const {
   formatLeaderFacts,
   isAnalyticalQuestion,
   buildCombinedAnalysisContext,
+  formatDataQualityFacts,
 } = require('./personnel-summary');
 
 // ===== Line SDK Config =====
@@ -355,7 +356,9 @@ ${suspectsText}
         leadersText,
         personnelText,
         locationsText,
-        suspectsText
+        suspectsText,
+        rawPersonnel: personnel,   // ส่ง raw เพื่อให้ formatDataQualityFacts ตรวจซ้ำ/ขาดได้
+        rawLeaders:    leaders,    // ส่ง raw เพื่อให้ formatDataQualityFacts ตรวจซ้ำ/ขาดได้
       });
     }
 
