@@ -1046,8 +1046,8 @@ async function handleEvent(event) {
       return replyMessage(replyToken, buildPersonnelMenuFlex());
     }
     
-    // คำสั่งเมนูทำเนียบผู้นำชุมชน ต้องแสดง Flex Card เสมอ
-    if (userText === '/ทำเนียบผู้นำชุมชน' || userText === 'ทำเนียบผู้นำชุมชน') {
+    // คำสั่งเมนูทำเนียบผู้นำตำบล ต้องแสดง Flex Card เสมอ
+    if (userText === '/ทำเนียบผู้นำตำบล' || userText === 'ทำเนียบผู้นำตำบล') {
       return replyMessage(replyToken, buildVillageLeaderMenuFlex());
     }
 
